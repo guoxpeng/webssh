@@ -273,9 +273,9 @@ async function handleFormTest(nodeConfig) {
   const result = await connectionStore.testConnection(nodeConfig);
   if (result.success) {
     const saved = connectionStore.addConnection(nodeConfig);
-    showSuccess(`Test to ${saved.name} OK! Configuration saved.`);
-  } else {
-    showError(`Test to ${nodeConfig.name} failed: ${result.error?.join('; ')}`);
+      showSuccess(t('form.testSuccess', { name: saved.name }));
+    } else {
+      showError(t('form.testFailed', { name: nodeConfig.name, error: result.error?.join('; ') }));
   }
 }
 
@@ -283,7 +283,7 @@ function handleFormConnect(nodeConfig) {
   formInitialData.value = null;
   const saved = connectionStore.addConnection(nodeConfig);
   connectionStore.setCurrentNodeDetails(saved);
-  showInfo(`Connecting to ${saved.name}...`);
+  showInfo(t('form.connecting', { name: saved.name }));
   router.push({ name: 'Terminal' });
 }
 
@@ -291,7 +291,7 @@ function loadForEditing(id) {
   connectionStore.loadConnectionForEditing(id);
   if (connectionStore.currentNodeDetails) {
     formInitialData.value = { ...connectionStore.currentNodeDetails };
-    showInfo(`Loaded '${connectionStore.currentNodeDetails.name}' for editing.`);
+    showInfo(t('form.loadedForEditing', { name: connectionStore.currentNodeDetails.name }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
@@ -303,9 +303,9 @@ function quickConnect(conn) {
     full.auth_value = remembered.auth_value;
     full.auth_type = remembered.auth_type;
     full.rememberForSession = true;
-    showSuccess(`Connecting to '${conn.name}'...`);
+    showSuccess(t('form.connecting', { name: conn.name }));
   } else {
-    showWarning(`No saved credentials for '${conn.name}'.`);
+    showWarning(t('form.noSavedCredentials', { name: conn.name }));
   }
   handleFormConnect(full);
 }
@@ -314,7 +314,7 @@ function confirmRemoveConnection(conn) { connectionToRemove.value = conn; }
 function onRemoveConfirmed() {
   if (connectionToRemove.value) {
     connectionStore.removeConnection(connectionToRemove.value.id);
-    showSuccess(`"${connectionToRemove.value.name}" removed.`);
+    showSuccess(t('form.removed', { name: connectionToRemove.value.name }));
     connectionToRemove.value = null;
   }
 }

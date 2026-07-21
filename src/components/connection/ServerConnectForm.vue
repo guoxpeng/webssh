@@ -3,46 +3,46 @@
     <div class="form-header">
       <div class="form-header-left">
         <TerminalSquare :size="20" stroke-width="1.5"/>
-        <span>Server Details</span>
+        <span>{{ t('form.serverDetails') }}</span>
       </div>
-      <button type="button" class="form-reset-btn" @click="clearForm" title="Clear form">
-        <RotateCcw :size="13"/> Reset
+      <button type="button" class="form-reset-btn" @click="clearForm" :title="t('form.clearForm')">
+        <RotateCcw :size="13"/> {{ t('form.reset') }}
       </button>
     </div>
 
     <div class="form-grid">
       <div class="form-field span-2">
-        <label for="scf-name">Label</label>
+        <label for="scf-name">{{ t('form.label') }}</label>
         <div class="input-wrap">
           <Tag :size="15"/>
-          <input id="scf-name" v-model.trim="form.name" placeholder="My Server" required/>
+          <input id="scf-name" v-model.trim="form.name" :placeholder="t('form.label')" required/>
         </div>
       </div>
 
       <div class="form-field span-2">
-        <label for="scf-group">Group</label>
+        <label for="scf-group">{{ t('form.group') }}</label>
         <input id="scf-group" v-model="form.group" list="group-suggestions"
-               placeholder="e.g. Production, Staging, Dev" class="input-sm"/>
+               :placeholder="t('form.groupPlaceholder')" class="input-sm"/>
         <datalist id="group-suggestions">
           <option v-for="g in existingGroups" :key="g" :value="g"/>
         </datalist>
       </div>
 
       <div class="form-field span-2">
-        <label for="scf-host">Host / IP</label>
+        <label for="scf-host">{{ t('form.host') }}</label>
         <div class="input-wrap">
           <ServerIcon :size="15"/>
-          <input id="scf-host" v-model.trim="form.host" placeholder="192.168.1.100 or server.example.com" required/>
+          <input id="scf-host" v-model.trim="form.host" :placeholder="t('form.hostPlaceholder')" required/>
         </div>
       </div>
 
       <div class="form-field">
-        <label for="scf-port">Port</label>
+        <label for="scf-port">{{ t('form.port') }}</label>
         <input id="scf-port" v-model.number="form.port" type="number" min="1" max="65535" class="input-sm" required/>
       </div>
 
       <div class="form-field">
-        <label>Protocol</label>
+        <label>{{ t('form.protocol') }}</label>
         <div class="protocol-selector">
           <button v-for="p in protocols" :key="p.id"
                   class="proto-btn" :class="{ 'is-selected': form.protocol === p.id }"
@@ -54,7 +54,7 @@
       </div>
 
       <div class="form-field span-2">
-        <label for="scf-user">Username</label>
+        <label for="scf-user">{{ t('form.username') }}</label>
         <div class="input-wrap">
           <User :size="15"/>
           <input id="scf-user" v-model.trim="form.username" placeholder="root" required/>
@@ -62,35 +62,35 @@
       </div>
 
       <div class="form-field span-2">
-        <label for="scf-auth">Auth Type</label>
+        <label for="scf-auth">{{ t('form.authType') }}</label>
         <div class="auth-tabs">
           <button class="auth-tab" :class="{ 'is-active': form.auth_type === 'password' }"
-                  @click="form.auth_type = 'password'; form.auth_value = ''">Password</button>
+                  @click="form.auth_type = 'password'; form.auth_value = ''">{{ t('form.password') }}</button>
           <button class="auth-tab" :class="{ 'is-active': form.auth_type === 'key' }"
-                  @click="form.auth_type = 'key'; form.auth_value = ''">Private Key</button>
+                  @click="form.auth_type = 'key'; form.auth_value = ''">{{ t('form.privateKey') }}</button>
         </div>
       </div>
 
       <div class="form-field span-2">
-        <label>{{ form.auth_type === 'password' ? 'Password' : 'Private Key' }}</label>
+        <label>{{ form.auth_type === 'password' ? t('form.password') : t('form.privateKey') }}</label>
         <div class="input-wrap" :class="{ 'is-textarea': form.auth_type === 'key' }">
           <KeyRound :size="15"/>
           <textarea v-if="form.auth_type === 'key'" v-model="form.auth_value"
-                    placeholder="Paste private key content..." rows="4" :required="authValueRequired"
+                    :placeholder="t('form.keyPlaceholder')" rows="4" :required="authValueRequired"
                     class="key-input"/>
           <input v-else v-model="form.auth_value" type="password"
-                 placeholder="Enter password" :required="authValueRequired" autocomplete="new-password"/>
+                 :placeholder="t('form.passwordPlaceholder')" :required="authValueRequired" autocomplete="new-password"/>
         </div>
         <p v-if="willUseRememberedCredentialForSubmit" class="form-hint is-success">
-          <CheckCircle :size="12"/> Using remembered credentials
+          <CheckCircle :size="12"/> {{ t('form.usingRemembered') }}
         </p>
       </div>
 
       <div class="form-field span-2">
         <label class="checkbox-label">
           <input type="checkbox" v-model="form.rememberForSession"/>
-          <span>Remember for session</span>
-          <HelpCircle :size="13" class="hint-icon" title="Credentials stored encrypted in sessionStorage until browser closes"/>
+          <span>{{ t('form.rememberSession') }}</span>
+          <HelpCircle :size="13" class="hint-icon" :title="t('form.rememberHint')"/>
         </label>
       </div>
     </div>
@@ -98,10 +98,10 @@
     <div class="form-actions">
       <button type="button" class="btn btn-outlined" @click="onTestSubmit"
               :class="{ 'is-loading': isTesting }" :disabled="isLoading">
-        <ShieldCheck :size="15"/> Test
+        <ShieldCheck :size="15"/> {{ t('form.test') }}
       </button>
       <button type="submit" class="btn btn-primary" :class="{ 'is-loading': isConnecting }" :disabled="isLoading">
-        <TerminalSquare :size="15"/> Connect
+        <TerminalSquare :size="15"/> {{ t('form.connect') }}
       </button>
     </div>
   </form>
@@ -109,10 +109,13 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { ConnectionStatus } from '@/utils/constants';
 import { Tag, Server as ServerIcon, User, KeyRound, TerminalSquare, ShieldCheck, RotateCcw, HelpCircle, CheckCircle, Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
 import { useNotifications } from '@/composables/useNotifications';
+
+const { t } = useI18n();
 
 const props = defineProps({ initialData: { type: Object, default: null } });
 const emit = defineEmits(['connect', 'test-connection', 'form-cleared']);
@@ -169,13 +172,13 @@ function clearForm() {
 const HOST_RE = /^(\d{1,3}\.){3}\d{1,3}$|^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
 function validate() {
-  if (!form.value.name.trim()) { showError('Name is required.'); return false; }
-  if (!form.value.host.trim()) { showError('Host is required.'); return false; }
-  if (!HOST_RE.test(form.value.host.trim())) { showError('Invalid hostname or IP.'); return false; }
-  if (form.value.host.split('.').some(p => { const n = Number(p); return n < 0 || n > 255; })) { showError('IP octets must be 0-255.'); return false; }
-  if (form.value.port < 1 || form.value.port > 65535) { showError('Port must be 1-65535.'); return false; }
-  if (!form.value.username.trim()) { showError('Username is required.'); return false; }
-  if (authValueRequired.value) { showError('Credentials are required.'); return false; }
+  if (!form.value.name.trim()) { showError(t('form.nameRequired')); return false; }
+  if (!form.value.host.trim()) { showError(t('form.hostRequired')); return false; }
+  if (!HOST_RE.test(form.value.host.trim())) { showError(t('form.invalidHost')); return false; }
+  if (form.value.host.split('.').some(p => { const n = Number(p); return n < 0 || n > 255; })) { showError(t('form.ipRange')); return false; }
+  if (form.value.port < 1 || form.value.port > 65535) { showError(t('form.portRange')); return false; }
+  if (!form.value.username.trim()) { showError(t('form.usernameRequired')); return false; }
+  if (authValueRequired.value) { showError(t('form.credentialsRequired')); return false; }
   return true;
 }
 

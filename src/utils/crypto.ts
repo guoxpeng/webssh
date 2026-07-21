@@ -13,7 +13,7 @@ async function deriveKey(masterPassword: string, salt: Uint8Array): Promise<Cryp
   );
   return crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt, iterations: ITERATIONS, hash: 'SHA-256' },
-    keyMaterial, ALGORITHM, false, ['encrypt', 'decrypt']
+    keyMaterial, ALGORITHM, true, ['encrypt', 'decrypt']
   );
 }
 

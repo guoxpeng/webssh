@@ -33,9 +33,9 @@
             <div class="settings-row">
               <span>{{ t('settings.fontSize') }}</span>
               <div class="buttons are-small has-addons">
-                <button class="button" @click="adjustFontSize(-1)" :disabled="fontSize <= 12">A-</button>
+                <button class="button" @click="adjustFontSize(-1)" :disabled="fontSize <= 12">{{ t('settings.fontSizeDecrease') }}</button>
                 <button class="button is-static">{{ fontSize }}px</button>
-                <button class="button" @click="adjustFontSize(1)" :disabled="fontSize >= 20">A+</button>
+                <button class="button" @click="adjustFontSize(1)" :disabled="fontSize >= 20">{{ t('settings.fontSizeIncrease') }}</button>
               </div>
             </div>
             <div class="settings-row">
@@ -63,9 +63,9 @@
               <span>{{ t('settings.cursorStyle') }}</span>
               <div class="select is-small">
                 <select v-model="cursorStyle">
-                  <option value="block">Block</option>
-                  <option value="underline">Underline</option>
-                  <option value="bar">Bar</option>
+                  <option value="block">{{ t('settings.cursorBlock') }}</option>
+                  <option value="underline">{{ t('settings.cursorUnderline') }}</option>
+                  <option value="bar">{{ t('settings.cursorBar') }}</option>
                 </select>
               </div>
             </div>
@@ -133,12 +133,12 @@ const themes = [
     previewStyle: { background: '#0f0f1a' },
   },
   {
-    id: 'dracula', label: 'Dracula',
+    id: 'dracula', label: t('settings.themeDracula'),
     colors: { primary: '#bd93f9', sidebar: '#21222c', text: '#555566' },
     previewStyle: { background: '#282a36' },
   },
   {
-    id: 'nord', label: 'Nord',
+    id: 'nord', label: t('settings.themeNord'),
     colors: { primary: '#88c0d0', sidebar: '#2e3440', text: '#5e6a7a' },
     previewStyle: { background: '#3b4252' },
   },

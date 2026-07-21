@@ -131,7 +131,7 @@
     <!-- BACKUP LIST -->
     <div class="panel-section backups-section">
       <div class="section-header">
-        <Archive :size="14"/> Backups
+        <Archive :size="14"/> {{ t('backup.backupList') }}
         <span class="section-badge">{{ store.backups.length }}</span>
         <span class="section-badge is-size">{{ formatSize(store.totalSize) }}</span>
       </div>
@@ -222,23 +222,23 @@ function formatSize(bytes) {
 async function createNew() {
   try {
     const bak = await store.createBackup(backupLabel.value || '', includeCreds.value);
-    showSuccess(`Backup created: ${bak.label} (${bak.inventory.connectionCount} conns${bak.inventory.credentialCount ? ', ' + bak.inventory.credentialCount + ' creds' : ''})`);
+    showSuccess(t('backup.created', { label: bak.label }));
     store.cleanupOldBackups();
     backupLabel.value = '';
   } catch (e) {
-    showError('Failed to create backup: ' + e.message);
+    showError(t('backup.createFailed', { error: e.message }));
   }
 }
 
 async function doRestore(bak) {
   const credInfo = bak.inventory?.credentialCount ? ` (${bak.inventory.credentialCount} encrypted credentials)` : '';
-  if (!confirm(`Restore backup "${bak.label}"?${credInfo}\nConnections: ${bak.connections.length}, Snippets: ${bak.snippets.length}.`)) return;
+  if (!confirm(t('backup.restoreConfirm', { label: bak.label, connCount: bak.connections.length }))) return;
   restoringId.value = bak.id;
   try {
     const count = await store.restoreBackup(bak.id, true);
-    showSuccess(`Restored ${count} connections${bak.inventory?.credentialCount ? ' + credentials' : ''} from backup.`);
+    showSuccess(t('backup.restored', { count }));
   } catch (e) {
-    showError('Restore failed: ' + e.message);
+    showError(t('backup.restoreFailed', { error: e.message }));
   } finally {
     restoringId.value = null;
   }
@@ -253,7 +253,7 @@ function doExport(bak) {
   a.href = url; a.download = `haossh-backup-${bak.id}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  showSuccess('Backup exported.');
+  showSuccess(t('backup.exported'));
 }
 
 function triggerImport() { importInput.value?.click(); }
@@ -264,9 +264,9 @@ function onImportFile(e) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     if (store.importBackup(ev.target?.result || '')) {
-      showSuccess('Backup imported.');
+      showSuccess(t('backup.imported'));
     } else {
-      showError('Invalid backup file.');
+      showError(t('backup.importFailed'));
     }
   };
   reader.readAsText(file);
@@ -284,19 +284,19 @@ function updateSched() {
 
 async function doUpload(bak) {
   const ok = await store.uploadToCloud(bak.id);
-  if (ok) showSuccess('Uploaded to cloud.');
-  else showError('Upload failed. Check URL and token.');
+  if (ok) showSuccess(t('backup.uploaded'));
+  else showError(t('backup.uploadFailed'));
 }
 
 async function syncToCloud() {
   syncUploading.value = true;
   try {
     const latest = store.sortedBackups[0];
-    if (!latest) { showError('No backups to upload.'); return; }
+    if (!latest) { showError(t('backup.noBackupsToUpload')); return; }
     await store.uploadToCloud(latest.id);
-    showSuccess('Uploaded to cloud.');
+    showSuccess(t('backup.uploaded'));
   } catch {
-    showError('Upload failed.');
+    showError(t('backup.uploadFailed'));
   } finally {
     syncUploading.value = false;
   }
@@ -306,9 +306,9 @@ async function syncFromCloud() {
   syncDownloading.value = true;
   try {
     await store.downloadFromCloud();
-    showSuccess('Downloaded from cloud.');
+    showSuccess(t('backup.downloaded'));
   } catch {
-    showError('Download failed.');
+    showError(t('backup.downloadFailed'));
   } finally {
     syncDownloading.value = false;
   }

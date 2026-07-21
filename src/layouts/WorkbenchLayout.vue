@@ -41,7 +41,7 @@
               {{ uiStore.currentTheme === 'light' ? t('settings.light') : t('settings.dark') }}
             </span>
           </a>
-          <a class="sidebar-item" @click="sidebarCollapsed = !sidebarCollapsed" title="Collapse sidebar"
+          <a class="sidebar-item" @click="sidebarCollapsed = !sidebarCollapsed" :title="t('common.close')"
              role="button" tabindex="0" :aria-expanded="!sidebarCollapsed">
             <ChevronsLeft :size="22" stroke-width="1.5" class="collapse-icon"
                :class="{ 'is-rotated': sidebarCollapsed }"/>
@@ -65,7 +65,7 @@
       </div>
       <div class="statusbar-right">
         <span class="statusbar-item">{{ terminalStore.sessionCount }} session{{ terminalStore.sessionCount !== 1 ? 's' : '' }}</span>
-        <span class="statusbar-item">{{ uiStore.currentTheme === 'dark' ? 'Dark' : 'Light' }}</span>
+        <span class="statusbar-item">{{ uiStore.currentTheme === 'dark' ? t('settings.dark') : t('settings.light') }}</span>
         <span class="statusbar-item">
           <kbd class="statusbar-kbd">Ctrl+P</kbd>
         </span>
@@ -127,10 +127,10 @@ const connectionIcon = computed(() => {
 
 const statusText = computed(() => {
   switch (connectionStore.connectionStatus) {
-    case ConnectionStatus.CONNECTED: return 'Connected';
-    case ConnectionStatus.CONNECTING: return 'Connecting...';
-    case ConnectionStatus.ERROR: return 'Error';
-    default: return 'Disconnected';
+    case ConnectionStatus.CONNECTED: return t('status.connected');
+    case ConnectionStatus.CONNECTING: return t('status.connecting');
+    case ConnectionStatus.ERROR: return t('status.error');
+    default: return t('status.disconnected');
   }
 });
 
@@ -148,7 +148,7 @@ function onRunSnippet(snippet) {
     terminalStore.addRecentCommand(snippet.command);
   } else {
     const { showWarning } = useNotifications();
-    showWarning('Connect to a server first.');
+    showWarning(t('terminal.connectFirst'));
   }
 }
 
