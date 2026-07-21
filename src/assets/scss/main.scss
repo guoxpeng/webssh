@@ -1,0 +1,95 @@
+@charset "utf-8";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+$family-sans-serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", Helvetica, sans-serif;
+$family-monospace: "JetBrains Mono", "Fira Code", SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
+
+$primary: hsl(235, 40%, 45%);
+$primary-light: hsl(235, 50%, 58%);
+$primary-dark: hsl(235, 40%, 32%);
+$link: $primary;
+$info: hsl(195, 85%, 48%);
+$success: hsl(155, 55%, 45%);
+$warning: hsl(38, 92%, 58%);
+$danger: hsl(350, 70%, 52%);
+
+$gradient-primary: linear-gradient(135deg, $primary 0%, $primary-light 100%);
+
+$scheme-main-bis: hsl(225, 25%, 97%);
+$scheme-main-ter: hsl(225, 20%, 95%);
+$text: hsl(235, 15%, 23%);
+$text-light: hsl(235, 10%, 50%);
+$text-strong: hsl(235, 20%, 15%);
+$background: hsl(225, 30%, 98%);
+$border: hsl(225, 15%, 86%);
+$border-hover: hsl(225, 20%, 72%);
+$border-light: hsl(225, 20%, 93%);
+$body-background-color: $background;
+$body-color: $text;
+$body-size: 16px;
+
+$shadow-color: rgba(30, 25, 60, 0.06);
+$box-shadow-sm: 0 1px 3px $shadow-color, 0 1px 2px rgba(30, 25, 60, 0.08);
+$box-shadow-md: 0 4px 12px $shadow-color, 0 2px 4px rgba(30, 25, 60, 0.04);
+$box-shadow-lg: 0 12px 40px rgba(30, 25, 60, 0.08), 0 4px 12px rgba(30, 25, 60, 0.04);
+
+$box-background-color: rgba(255, 255, 255, 0.85);
+$box-backdrop-filter: blur(12px);
+$box-shadow: $box-shadow-md;
+$card-background-color: rgba(255, 255, 255, 0.85);
+$card-shadow: $box-shadow;
+$input-background-color: white;
+$input-border-color: $border;
+$input-color: $text;
+$input-placeholder-color: hsl(0,0%,70%);
+$input-shadow: none;
+$navbar-background-color: rgba(255, 255, 255, 0.75);
+$navbar-backdrop-filter: blur(16px);
+$navbar-item-color: $text-light;
+$navbar-item-hover-color: $primary;
+$navbar-item-hover-background-color: transparent;
+$navbar-item-active-color: $primary;
+$navbar-item-active-background-color: transparent;
+$navbar-dropdown-border-top: 1px solid $border-light;
+$navbar-burger-color: $navbar-item-color;
+
+@import "bulma";
+
+html, body, #app { font-feature-settings: "liga" on, "calt" on; text-rendering: optimizeLegibility; }
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(14,165,233,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(139,92,246,0.03) 0%, transparent 50%);
+  pointer-events: none; z-index: 0;
+}
+
+#app { position: relative; z-index: 1; }
+
+.navbar { backdrop-filter: blur(16px) !important; border-bottom: 1px solid rgba(255,255,255,0.3) !important; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(225, 15%, 80%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(225, 15%, 65%); }
+
+.is-flex-grow-1 { flex-grow: 1 !important; }
+.animations-disabled * { animation-duration: 0s !important; transition-duration: 0s !important; }
+
+:root.is-dark-mode body::before {
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(14,165,233,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(139,92,246,0.05) 0%, transparent 50%);
+}
+:root.is-dark-mode .navbar { border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
+:root.is-dark-mode ::-webkit-scrollbar-thumb { background: hsl(240, 8%, 35%); }
+:root.is-dark-mode ::-webkit-scrollbar-thumb:hover { background: hsl(240, 8%, 50%); }
+
+.lucide { display: inline-block; }
