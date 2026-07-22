@@ -148,15 +148,19 @@ function addPane(type, protocol, config) {
   activePane.value = panes.value.length - 1;
 }
 
-function openSftpForActivePane() {
+async function openSftpForActivePane() {
   const pane = panes.value[activePane.value];
   if (!pane || !pane.config) return;
   const connStore = useConnectionStore();
   const cfg = { ...pane.config };
   if (!cfg.auth_value && cfg.id) {
-    connStore.getCredentialFromSessionStorage(cfg.id).then(cred => {
-      if (cred?.auth_value) { cfg.auth_value = cred.auth_value; cfg.auth_type = cred.auth_type; }
-    });
+    try {
+      const cred = await connStore.getCredentialFromSessionStorage(cfg.id);
+      if (cred?.auth_value) { cfg.auth_value = cred.auth_value; cfg.auth_type = cred.auth_type || 'password'; }
+    } catch {}
+  }
+  if (cfg.auth_value && cfg.id) {
+    connStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value).catch(() => {});
   }
   addPane('sftp', pane.protocol || 'ssh', cfg);
 }

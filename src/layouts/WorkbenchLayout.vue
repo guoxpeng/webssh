@@ -230,10 +230,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 .workbench-layout { display: flex; flex-direction: column; min-height: 100vh; background: var(--bulma-body-background-color); }
 .workbench-body { display: flex; flex: 1; padding-top: 3.25rem; min-height: 0; }
 .workbench-sidebar {
-  width: 200px; flex-shrink: 0; background: var(--bulma-scheme-main-bis);
+  width: 200px; min-width: 200px; max-width: 200px; flex-shrink: 0;
+  background: var(--bulma-scheme-main-bis);
   border-right: 1px solid var(--bulma-border-light); padding: 1.5rem 0 0.75rem;
-  display: flex; flex-direction: column; transition: width 0.2s ease;
-  &.is-collapsed { width: 56px; }
+  display: flex; flex-direction: column; overflow: hidden;
+  &.is-collapsed { width: 56px; min-width: 56px; max-width: 56px; }
 }
 .sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0.5rem; flex: 1; }
 .sidebar-item {

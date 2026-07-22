@@ -402,16 +402,22 @@ async function getAuth() {
 async function api(action, data = {}) {
   const auth = await getAuth();
   if (!auth.host) { showMessage(t('sftp.notConnected'), 'is-error'); return null; }
-  const resp = await fetch(`${getApiBaseUrl()}/sftp/${action}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...auth, ...data }),
-  });
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ error: resp.statusText }));
-    throw new Error(err.error || 'Request failed');
+  if (!auth.auth_value) { showMessage(t('sftp.noCredential'), 'is-error'); return null; }
+  try {
+    const resp = await fetch(`${getApiBaseUrl()}/sftp/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...auth, ...data }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `Server error (${resp.status})`);
+    }
+    return resp.json();
+  } catch (e) {
+    if (e.message === 'Failed to fetch') throw new Error('Cannot reach server. Check network.');
+    throw e;
   }
-  return resp.json();
 }
 
 async function listDir(path) {

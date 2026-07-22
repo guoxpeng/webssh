@@ -184,6 +184,9 @@ function processPendingConnections() {
   if (connectionStore.pendingConnections.length === 0) return;
   const configs = connectionStore.pendingConnections.splice(0);
   for (const cfg of configs) {
+    if (cfg.id && cfg.auth_value) {
+      connectionStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value).catch(() => {});
+    }
     splitPaneRef.value?.addTerminalPane(cfg);
   }
   startProgress();
