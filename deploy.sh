@@ -23,10 +23,11 @@ DIR="webssh"
 if [ -d "$DIR" ]; then
   info "Updating existing installation in $DIR..."
   cd "$DIR"
-  # Force sync with remote, discarding any local changes (package-lock.json, etc.)
-  git fetch origin
-  git reset --hard origin/main
+  # Discard any local changes that would block pull (e.g. package-lock.json)
+  git checkout -- package-lock.json 2>/dev/null || true
+  git checkout -- . 2>/dev/null || true
   git clean -fd 2>/dev/null || true
+  git pull
 else
   info "Cloning repository..."
   git clone --depth=1 "$REPO" "$DIR"
