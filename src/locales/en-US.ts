@@ -441,6 +441,9 @@ export default {
     runAgain: 'Run Again',
     selectAll: 'Select All',
     deselectAll: 'Deselect All',
+    confirmSelection: 'Confirm',
+    confirmedCount: '{count} server(s) confirmed',
+    unconfirm: 'Change',
   },
   pwa: {
     installPrompt: 'Install WebSSH for the best experience',

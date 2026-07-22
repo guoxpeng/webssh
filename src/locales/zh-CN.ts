@@ -441,6 +441,9 @@ export default {
     runAgain: '再次执行',
     selectAll: '全选',
     deselectAll: '取消全选',
+    confirmSelection: '确认选择',
+    confirmedCount: '已确认 {count} 台服务器',
+    unconfirm: '修改',
   },
   pwa: {
     installPrompt: '安装 WebSSH 以获得最佳体验',

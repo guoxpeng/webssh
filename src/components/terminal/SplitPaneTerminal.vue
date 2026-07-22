@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
@@ -264,6 +264,17 @@ function cleanupTouch() {
 }
 
 onMounted(() => { setupKeyboard(); setupPinchZoom(); });
+
+watch(activePane, (idx) => {
+  const pane = panes.value[idx];
+  if (!pane || pane.type !== 'terminal' || !pane.config) return;
+  for (const p of panes.value) {
+    if (p.type === 'sftp' && p.config?.host !== pane.config?.host) {
+      p.config = pane.config;
+      panes.value = [...panes.value];
+    }
+  }
+});
 onBeforeUnmount(() => { if (keyHandler) document.removeEventListener('keydown', keyHandler); cleanupTouch(); });
 
 defineExpose({ panes, activePane, addPane,

@@ -225,7 +225,7 @@ import {
   Edit3, Shield, Trash2, X,
 } from 'lucide-vue-next';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { getApiBaseUrl } from '@/utils/constants';
+import { getApiBaseUrl, SESSION_STORAGE_CRED_PREFIX } from '@/utils/constants';
 
 const { t } = useI18n();
 const connStore = useConnectionStore();
@@ -369,13 +369,25 @@ function showMessage(msg, type = 'is-info') {
 
 function getAuth() {
   const src = props.nodeConfig || connStore.currentNodeDetails;
-  return {
+  const auth = {
     host: src?.host,
     port: src?.port || 22,
     username: src?.username,
-    auth_type: src?.auth_type,
-    auth_value: src?.auth_value,
+    auth_type: src?.auth_type || 'password',
+    auth_value: src?.auth_value || '',
   };
+  if (!auth.auth_value && src?.id) {
+    const key = `${SESSION_STORAGE_CRED_PREFIX}${src.id}`;
+    const stored = sessionStorage.getItem(key);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        auth.auth_value = parsed.encrypted ? parsed.auth_value : (parsed.auth_value || stored);
+        auth.auth_type = parsed.auth_type || 'password';
+      } catch { auth.auth_value = stored; }
+    }
+  }
+  return auth;
 }
 
 async function api(action, data = {}) {
@@ -616,6 +628,11 @@ async function doDelete() {
 }
 
 onMounted(() => { refresh(); });
+
+watch(() => props.nodeConfig, () => {
+  currentPath.value = '/';
+  refresh();
+});
 </script>
 
 <style lang="scss" scoped>

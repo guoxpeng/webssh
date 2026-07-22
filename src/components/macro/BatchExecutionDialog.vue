@@ -65,15 +65,27 @@
         </div>
       </div>
 
+      <div v-if="confirmed && results.length === 0" class="confirm-banner">
+        ✅ {{ t('macro.confirmedCount', { count: selectedConnections.length }) }}
+        <button class="unconfirm-btn" @click="confirmed = false">{{ t('macro.unconfirm') }}</button>
+      </div>
+
       <div class="batch-footer">
-        <button class="btn-cancel" @click="$emit('close')">{{ t('common.cancel') }}</button>
+        <button class="btn-cancel" @click="$emit('close')" v-if="!running">{{ t('common.cancel') }}</button>
         <button v-if="results.length > 0 && !running" class="btn-reset" @click="results = []">
           <RotateCcw :size="14"/> {{ t('macro.runAgain') }}
         </button>
-        <button class="btn-run" :disabled="!canRun || running" @click="startBatch">
-          <Loader2 v-if="running" :size="14" class="spin"/>
-          {{ running ? t('macro.running') : t('macro.batchRun') }}
-        </button>
+        <template v-if="results.length === 0 && !confirmed">
+          <button class="btn-confirm" :disabled="!canRun" @click="confirmed = true">
+            <Check :size="14"/> {{ t('macro.confirmSelection') }} ({{ selectedConnections.length }})
+          </button>
+        </template>
+        <template v-if="confirmed && results.length === 0">
+          <button class="btn-run" :disabled="!canRun || running" @click="startBatch">
+            <Loader2 v-if="running" :size="14" class="spin"/>
+            {{ running ? t('macro.running') : t('macro.batchRun') }}
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -85,7 +97,7 @@ import { useMacroStore } from '@/stores/macroStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
-import { Play, X, Search, Loader2, RotateCcw } from 'lucide-vue-next';
+import { Play, X, Search, Loader2, RotateCcw, Check } from 'lucide-vue-next';
 import SshWebSocketService from '@/services/sshWebSocketService';
 
 const { t } = useI18n();
@@ -101,6 +113,7 @@ const runDelay = ref(500);
 const stopOnError = ref(true);
 const running = ref(false);
 const cancelled = ref(false);
+const confirmed = ref(false);
 const results = ref([]);
 
 const connections = computed(() => {
@@ -283,6 +296,23 @@ function cancelRun() {
   &:hover { background: var(--bulma-border-light); }
 }
 .btn-run { background: var(--bulma-primary); color: white; &:disabled { opacity: 0.5; cursor: not-allowed; } }
+.btn-confirm {
+  flex: 1; border: none; border-radius: 8px; padding: 0.45rem; font-size: 0.8em; cursor: pointer; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+  background: var(--bulma-scheme-main-ter); color: var(--bulma-text);
+  border: 1px solid var(--bulma-border);
+  &:hover:not(:disabled) { background: var(--bulma-border-light); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+.confirm-banner {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem;
+  font-size: 0.8em; margin: 0 1rem; border-radius: 8px;
+  background: hsl(155,30%,95%); color: hsl(155,60%,30%);
+}
+.unconfirm-btn {
+  background: none; border: none; margin-left: auto; font-size: 0.85em; cursor: pointer;
+  color: var(--bulma-primary); text-decoration: underline;
+}
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
