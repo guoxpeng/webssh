@@ -6,6 +6,7 @@ export default {
   nav: {
     servers: 'Servers',
     terminal: 'Terminal',
+    sftp: 'File Manager',
     snippets: 'Snippets',
     search: 'Macro / Automation',
     disconnected: 'Disconnected',
@@ -300,6 +301,11 @@ export default {
     loadFailed: 'Failed to load {name}: {error}',
     discardConfirm: 'Discard unsaved changes?',
     editPlaceholder: 'Editing remote file...',
+    title: 'File Manager',
+    selectConnection: 'Select a server...',
+    noConnection: 'No connection selected',
+    selectHint: 'Select a saved server above to browse its files.',
+    switchConnection: 'Switch',
   },
   common: {
     close: 'Close',

@@ -6,6 +6,7 @@ export default {
   nav: {
     servers: '服务器',
     terminal: '终端',
+    sftp: '文件管理',
     snippets: '代码片段',
     search: '宏 / 自动化',
     disconnected: '已断开',
@@ -300,6 +301,11 @@ export default {
     loadFailed: '读取 {name} 失败：{error}',
     discardConfirm: '放弃未保存的更改？',
     editPlaceholder: '正在编辑远程文件...',
+    title: '文件管理',
+    selectConnection: '选择服务器...',
+    noConnection: '未选择连接',
+    selectHint: '从上方选择一台已保存的服务器浏览文件。',
+    switchConnection: '切换',
   },
   common: {
     close: '关闭',

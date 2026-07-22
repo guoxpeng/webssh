@@ -21,6 +21,11 @@
             <Terminal :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.terminal') }}</span>
           </router-link>
+          <router-link to="/sftp" class="sidebar-item" :class="{ 'is-active': $route.name === 'Sftp' }"
+                        @click="closeMobileMenu" :title="t('sftp.title')">
+            <FolderOpen :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.sftp') }}</span>
+          </router-link>
           <div class="sidebar-spacer"></div>
           <a class="sidebar-item" @click="showSnippets = !showSnippets; closeMobileMenu()" :title="t('nav.snippets')" role="button" tabindex="0">
             <TerminalSquare :size="22" stroke-width="1.5"/>
@@ -72,6 +77,10 @@
       <router-link to="/terminal" class="mobile-nav-item" :class="{ 'is-active': $route.name === 'Terminal' }" @click="closeMobileMenu">
         <Terminal :size="20" stroke-width="1.5"/>
         <span class="mobile-nav-label">{{ t('nav.terminal') }}</span>
+      </router-link>
+      <router-link to="/sftp" class="mobile-nav-item" :class="{ 'is-active': $route.name === 'Sftp' }" @click="closeMobileMenu">
+        <FolderOpen :size="20" stroke-width="1.5"/>
+        <span class="mobile-nav-label">{{ t('nav.sftp') }}</span>
       </router-link>
       <button class="mobile-nav-item mobile-nav-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen" aria-label="Menu">
         <Search :size="20" stroke-width="1.5"/>
@@ -132,7 +141,7 @@ import SnippetPanel from '@/components/snippets/SnippetPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import { ConnectionStatus } from '@/utils/constants';
-import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle, PlayCircle } from 'lucide-vue-next';
+import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const uiStore = useUiStore();

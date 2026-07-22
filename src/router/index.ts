@@ -14,6 +14,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Terminal' },
   },
   {
+    path: '/sftp',
+    name: 'Sftp',
+    component: () => import('@/views/SftpView.vue'),
+    meta: { title: 'File Manager' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),

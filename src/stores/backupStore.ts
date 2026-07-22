@@ -105,10 +105,15 @@ export const useBackupStore = defineStore('backup', () => {
     return new Blob([JSON.stringify(data)]).size;
   }
 
-  async function computeChecksum(data: any): Promise<string> {
+  async function computeChecksum(data) {
     const json = JSON.stringify(data);
-    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(json));
-    return btoa(String.fromCharCode(...new Uint8Array(hash)));
+    if (crypto && crypto.subtle) {
+      const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(json));
+      return btoa(String.fromCharCode(...new Uint8Array(hash)));
+    }
+    let h = 0;
+    for (let i = 0; i < json.length; i++) { h = ((h << 5) - h) + json.charCodeAt(i); h |= 0; }
+    return 'h' + Math.abs(h).toString(16);
   }
 
   async function createBackup(label: string, includeCredentials = false): Promise<BackupEntry> {
