@@ -5,7 +5,9 @@
         <button v-for="(pane, idx) in panes" :key="pane.id"
                 class="pane-tab"
                 :class="{ 'is-active': idx === activePane, 'is-dragging': dragPaneIndex === idx, 'is-dragover': dragOverPaneIndex === idx }"
+                :style="pane.tabColor ? { '--tab-color': pane.tabColor, borderTop: `2px solid ${pane.tabColor}` } : {}"
                 @click="activePane = idx"
+                @contextmenu.prevent.stop="showTabMenu($event, idx)"
                 draggable="true"
                 @dragstart="onTabDragStart($event, idx)"
                 @dragover.prevent="onTabDragOver($event, idx)"
@@ -13,8 +15,13 @@
                 @drop.prevent="onTabDrop(idx)"
                 @dragend="onTabDragEnd">
           <GripVertical :size="10" class="pane-tab-grip"/>
+          <span v-if="pane.tabColor" class="pane-tab-dot" :style="{ background: pane.tabColor }"></span>
           <ProtocolBadge :protocol="pane.protocol" class="mr-1"/>
-          <span class="pane-tab-label">{{ pane.name }}</span>
+          <span v-if="renamingIdx !== idx" class="pane-tab-label" @dblclick.stop="startRename(idx)">{{ pane.name }}</span>
+          <input v-else ref="renameInput" type="text" :value="pane.name"
+                 class="pane-tab-rename-input"
+                 @blur="finishRename(idx, $event)" @keydown.enter="finishRename(idx, $event)"
+                 @keydown.escape="renamingIdx = null"/>
           <span class="pane-tab-status" :class="`is-${pane.status}`"></span>
           <button class="pane-tab-close" @click.stop="closePane(idx)" v-if="panes.length > 1">&times;</button>
         </button>
@@ -24,6 +31,21 @@
         <button class="pane-hint-btn" :title="t('terminal.tabShortcut')" @click="showTabHint = !showTabHint">
           <GripHorizontal :size="13"/>
         </button>
+      </div>
+    </div>
+    <div v-if="tabMenuVisible" class="tab-color-menu" :style="tabMenuStyle" @click.stop>
+      <div class="tab-color-title">{{ t('terminal.tabColor') }}</div>
+      <div class="tab-color-grid">
+        <button v-for="c in tabColors" :key="c" class="tab-color-swatch"
+                :style="{ background: c }" :title="c"
+                @click="setTabColor(activeMenuIdx, c)"/>
+        <button class="tab-color-swatch is-none" @click="setTabColor(activeMenuIdx, '')">
+          <X :size="10"/>
+        </button>
+      </div>
+      <div class="tab-color-actions">
+        <button class="tab-rename-btn" @click="startRename(activeMenuIdx)">{{ t('terminal.renameTab') }}</button>
+        <button v-if="panes.length > 1" class="tab-close-btn" @click="closePane(activeMenuIdx)">{{ t('common.close') }}</button>
       </div>
     </div>
     <div class="pane-body">
@@ -51,7 +73,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
@@ -68,6 +90,41 @@ const router = useRouter();
 const panes = ref([]);
 const activePane = ref(0);
 const showTabHint = ref(false);
+
+const tabColors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316'];
+const tabMenuVisible = ref(false);
+const tabMenuStyle = ref({});
+const activeMenuIdx = ref(0);
+const renamingIdx = ref(null);
+
+function showTabMenu(e, idx) {
+  activeMenuIdx.value = idx;
+  tabMenuStyle.value = { top: e.clientY + 'px', left: e.clientX + 'px' };
+  tabMenuVisible.value = true;
+  document.addEventListener('click', () => tabMenuVisible.value = false, { once: true });
+}
+function setTabColor(idx, color) {
+  if (panes.value[idx]) { panes.value[idx].tabColor = color || ''; panes.value = [...panes.value]; }
+  tabMenuVisible.value = false;
+}
+function startRename(idx) {
+  tabMenuVisible.value = false;
+  renamingIdx.value = idx;
+  nextTick(() => {
+    const inp = document.querySelector('.pane-tab-rename-input');
+    if (inp) { inp.focus(); inp.select(); }
+  });
+}
+function finishRename(idx, e) {
+  if (e.type === 'blur' && e.currentTarget) {
+    panes.value[idx].name = e.currentTarget.value.trim() || panes.value[idx].name;
+  } else if (e.type === 'keydown' && e.key === 'Enter') {
+    panes.value[idx].name = e.target.value.trim() || panes.value[idx].name;
+    e.target.blur();
+  }
+  panes.value = [...panes.value];
+  renamingIdx.value = null;
+}
 
 const dragPaneIndex = ref(null);
 const dragOverPaneIndex = ref(null);
@@ -262,6 +319,9 @@ defineExpose({ panes, activePane, addPane,
   opacity: 0; color: var(--bulma-text-light); cursor: grab;
   .pane-tab:hover & { opacity: 0.5; }
 }
+.pane-tab-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
 .pane-tab-status {
   width: 6px; height: 6px; border-radius: 50%;
   &.is-connected { background: var(--bulma-success); }
@@ -282,4 +342,30 @@ defineExpose({ panes, activePane, addPane,
   height: 100%; opacity: 0.4; gap: 0.5rem;
 }
 .pane-empty-icon { opacity: 0.3; }
+
+.tab-color-menu {
+  position: fixed; z-index: 2100; min-width: 180px;
+  background: var(--bulma-scheme-main); border: 1px solid var(--bulma-border-light);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); overflow: hidden; padding: 0.4rem;
+}
+.tab-color-title { font-size: 0.7em; font-weight: 500; color: var(--bulma-text-light); padding: 0.2rem 0.35rem; }
+.tab-color-grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 0.3rem; }
+.tab-color-swatch {
+  width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--bulma-border-light);
+  cursor: pointer; transition: transform 0.1s;
+  &:hover { transform: scale(1.2); }
+  &.is-none { background: var(--bulma-scheme-main-ter); display: flex; align-items: center; justify-content: center; color: var(--bulma-text-light); }
+}
+.tab-color-actions { display: flex; gap: 0.25rem; border-top: 1px solid var(--bulma-border-light); padding-top: 0.3rem; margin-top: 0.2rem; }
+.tab-rename-btn, .tab-close-btn {
+  flex: 1; border: none; border-radius: 4px; padding: 0.25rem; font-size: 0.7em; cursor: pointer;
+  background: var(--bulma-scheme-main-ter); color: var(--bulma-text);
+}
+.tab-close-btn { color: var(--bulma-danger); }
+
+.pane-tab-rename-input {
+  max-width: 120px; border: 1px solid var(--bulma-primary); border-radius: 4px;
+  padding: 0.1rem 0.3rem; font-size: 0.75em; background: var(--bulma-input-background-color);
+  color: var(--bulma-text); outline: none; min-width: 60px;
+}
 </style>

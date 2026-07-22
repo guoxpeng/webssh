@@ -115,6 +115,8 @@ export default {
     sessionInitiated: 'SSH 会话已建立。',
     closeSession: '关闭会话',
     tabShortcut: 'Ctrl+Tab 切换标签 / 拖拽排序',
+    tabColor: '标签颜色',
+    renameTab: '重命名',
   },
   tunnel: {
     title: '隧道管理',

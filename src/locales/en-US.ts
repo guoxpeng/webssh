@@ -115,6 +115,8 @@ export default {
     sessionInitiated: 'SSH session initiated.',
     closeSession: 'Close session',
     tabShortcut: 'Ctrl+Tab to switch / Drag to reorder tabs',
+    tabColor: 'Tab Color',
+    renameTab: 'Rename',
   },
   tunnel: {
     title: 'Tunnels',

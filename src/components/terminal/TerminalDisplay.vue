@@ -1,6 +1,6 @@
 <template>
   <div class="terminal-wrapper">
-    <div ref="xtermContainerRef" class="xterm-container-parent"></div>
+    <div ref="xtermContainerRef" class="xterm-container-parent" @contextmenu.prevent="onTerminalContextMenu"></div>
     <div v-if="showSearch" class="search-overlay" @mousedown.stop>
       <input ref="searchInputRef" type="text" v-model="searchQuery" :placeholder="t('terminal.searchPlaceholder')"
              class="search-input" @keydown.enter="findNext" @keydown.escape="closeSearch"/>
@@ -223,6 +223,15 @@ const initializeTerminal = async () => {
     wsService?.sendMessage(data);
   });
 
+  term.onSelectionChange(() => {
+    if (term?.hasSelection()) {
+      const selected = term.getSelection();
+      if (selected) {
+        try { navigator.clipboard.writeText(selected); } catch {}
+      }
+    }
+  });
+
   term.attachCustomKeyEventHandler((e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f' && e.type === 'keydown') {
       openSearch();
@@ -262,6 +271,15 @@ function closeSearch() {
   searchQuery.value = '';
   searchAddon?.clearActiveSearch();
   term?.focus();
+}
+
+async function onTerminalContextMenu() {
+  if (!term || !wsService) return;
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) wsService.sendMessage(text);
+  } catch {}
+  term.focus();
 }
 
 function findNext() {
