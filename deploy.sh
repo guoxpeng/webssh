@@ -22,7 +22,6 @@ command -v node >/dev/null 2>&1 || err "Node.js is required (https://nodejs.org)
 command -v npm  >/dev/null 2>&1 || err "npm is required."
 NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
 [ "$NODE_VER" -ge 18 ] || err "Node.js >= 18 required (current: $(node -v))"
-sleep 0.3
 
 # --- Phase 2: Clone / Pull (15%) ---
 REPO="https://github.com/guoxpeng/webssh.git"
@@ -32,26 +31,23 @@ PORT="${PORT:-9627}"
 echo -e "  ${YELLOW}[██▌········] 15%${NC}  Fetching source..."
 if [ -d "$DIR" ]; then
   cd "$DIR"
-  git checkout -- . 2>/dev/null || true
-  git clean -fd 2>/dev/null || true
-  git pull --quiet 2>&1 | tail -1
+  git checkout -- . >/dev/null 2>&1 || true
+  git clean -fd >/dev/null 2>&1 || true
+  git pull --quiet >/dev/null 2>&1
 else
-  git clone --depth=1 --quiet "$REPO" "$DIR" 2>&1 | tail -1
+  git clone --depth=1 --quiet "$REPO" "$DIR" >/dev/null 2>&1
   cd "$DIR"
 fi
-sleep 0.3
 
 # --- Phase 3: npm install (30% → 60%) ---
-echo -e "  ${YELLOW}[█████·····] 30%${NC}  Installing dependencies (this may take a minute)..."
-npm install --silent --no-audit --no-fund 2>&1 | grep -v '^$' | tail -1
-sleep 0.3
-echo -e "  ${YELLOW}[████████··] 60%${NC}  Dependencies installed."
+echo -e "  ${YELLOW}[█████·····] 30%${NC}  Installing dependencies..."
+npm install --silent --no-audit --no-fund >/dev/null 2>&1
+echo -e "  ${YELLOW}[████████··] 60%${NC}  Done."
 
 # --- Phase 4: Build frontend (65% → 85%) ---
 echo -e "  ${YELLOW}[████████▌·] 65%${NC}  Building frontend..."
-npm run build --silent 2>&1 | tail -1
-sleep 0.3
-echo -e "  ${YELLOW}[█████████·] 85%${NC}  Build complete."
+npm run build >/dev/null 2>&1
+echo -e "  ${YELLOW}[█████████·] 85%${NC}  Done."
 
 # --- Phase 5: Start server (90% → 100%) ---
 echo -e "  ${YELLOW}[█████████▌] 90%${NC}  Starting server..."
