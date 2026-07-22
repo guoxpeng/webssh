@@ -457,6 +457,7 @@ function handleSerial(ws, config) {
 }
 
 wss.on('connection', (ws, req) => {
+  console.log(`[WS] New connection from ${req.socket.remoteAddress}`);
   let initialized = false;
   const cleanup = () => {
     clearInterval(pingInterval);
@@ -477,6 +478,7 @@ wss.on('connection', (ws, req) => {
       let config;
       try { config = JSON.parse(data.toString()); } catch { throw new Error('Invalid JSON'); }
       const proto = (config.protocol || 'ssh').toLowerCase();
+      console.log(`[WS] SSH request: ${proto} ${config.host}:${config.port || 22} as ${config.username}`);
       if (proto !== 'serial' && !config.host) throw new Error('Host is required');
       initialized = true;
       ws.removeAllListeners('message');
