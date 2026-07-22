@@ -310,27 +310,23 @@ const wss = new WebSocketServer({ server, path: WS_PATH });
 
 function handleSSH(ws, config) {
   const client = new Client();
-  const tag = `[SSH ${config.host}:${config.port || 22}]`;
   const cfg = {
     host: config.host, port: config.port || 22, username: config.username,
     password: config.auth_type === 'password' ? config.auth_value : undefined,
     privateKey: config.auth_type === 'key' ? config.auth_value : undefined,
     readyTimeout: 30000, keepaliveInterval: 30000, keepaliveCountMax: 3,
-    debug: (s) => { if (s.includes('DEBUG')) console.log(`${tag} ${s}`); },
   };
+  const tag = `[SSH ${cfg.host}:${cfg.port}]`;
   let sessionId = null;
   const log = (m) => console.log(`${tag} ${m}`);
-  const cleanup = () => { if (sessionId) sessions.delete(sessionId); try { client.end(); } catch {}; try { ws.close(); } catch {}; client.removeAllListeners(); ws.removeAllListeners(); };
+  const cleanup = () => { if (sessionId) sessions.delete(sessionId); try { client.end(); } catch {}; try { ws.close(); } catch {}; try { client.removeAllListeners(); } catch {}; try { ws.removeAllListeners(); } catch {}; };
 
   client.on('ready', () => {
     log('Connected');
-    const sessionId2 = `${cfg.host}_${cfg.port}_${cfg.username}_${Date.now().toString(36)}`;
-    sessionId = sessionId2;
-    sessions.set(sessionId2, { client, createdAt: Date.now() });
-    ws.send(JSON.stringify({ type: 'session', sessionId: sessionId2 }));
-    ws.send(JSON.stringify({ type: 'status', message: 'connected' }));
+    sessionId = `${cfg.host}_${cfg.port}_${cfg.username}_${Date.now().toString(36)}`;
+    sessions.set(sessionId, { client, host: cfg.host, port: cfg.port, username: cfg.username, createdAt: Date.now() });
     client.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
-      if (err) { ws.send(JSON.stringify({ type: 'error', message: err.message })); return; }
+      if (err) { log('Shell error: ' + err.message); cleanup(); return; }
       const onWsMsg = (input) => { if (stream.writable) stream.write(input.toString()); };
       ws.on('message', onWsMsg);
       stream.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
@@ -338,7 +334,11 @@ function handleSSH(ws, config) {
       stream.on('close', () => { log('Shell closed'); ws.removeListener('message', onWsMsg); cleanup(); });
     });
   });
-  client.on('error', (err) => { log('Error: ' + err.message); try { ws.send(JSON.stringify({ type: 'error', message: err.message })); } catch {} cleanup(); });
+  client.on('error', (err) => {
+    log('Error: ' + err.message);
+    try { ws.send(err.message); } catch {}
+    setTimeout(() => cleanup(), 100);
+  });
   client.on('close', () => { log('Disconnected'); cleanup(); });
   client.connect(cfg);
 }
