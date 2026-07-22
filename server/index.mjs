@@ -5,6 +5,8 @@ import { readFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
 import { fileURLToPath } from 'url';
 import { networkInterfaces } from 'os';
+import { get as httpGet } from 'http';
+import { get as httpsGet } from 'https';
 
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 const DIST_DIR = join(__dirname, '..', 'dist');
@@ -332,15 +334,46 @@ function getLocalIP() {
   return fallback;
 }
 
+const IP_SERVICES = [
+  'https://api.ipify.org',
+  'https://checkip.amazonaws.com',
+  'https://ifconfig.me/ip',
+  'http://ip-api.com/line/?query=ip',
+];
+
+function fetchPublicIP(retries = 0) {
+  if (retries >= IP_SERVICES.length) return;
+  const url = IP_SERVICES[retries];
+  const get = url.startsWith('https') ? httpsGet : httpGet;
+  const req = get(url, { timeout: 5000 }, (res) => {
+    let body = '';
+    res.on('data', (c) => body += c);
+    res.on('end', () => {
+      const ip = body.trim();
+      if (ip && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+        console.log(`  Public:  http://${ip}:${PORT}`);
+        console.log();
+      } else {
+        fetchPublicIP(retries + 1);
+      }
+    });
+  });
+  req.on('error', () => fetchPublicIP(retries + 1));
+  req.on('timeout', () => { req.destroy(); fetchPublicIP(retries + 1); });
+}
+
 server.listen(PORT, () => {
   const ip = getLocalIP();
   console.log(`\n  🚀 WebSSH Server ready`);
   console.log(`  ───────────────────────`);
   console.log(`  Local:   http://localhost:${PORT}`);
-  console.log(`  Network: http://${ip}:${PORT}`);
-  console.log(`  WS:      ws://${ip}:${PORT}${WS_PATH}`);
-  console.log(`  Health:  http://${ip}:${PORT}/health`);
+  if (ip !== 'localhost') {
+    console.log(`  Network: http://${ip}:${PORT}`);
+    console.log(`  WS:      ws://${ip}:${PORT}${WS_PATH}`);
+  }
+  console.log(`  Health:  http://localhost:${PORT}/health`);
   if (existsSync(DIST_DIR)) console.log(`  Mode:    production (serving built frontend)`);
   else console.log(`  Mode:    development (frontend on :5173)`);
-  console.log();
+  console.log(`  Fetching public IP...`);
+  fetchPublicIP();
 });
