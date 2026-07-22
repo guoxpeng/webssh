@@ -1,9 +1,12 @@
 <template>
   <UnlockScreen @unlocked="onUnlocked" v-if="!unlocked"/>
-  <div v-if="unlocked && !isSecure" class="insecure-warning">
-    ⚠ {{ t('pwa.insecureWarning') }}
-  </div>
-  <WorkbenchLayout v-else-if="unlocked" />
+  <template v-else>
+    <div v-if="!isSecure" class="insecure-warning">
+      ⚠ {{ t('pwa.insecureWarning') }}
+      <button class="insecure-dismiss" @click="isSecure = true">&times;</button>
+    </div>
+    <WorkbenchLayout />
+  </template>
   <div v-if="showInstall" class="pwa-install-banner">
     <span class="pwa-install-text">{{ t('pwa.installPrompt') }}</span>
     <button class="pwa-install-btn" @click="promptInstall">{{ t('pwa.install') }}</button>
@@ -96,6 +99,11 @@ onMounted(() => {
   text-align: center; padding: 0.4rem; font-size: 0.78em;
   background: hsl(40,90%,50%); color: #1a1a1a; font-weight: 500;
   position: sticky; top: 3.25rem; z-index: 50;
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+}
+.insecure-dismiss {
+  background: none; border: none; font-size: 1.1em; cursor: pointer; color: inherit;
+  opacity: 0.7; &:hover { opacity: 1; }
 }
 @keyframes slideUp {
   from { opacity: 0; transform: translateX(-50%) translateY(20px); }

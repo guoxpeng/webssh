@@ -37,7 +37,7 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  document.title = `${to.meta.title ? to.meta.title + ' | ' : ''}HaoSSH`;
+    document.title = `${to.meta.title ? to.meta.title + ' | ' : ''}WebSSH`;
   next();
 });
 
