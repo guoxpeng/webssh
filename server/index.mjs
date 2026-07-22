@@ -1,6 +1,13 @@
 import { WebSocketServer } from 'ws';
 import { Client } from 'ssh2';
 import { createServer } from 'http';
+import { readFileSync, existsSync } from 'fs';
+import { join, extname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = join(fileURLToPath(import.meta.url), '..');
+const DIST_DIR = join(__dirname, '..', 'dist');
+const MIME = { '.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.json':'application/json' };
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const WS_PATH = process.env.WS_PATH || '/ws/ssh';
@@ -50,6 +57,22 @@ const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // Production: serve built frontend
+  if (req.method === 'GET' && existsSync(DIST_DIR)) {
+    let filePath = req.url === '/' ? '/index.html' : req.url;
+    const fullPath = join(DIST_DIR, filePath);
+    if (existsSync(fullPath)) {
+      const ext = extname(fullPath);
+      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+      res.end(readFileSync(fullPath));
+      return;
+    }
+    // SPA fallback
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(readFileSync(join(DIST_DIR, 'index.html')));
+    return;
+  }
 
   if (req.url === '/health') {
     json(res, { status: 'ok', uptime: process.uptime() });
@@ -294,9 +317,12 @@ wss.on('connection', (ws, req) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n  🚀 WebSSH Server ready`);
+  console.log(`\n  🚀 HaoSSH Server ready`);
   console.log(`  ───────────────────────`);
-  console.log(`  Local:   ws://localhost:${PORT}${WS_PATH}`);
+  console.log(`  Local:   http://localhost:${PORT}`);
+  console.log(`  WS:      ws://localhost:${PORT}${WS_PATH}`);
   console.log(`  Health:  http://localhost:${PORT}/health`);
-  console.log(`  SFTP:    http://localhost:${PORT}/api/sftp/<action>\n`);
+  if (existsSync(DIST_DIR)) console.log(`  Mode:    production (serving built frontend)`);
+  else console.log(`  Mode:    development (frontend on :5173)`);
+  console.log();
 });

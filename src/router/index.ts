@@ -1,6 +1,4 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
-import { useConnectionStore } from '@/stores/connectionStore';
-import { ConnectionStatus } from '@/utils/constants';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -13,7 +11,7 @@ const routes: RouteRecordRaw[] = [
     path: '/terminal',
     name: 'Terminal',
     component: () => import('@/views/TerminalView.vue'),
-    meta: { title: 'Terminal', requiresConnection: true },
+    meta: { title: 'Terminal' },
   },
   {
     path: '/:pathMatch(.*)*',
@@ -34,14 +32,6 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   document.title = `${to.meta.title ? to.meta.title + ' | ' : ''}SSH App`;
-
-  if (to.meta.requiresConnection) {
-    const store = useConnectionStore();
-    if (store.connectionStatus !== ConnectionStatus.CONNECTED) {
-      next({ name: 'ConnectionHome' });
-      return;
-    }
-  }
   next();
 });
 

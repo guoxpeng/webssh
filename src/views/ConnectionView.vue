@@ -139,7 +139,7 @@ const importInputRef = ref(null);
 const sidebarListRef = ref(null);
 const itemRefs = ref([]);
 const focusedIndex = ref(-1);
-const openGroups = ref(new Set());
+const openGroups = ref(new Set(connectionStore.groups));
 
 const visibleGroups = computed(() => {
   const q = searchQuery.value.toLowerCase().trim();
@@ -286,7 +286,10 @@ function handleFormConnect(nodeConfig) {
   const saved = connectionStore.addConnection(nodeConfig);
   connectionStore.setCurrentNodeDetails({ ...nodeConfig, id: saved.id });
   showInfo(t('form.connecting', { name: saved.name }));
-  router.push({ name: 'Terminal' });
+  connectionStore.pendingConnections.push({ ...nodeConfig, id: saved.id });
+  if (router.currentRoute.value.name !== 'Terminal') {
+    router.push({ name: 'Terminal' });
+  }
 }
 
 function loadForEditing(id) {
@@ -298,18 +301,21 @@ function loadForEditing(id) {
   }
 }
 
-function quickConnect(conn) {
-  const full = { ...conn, auth_type: conn.auth_type || 'password', auth_value: '' };
-  const remembered = connectionStore.getCredentialFromSessionStorage(conn.id);
+async function quickConnect(conn) {
+  const remembered = await connectionStore.getCredentialFromSessionStorage(conn.id);
   if (remembered?.auth_value) {
-    full.auth_value = remembered.auth_value;
-    full.auth_type = remembered.auth_type;
-    full.rememberForSession = true;
+    const full = { ...conn, auth_type: remembered.auth_type, auth_value: remembered.auth_value, rememberForSession: true };
     showSuccess(t('form.connecting', { name: conn.name }));
+    const saved = connectionStore.addConnection(full);
+    connectionStore.setCurrentNodeDetails({ ...full, id: saved.id });
+    connectionStore.pendingConnections.push({ ...full, id: saved.id });
+    if (router.currentRoute.value.name !== 'Terminal') {
+      router.push({ name: 'Terminal' });
+    }
   } else {
     showWarning(t('form.noSavedCredentials', { name: conn.name }));
+    loadForEditing(conn.id);
   }
-  handleFormConnect(full);
 }
 
 function confirmRemoveConnection(conn) { connectionToRemove.value = conn; }

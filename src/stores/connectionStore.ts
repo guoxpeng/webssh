@@ -50,6 +50,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const savedConnections = ref<NodeConfig[]>(JSON.parse(sessionStorage.getItem(SESSION_STORAGE_CONNECTIONS_KEY) || '[]'));
   const sessionRememberedCredentials = ref<Record<string, Credential>>({});
   const wsService = new SshWebSocketService();
+  const pendingConnections = ref<NodeConfig[]>([]);
 
   const isConnected = computed(() => connectionStatus.value === ConnectionStatus.CONNECTED);
 
@@ -192,7 +193,7 @@ export const useConnectionStore = defineStore('connection', () => {
         setCurrentNodeDetails({
           ...conn,
           auth_type: (rememberedCred ? rememberedCred.auth_type : (conn.auth_type || 'password')) as 'password' | 'key',
-          auth_value: '',
+          auth_value: rememberedCred?.auth_value || '',
           rememberForSession: !!rememberedCred
         });
       });
@@ -263,6 +264,7 @@ export const useConnectionStore = defineStore('connection', () => {
       wsService.disconnect(true);
     }
 
+    setConnectionStatus(ConnectionStatus.CONNECTING);
     let finalNodeConfig = { ...nodeConfigFromForm };
 
     const doConnect = async () => {
@@ -340,5 +342,6 @@ export const useConnectionStore = defineStore('connection', () => {
     getCredentialFromSessionStorage,
     saveCredentialToSessionStorage,
     clearAllSessionCredentials,
+    pendingConnections,
   };
 });

@@ -223,7 +223,7 @@ const authValueRequired = computed(() => {
 
 watch(() => props.initialData, (d) => {
   if (d) {
-    form.value = { ...defaultForm(), ...d, auth_value: '', protocol: d.protocol || 'ssh' };
+    form.value = { ...defaultForm(), ...d, auth_value: d.auth_value || '', protocol: d.protocol || 'ssh' };
     nextTick(() => formElement.value?.querySelector('#scf-host')?.focus());
   } else clearForm();
 }, { immediate: true });
