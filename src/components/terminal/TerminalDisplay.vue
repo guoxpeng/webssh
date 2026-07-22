@@ -112,6 +112,7 @@ const commandInput = ref('');
 const snippetDragIdx = ref(null);
 const snippetDragOverIdx = ref(null);
 const sshSessionId = ref(null);
+let handshakeComplete = false;
 let term = null;
 let fitAddon = null;
 let searchAddon = null;
@@ -284,6 +285,7 @@ const initializeTerminal = async () => {
       if (destroyed) return;
       clearReconnect();
       emit('status-change', 'connected');
+      handshakeComplete = false;
       const cfg = props.nodeConfig;
       if (cfg?.id && cfg?.auth_value) {
         connectionStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value);
@@ -295,7 +297,7 @@ const initializeTerminal = async () => {
     onMessage: (data) => {
       if (destroyed) return;
       const str = typeof data === 'string' ? data : '';
-      if (str.startsWith('{') && str.includes('"type"')) {
+      if (!handshakeComplete && str.startsWith('{') && str.includes('"type"')) {
         try {
           const msg = JSON.parse(str);
           if (msg.type === 'session' && msg.sessionId) {
@@ -303,10 +305,11 @@ const initializeTerminal = async () => {
             emit('session-id', msg.sessionId);
             return;
           }
-          if (msg.type === 'status') return;
-          if (msg.type === 'error') { term?.writeln(`\r\n\x1b[31m${msg.message}\x1b[0m`); return; }
+          if (msg.type === 'status') { handshakeComplete = true; return; }
+          if (msg.type === 'error') { term?.writeln(`\r\n\x1b[31m${msg.message}\x1b[0m`); handshakeComplete = true; return; }
         } catch {}
       }
+      handshakeComplete = true;
       term?.write(typeof data === 'string' ? data : new Uint8Array(data));
     },
     onClose: (event, manual) => {
