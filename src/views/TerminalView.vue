@@ -26,26 +26,29 @@
             @update="onTermSettingsUpdate"/>
         </div>
         <div class="dropdown-wrap" @click.stop>
-          <button class="toolbar-btn dropdown-trigger" @click="showToolMenu = !showToolMenu">
+          <button class="toolbar-btn" :class="{ 'is-active': showSftpPanel }" @click="showSftpPanel = !showSftpPanel" :title="t('sftp.fileManager')">
             <FolderOpen :size="14"/>
             <span>{{ t('sftp.fileManager') }}</span>
-            <ChevronDown :size="10"/>
           </button>
-          <div v-if="showToolMenu" class="dropdown-menu" @click="showToolMenu = false">
-            <div class="dropdown-item" @click="openSftp">
-              <FolderOpen :size="14"/> {{ t('sftp.fileManager') }}
-            </div>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-item is-danger" @click="showDisconnectDialog = true">
-              <Power :size="14"/> {{ t('terminal.disconnect') }}
-            </div>
-          </div>
+          <button class="toolbar-btn is-danger" @click="showDisconnectDialog = true" :title="t('terminal.disconnect')">
+            <Power :size="14"/>
+          </button>
         </div>
       </div>
     </div>
 
     <div class="terminal-body">
-      <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }"/>
+      <div class="terminal-main-area" :class="{ 'has-sftp': showSftpPanel }">
+        <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }"/>
+        <div v-if="showSftpPanel && sftpPanelConfig" class="sftp-panel">
+          <div class="sftp-panel-header">
+            <FolderOpen :size="14"/>
+            <span>{{ sftpPanelConfig.host }}</span>
+            <button class="sftp-panel-close" @click="showSftpPanel = false">&times;</button>
+          </div>
+          <SftpBrowser :key="sftpPanelKey" :node-config="sftpPanelConfig" @close="showSftpPanel = false"/>
+        </div>
+      </div>
       <div v-if="connecting && paneCount === 0" class="connecting-overlay">
         <div class="connecting-anim">
           <div class="anim-track"></div>
@@ -77,10 +80,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onActivated, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onActivated, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
+import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
 import TerminalSettingsPanel from '@/components/terminal/TerminalSettingsPanel.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -96,8 +100,9 @@ const router = useRouter();
 
 const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
-const showToolMenu = ref(false);
 const showTermSettings = ref(false);
+const showSftpPanel = ref(false);
+const sftpPanelKey = ref(0);
 const connecting = ref(false);
 const progressPct = ref(0);
 let progressTimer = null;
@@ -160,6 +165,16 @@ function formatElapsed(ms) {
 
 const paneCount = computed(() => splitPaneRef.value?.panes?.length || 0);
 
+const sftpPanelConfig = computed(() => {
+  const panes = splitPaneRef.value?.panes;
+  if (!panes?.length) return null;
+  const idx = splitPaneRef.value?.activePane ?? 0;
+  const pane = panes[idx];
+  return pane?.config || null;
+});
+
+watch(sftpPanelConfig, () => { if (showSftpPanel.value) sftpPanelKey.value++; });
+
 function toggleSftpPanel() {
   if (sftpPanelConfig.value) {
     showSftpPanel.value = !showSftpPanel.value;
@@ -202,10 +217,6 @@ function processPendingConnections() {
   }, 2500);
 }
 
-function openSftp() {
-  splitPaneRef.value?.openSftpForActivePane();
-}
-
 function onDisconnectConfirmed() {
   showDisconnectDialog.value = false;
   terminalStore.clearAll();
@@ -224,7 +235,7 @@ function onTermSettingsUpdate(opts) {
   splitPaneRef.value?.updateTerminalSettings?.(opts);
 }
 
-function onDocClick() { showToolMenu.value = false; showTermSettings.value = false; }
+function onDocClick() { showTermSettings.value = false; }
 
 function restoreSavedLayout() {
   const saved = terminalStore.restoreLayout();
@@ -295,23 +306,29 @@ onBeforeUnmount(() => {
 
 .terminal-body { flex: 1; overflow: hidden; position: relative; }
 
-.dropdown-wrap { position: relative; }
+.terminal-main-area {
+  display: flex; height: 100%;
+  &.has-sftp :deep(.split-pane-terminal) { flex: 1; min-width: 0; }
+}
+.sftp-panel {
+  width: 360px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-left: 1px solid var(--bulma-border-light);
+  background: var(--bulma-scheme-main); overflow: hidden;
+}
+.sftp-panel-header {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.65rem;
+  font-size: 0.78em; font-weight: 500; border-bottom: 1px solid var(--bulma-border-light);
+  background: var(--bulma-scheme-main-ter); flex-shrink: 0; color: var(--bulma-text);
+}
+.sftp-panel-close {
+  margin-left: auto; background: none; border: none; font-size: 1.3em;
+  cursor: pointer; color: var(--bulma-text-light); padding: 0; line-height: 1;
+  &:hover { color: var(--bulma-danger); }
+}
+.sftp-panel :deep(.sftp-browser) { flex: 1; overflow: hidden; border-radius: 0; border: none; }
+
+.dropdown-wrap { display: flex; align-items: center; gap: 0.35rem; }
 .settings-wrap { position: relative; }
-.dropdown-trigger { gap: 0.3rem; }
-.dropdown-menu {
-  position: absolute; right: 0; top: 100%; margin-top: 4px; z-index: 50;
-  min-width: 160px; background: var(--bulma-scheme-main);
-  border: 1px solid var(--bulma-border-light); border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden;
-}
-.dropdown-item {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.5rem 0.65rem; font-size: 0.8em; cursor: pointer;
-  color: var(--bulma-text); transition: background 0.1s;
-  &:hover { background: var(--bulma-scheme-main-bis); }
-  &.is-danger { color: var(--bulma-danger); }
-}
-.dropdown-divider { height: 1px; background: var(--bulma-border-light); margin: 2px 0; }
 
 .connecting-overlay {
   position: absolute; inset: 0; z-index: 20;

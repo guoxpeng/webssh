@@ -97,6 +97,7 @@
       <div class="statusbar-right">
         <span class="statusbar-item">{{ t('terminal.sessions', { count: terminalStore.sessionCount }) }}</span>
         <span class="statusbar-item">{{ uiStore.currentTheme === 'dark' ? t('settings.dark') : t('settings.light') }}</span>
+        <span class="statusbar-item" style="opacity:0.5">v{{ APP_VERSION }}</span>
         <span class="statusbar-item">
           <kbd class="statusbar-kbd">Ctrl+P</kbd>
         </span>
@@ -144,6 +145,7 @@ import { ConnectionStatus } from '@/utils/constants';
 import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen } from 'lucide-vue-next';
 
 const { t } = useI18n();
+const APP_VERSION = '2.0.0';
 const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
