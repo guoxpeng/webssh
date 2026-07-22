@@ -105,9 +105,8 @@ body::before {
 }
 
 html, body {
-  /* use dynamic viewport height on mobile to avoid browser chrome issues */
-  min-height: 100vh;
-  min-height: 100dvh;
+  margin: 0; padding: 0;
+  height: 100vh; height: 100dvh; overflow: hidden;
 }
 
 /* Better touch targets on mobile */
