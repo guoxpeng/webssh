@@ -1,5 +1,9 @@
 <template>
-  <div class="sftp-browser">
+  <div class="sftp-browser" @drop.prevent="onDropFiles" @dragover.prevent="dragOver = true" @dragleave.prevent="dragOver = false" :class="{ 'is-dragover': dragOver }">
+    <div v-if="dragOver" class="sftp-drop-overlay">
+      <Upload :size="32"/>
+      <span>{{ t('sftp.upload') }}</span>
+    </div>
     <div class="sftp-toolbar">
       <div class="sftp-toolbar-left">
         <button class="toolbar-btn" @click="goBack" :disabled="currentPath === '/' || loading" :title="t('sftp.back')">
@@ -175,7 +179,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   Folder, FolderPlus, FileText, FileCode, FileImage,
@@ -205,6 +209,7 @@ const messageType = ref('is-info');
 const uploadInputRef = ref(null);
 const uploadProgress = ref(null);
 const uploadFileName = ref('');
+const dragOver = ref(false);
 
 const showNewFolder = ref(false);
 const newFolderName = ref('');
@@ -381,6 +386,20 @@ async function onUploadFiles(e) {
   refresh();
 }
 
+async function onDropFiles(e) {
+  dragOver.value = false;
+  const files = e.dataTransfer?.files;
+  if (!files?.length) return;
+  // Reuse the file upload logic
+  const input = uploadInputRef.value;
+  if (input) {
+    const dt = new DataTransfer();
+    for (const f of files) dt.items.add(f);
+    input.files = dt.files;
+    await onUploadFiles({ target: input });
+  }
+}
+
 async function downloadFile(entry) {
   try {
     const data = await api('read', { path: fullPath(entry.name) });
@@ -471,13 +490,23 @@ async function doDelete() {
     showMessage(err.message, 'is-error');
   }
 }
+
+onMounted(() => { refresh(); });
 </script>
 
 <style lang="scss" scoped>
 .sftp-browser {
   height: 100%; display: flex; flex-direction: column;
-  font-size: 0.8em; background: var(--bulma-scheme-main);
+  font-size: 0.8em; background: var(--bulma-scheme-main); position: relative;
+  &.is-dragover { outline: 3px dashed var(--bulma-primary); outline-offset: -3px; }
   position: relative; overflow: hidden;
+}
+
+.sftp-drop-overlay {
+  position: absolute; inset: 0; z-index: 500;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
+  background: rgba(99, 102, 241, 0.1); backdrop-filter: blur(4px);
+  color: var(--bulma-primary); font-weight: 600; font-size: 1.2em;
 }
 
 .sftp-toolbar {
