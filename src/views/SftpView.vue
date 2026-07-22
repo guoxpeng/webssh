@@ -78,7 +78,8 @@ function closeTab(id) {
 </script>
 
 <style scoped>
-.sftp-view { max-width: 100%; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 3.25rem); height: calc(100dvh - 3.25rem); }
+.sftp-view { max-width: 100%; margin: 0 auto; display: flex; flex-direction: column; height: calc(100dvh - 3.25rem); overflow: hidden; }
+@media (max-width: 768px) { .sftp-view { height: calc(100dvh - 3.25rem - 3.5rem); } }
 .sftp-view-header { padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--bulma-border-light); flex-shrink: 0; }
 .sftp-servers { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
 .sftp-servers-label { font-size: 0.85em; font-weight: 600; display: flex; align-items: center; gap: 0.35rem; margin-right: 0.5rem; }

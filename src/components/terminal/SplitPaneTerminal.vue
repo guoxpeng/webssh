@@ -346,7 +346,7 @@ defineExpose({ panes, activePane, addPane,
   display: flex; align-items: center;
   background: var(--bulma-scheme-main-ter);
   border-bottom: 1px solid var(--bulma-border-light);
-  min-height: 34px; flex-shrink: 0;
+  min-height: 36px; flex-shrink: 0;
 }
 .pane-toolbar-actions { display: flex; align-items: center; padding-right: 0.25rem; }
 .pane-hint-btn {
@@ -365,15 +365,19 @@ defineExpose({ panes, activePane, addPane,
 }
 .pane-tab {
   display: flex; align-items: center; gap: 0.35rem;
-  padding: 0.3rem 0.6rem; font-size: 0.75em;
-  border: none; background: transparent; color: var(--bulma-text-light);
+  padding: 0.35rem 0.65rem; font-size: 0.75em;
+  border: none; border-radius: 6px 6px 0 0;
+  background: transparent; color: var(--bulma-text-light);
   cursor: pointer; white-space: nowrap;
-  border-bottom: 2px solid transparent; transition: all 0.1s;
-  position: relative;
+  position: relative; margin: 2px 1px 0;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
   &:hover { color: var(--bulma-text); background: var(--bulma-scheme-main-bis); }
-  &.is-active { color: var(--bulma-text-strong); border-bottom-color: var(--bulma-primary); font-weight: 500; }
+  &.is-active {
+    color: var(--bulma-text-strong); background: var(--bulma-scheme-main);
+    font-weight: 500; box-shadow: 0 -1px 4px rgba(0,0,0,0.06), 0 1px 0 var(--bulma-scheme-main);
+  }
   &.is-dragging { opacity: 0.35; }
-  &.is-dragover { border-left: 2px solid var(--bulma-primary); }
+  &.is-dragover { outline: 2px dashed var(--bulma-primary); outline-offset: -2px; }
 }
 .pane-tab-label { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
 .pane-tab-grip {

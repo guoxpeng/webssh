@@ -326,35 +326,26 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 .sidebar-header { display: none; }
 
 @media screen and (max-width: 768px) {
-  .workbench-sidebar {
-    width: 56px;
-    &.is-collapsed { width: 0; overflow: hidden; padding: 0; }
-  }
-  .workbench-content { padding: 1rem; padding-bottom: calc(3rem + var(--sab, 0px)); }
-  .mobile-bottom-nav { display: flex; }
-  .workbench-statusbar { display: none; }
-
-  /* Sidebar becomes a drawer on small mobile */
+  .workbench-body { flex-direction: column; }
   .workbench-sidebar {
     position: fixed; top: 3.25rem; left: 0; bottom: 0; z-index: 90;
-    transform: translateX(-100%); transition: transform 0.25s ease;
-    width: 240px !important;
+    width: 240px !important; min-width: 240px; max-width: 240px;
+    transform: translateX(-100%); transition: transform 0.2s ease;
     &.is-mobile-open { transform: translateX(0); }
-    &.is-collapsed { width: 240px !important; transform: translateX(-100%); }
+    &.is-collapsed { transform: translateX(-100%); }
   }
-  .sidebar-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0.75rem 1rem; border-bottom: 1px solid var(--bulma-border-light);
+  .workbench-content {
+    margin-left: 0 !important; padding: 0.6rem; padding-bottom: calc(3.5rem + var(--sab, 0px));
+    overflow-y: auto;
   }
-  .sidebar-title { font-weight: 600; font-size: 0.9rem; color: var(--bulma-text-strong); }
-  .sidebar-close {
-    background: none; border: none; font-size: 1.5rem; cursor: pointer;
-    color: var(--bulma-text-light); padding: 0 4px;
-  }
+  .sidebar-header { display: flex; }
+  .sidebar-title { font-weight: 600; font-size: 0.9rem; }
+  .sidebar-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--bulma-text-light); }
   .sidebar-nav { padding: 0.5rem; }
-  .sidebar-item { padding: 0.7rem 0.75rem; }
   .sidebar-label { display: inline !important; }
   .collapse-icon { display: none; }
+  .mobile-bottom-nav { display: flex; }
+  .workbench-statusbar { display: none; }
 }
 
 /* Quick Connect dialog */
