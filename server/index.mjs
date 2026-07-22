@@ -314,7 +314,7 @@ function handleSSH(ws, config) {
     host: config.host, port: config.port || 22, username: config.username,
     password: config.auth_type === 'password' ? config.auth_value : undefined,
     privateKey: config.auth_type === 'key' ? config.auth_value : undefined,
-    readyTimeout: 30000, keepaliveInterval: 30000, keepaliveCountMax: 3,
+    readyTimeout: 15000, keepaliveInterval: 30000, keepaliveCountMax: 3,
   };
   const tag = `[SSH ${cfg.host}:${cfg.port}]`;
   let sessionId = null;
@@ -326,7 +326,7 @@ function handleSSH(ws, config) {
     sessionId = `${cfg.host}_${cfg.port}_${cfg.username}_${Date.now().toString(36)}`;
     sessions.set(sessionId, { client, host: cfg.host, port: cfg.port, username: cfg.username, createdAt: Date.now() });
     client.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
-      if (err) { log('Shell error: ' + err.message); cleanup(); return; }
+      if (err) { log('Shell error: ' + err.message); try { ws.send('\r\n\x1b[31m[Shell Error] ' + err.message + '\x1b[0m\r\n'); } catch {} cleanup(); return; }
       const onWsMsg = (input) => { if (stream.writable) stream.write(input.toString()); };
       ws.on('message', onWsMsg);
       stream.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
@@ -336,8 +336,8 @@ function handleSSH(ws, config) {
   });
   client.on('error', (err) => {
     log('Error: ' + err.message);
-    try { ws.send(err.message); } catch {}
-    setTimeout(() => cleanup(), 100);
+    try { ws.send('\r\n\x1b[31m[Error] ' + err.message + '\x1b[0m\r\n'); } catch {}
+    setTimeout(() => cleanup(), 500);
   });
   client.on('close', () => { log('Disconnected'); cleanup(); });
   client.connect(cfg);
@@ -482,7 +482,7 @@ wss.on('connection', (ws, req) => {
         handleSSH(ws, config);
       }
     } catch (e) {
-      try { ws.send(JSON.stringify({ type: 'error', message: e.message })); } catch {}
+      try { ws.send('\r\n\x1b[31m[Init Error] ' + e.message + '\x1b[0m\r\n'); } catch {}
       cleanup();
     }
   });
