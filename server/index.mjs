@@ -200,7 +200,7 @@ const server = createServer(async (req, res) => {
   }
 
   const action = req.url.slice('/api/sftp/'.length);
-  const sftpFn = body.auth_value && body.host ? withSftp : withSessionSftp;
+  const sftpFn = withSessionSftp;
 
   try {
     switch (action) {
