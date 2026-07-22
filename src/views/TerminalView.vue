@@ -26,26 +26,27 @@
             @update="onTermSettingsUpdate"/>
         </div>
         <div class="dropdown-wrap" @click.stop>
-          <button class="toolbar-btn dropdown-trigger" @click="showToolMenu = !showToolMenu">
+          <button class="toolbar-btn" :class="{ 'is-active': showSftpPanel }" @click="toggleSftpPanel" :title="t('sftp.fileManager')">
             <FolderOpen :size="14"/>
-            <span>{{ t('sftp.fileManager') }}</span>
-            <ChevronDown :size="10"/>
           </button>
-          <div v-if="showToolMenu" class="dropdown-menu" @click="showToolMenu = false">
-            <div class="dropdown-item" @click="openSftp">
-              <FolderOpen :size="14"/> {{ t('sftp.fileManager') }}
-            </div>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-item is-danger" @click="showDisconnectDialog = true">
-              <Power :size="14"/> {{ t('terminal.disconnect') }}
-            </div>
-          </div>
+          <button class="toolbar-btn is-danger" @click="showDisconnectDialog = true" :title="t('terminal.disconnect')">
+            <Power :size="14"/>
+          </button>
         </div>
       </div>
     </div>
 
     <div class="terminal-body">
-      <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }"/>
+      <div class="terminal-split" :class="{ 'has-sftp': showSftpPanel }">
+        <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }"/>
+        <div v-if="showSftpPanel && sftpPanelConfig" class="sftp-side-panel">
+          <div class="sftp-side-header">
+            <span><FolderOpen :size="14"/> {{ sftpPanelConfig.name || sftpPanelConfig.host }}</span>
+            <button class="sftp-side-close" @click="showSftpPanel = false">&times;</button>
+          </div>
+          <SftpBrowser :key="sftpPanelKey" :node-config="sftpPanelConfig" @close="showSftpPanel = false"/>
+        </div>
+      </div>
       <div v-if="connecting && paneCount === 0" class="connecting-overlay">
         <div class="connecting-anim">
           <div class="anim-track"></div>
@@ -81,6 +82,7 @@ import { ref, computed, onActivated, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
+import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
 import TerminalSettingsPanel from '@/components/terminal/TerminalSettingsPanel.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -98,6 +100,8 @@ const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
 const showToolMenu = ref(false);
 const showTermSettings = ref(false);
+const showSftpPanel = ref(false);
+const sftpPanelKey = ref(0);
 const connecting = ref(false);
 const progressPct = ref(0);
 let progressTimer = null;
@@ -159,6 +163,21 @@ function formatElapsed(ms) {
 }
 
 const paneCount = computed(() => splitPaneRef.value?.panes?.length || 0);
+
+const sftpPanelConfig = computed(() => {
+  const panes = splitPaneRef.value?.panes;
+  if (!panes?.length) return null;
+  const active = splitPaneRef.value?.activePane;
+  const pane = panes[active];
+  return pane?.config || null;
+});
+
+function toggleSftpPanel() {
+  if (sftpPanelConfig.value) {
+    showSftpPanel.value = !showSftpPanel.value;
+    if (showSftpPanel.value) sftpPanelKey.value++;
+  }
+}
 
 function startProgress() {
   connecting.value = true;
@@ -287,6 +306,27 @@ onBeforeUnmount(() => {
 @keyframes recPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 56, 96, 0.3); } 50% { box-shadow: 0 0 0 4px rgba(255, 56, 96, 0); } }
 
 .terminal-body { flex: 1; overflow: hidden; position: relative; }
+
+.terminal-split {
+  display: flex; height: 100%;
+  &.has-sftp :deep(.split-pane-terminal) { flex: 1; min-width: 0; }
+}
+.sftp-side-panel {
+  width: 340px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-left: 1px solid var(--bulma-border-light);
+  background: var(--bulma-box-background-color);
+}
+.sftp-side-header {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.65rem;
+  font-size: 0.78em; border-bottom: 1px solid var(--bulma-border-light);
+  flex-shrink: 0;
+}
+.sftp-side-close {
+  margin-left: auto; background: none; border: none; font-size: 1.2em;
+  cursor: pointer; color: var(--bulma-text-light); padding: 0; line-height: 1;
+  &:hover { color: var(--bulma-danger); }
+}
+.sftp-side-panel :deep(.sftp-browser) { flex: 1; overflow: hidden; border-radius: 0; border: none; }
 
 .dropdown-wrap { position: relative; }
 .settings-wrap { position: relative; }
