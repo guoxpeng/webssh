@@ -379,17 +379,6 @@ async function getAuth() {
     } catch {}
   }
 
-  if (!authValue && src?.host) {
-    const conns = connStore.savedConnections || [];
-    const match = conns.find(c => c.host === src.host && c.username === src.username);
-    if (match?.id) {
-      try {
-        const cred = await connStore.getCredentialFromSessionStorage(match.id);
-        if (cred?.auth_value) { authValue = cred.auth_value; authType = cred.auth_type || 'password'; }
-      } catch {}
-    }
-  }
-
   return {
     host: src?.host,
     port: src?.port || 22,
@@ -521,6 +510,7 @@ async function onUploadFiles(e) {
   if (!files?.length) return;
   const auth = await getAuth();
   for (const file of files) {
+    if (file.size > 52428800) { showMessage(t('sftp.fileTooLarge', { name: file.name }), 'is-error'); continue; }
     uploadFileName.value = file.name;
     uploadProgress.value = 0;
     const reader = new FileReader();
@@ -573,7 +563,8 @@ async function downloadFile(entry) {
 }
 
 function fullPath(name) {
-  return (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + name;
+  const safe = name.replace(/\.\./g, '').replace(/\/\//g, '/');
+  return (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + safe;
 }
 
 function editFile(entry) {

@@ -141,7 +141,7 @@ function protocolIcon(p) {
 }
 
 function addPane(type, protocol, config) {
-  const id = `pane-${Date.now()}`;
+  const id = `pane-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`;
   panes.value.push({
     id, name: config?.host ? `${config.username}@${config.host}` : `${protocol.toUpperCase()} ${panes.value.length + 1}`,
     protocol, type, config: config || null, status: 'disconnected', lastError: ''
@@ -247,6 +247,8 @@ function switchToDirection(delta) {
 
 let keyHandler = null;
 function onKeyDown(e) {
+  if (!document.querySelector('.split-pane-terminal')?.contains(document.activeElement) &&
+      !document.querySelector('.xterm')?.contains(document.activeElement)) return;
   if (e.ctrlKey && e.key === 'Tab') {
     e.preventDefault();
     e.shiftKey ? switchToPrev() : switchToNext();

@@ -233,16 +233,18 @@ function restoreSavedLayout() {
   }
 }
 
+let layoutRestored = false;
 onMounted(() => {
   processPendingConnections();
-  if (connectionStore.pendingConnections.length === 0) restoreSavedLayout();
+  if (connectionStore.pendingConnections.length === 0) { restoreSavedLayout(); layoutRestored = true; }
   document.addEventListener('click', onDocClick);
 });
 onActivated(() => {
-  processPendingConnections();
+  if (!layoutRestored) { processPendingConnections(); restoreSavedLayout(); layoutRestored = true; }
 });
 
 onBeforeUnmount(() => {
+  if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
   if (splitPaneRef.value?.panes?.length > 0) {
     terminalStore.saveLayout(splitPaneRef.value.panes);
   }

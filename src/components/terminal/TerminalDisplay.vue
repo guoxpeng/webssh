@@ -339,14 +339,7 @@ const initializeTerminal = async () => {
     wsService?.sendMessage(data);
   });
 
-  term.onSelectionChange(() => {
-    if (term?.hasSelection()) {
-      const selected = term.getSelection();
-      if (selected) {
-        try { navigator.clipboard.writeText(selected); } catch {}
-      }
-    }
-  });
+
 
   term.attachCustomKeyEventHandler((e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f' && e.type === 'keydown') {
@@ -394,6 +387,7 @@ function closeSearch() {
 
 async function onTerminalContextMenu() {
   if (!term || !wsService) return;
+  if (term.hasSelection()) return;
   try {
     const text = await navigator.clipboard.readText();
     if (text) wsService.sendMessage(text);

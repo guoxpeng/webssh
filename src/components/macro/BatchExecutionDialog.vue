@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useMacroStore } from '@/stores/macroStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useSnippetStore } from '@/stores/snippetStore';
@@ -176,6 +176,10 @@ watch(() => props.presetSteps, (steps) => {
     selectedMacroId.value = m.id;
   }
 }, { immediate: true });
+
+onBeforeUnmount(() => {
+  if (tempMacroId.value) { store.removeMacro(tempMacroId.value); tempMacroId.value = null; }
+});
 </script>
 
 <style scoped>

@@ -296,6 +296,7 @@ export default {
     deleted: 'Deleted successfully.',
     uploaded: 'Uploaded {name}.',
     uploadFailed: 'Failed to upload {name}: {error}',
+    fileTooLarge: '{name} exceeds 50MB limit',
     downloaded: 'Downloaded {name}.',
     notConnected: 'Not connected to a server.',
     noCredential: 'No password/key available. Reconnect to this server first.',

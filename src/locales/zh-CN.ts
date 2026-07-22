@@ -296,6 +296,7 @@ export default {
     deleted: '删除成功。',
     uploaded: '已上传 {name}。',
     uploadFailed: '上传 {name} 失败：{error}',
+    fileTooLarge: '{name} 超过 50MB 限制',
     downloaded: '已下载 {name}。',
     notConnected: '未连接到服务器。',
     noCredential: '无可用密码/密钥，请重新连接此服务器。',
