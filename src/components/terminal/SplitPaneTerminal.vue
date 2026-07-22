@@ -16,7 +16,14 @@
     <div class="pane-body">
       <template v-for="(pane, idx) in panes" :key="pane.id">
         <div v-show="idx === activePane" class="pane-content">
-          <TerminalDisplay :node-config="pane.config" v-if="pane.type === 'terminal'" @status-change="(s) => onPaneStatus(idx, s)"/>
+          <TerminalDisplay :node-config="pane.config" v-if="pane.type === 'terminal' && pane.status !== 'error'"
+                           @status-change="(s) => onPaneStatus(idx, s)"
+                           @error-message="(m) => onPaneError(idx, m)"/>
+          <ConnectionErrorPanel v-else-if="pane.type === 'terminal' && pane.status === 'error'"
+                                :config="pane.config" :message="pane.lastError"
+                                @retry="retryPane(idx)"
+                                @edit="editPane(idx)"
+                                @close="closePane(idx)"/>
           <SftpBrowser v-else-if="pane.type === 'sftp'" :node-config="pane.config" @close="closePane(idx)"/>
           <DockerPanel v-else-if="pane.type === 'docker'" :session-id="pane.id" @close="closePane(idx)"/>
           <ProtocolInfoPanel v-else-if="pane.type === 'info'" :protocol="pane.protocol" :config="pane.config"/>
@@ -33,7 +40,10 @@
 <script setup>
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
+import { useNotifications } from '@/composables/useNotifications';
 import TerminalDisplay from './TerminalDisplay.vue';
+import ConnectionErrorPanel from './ConnectionErrorPanel.vue';
 import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
 import ProtocolInfoPanel from './ProtocolInfoPanel.vue';
 import DockerPanel from '@/components/docker/DockerPanel.vue';
@@ -41,6 +51,7 @@ import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
 import { Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
 
 const { t } = useI18n();
+const router = useRouter();
 const panes = ref([]);
 const activePane = ref(0);
 
@@ -53,7 +64,7 @@ function addPane(type, protocol, config) {
   const id = `pane-${Date.now()}`;
   panes.value.push({
     id, name: config?.host ? `${config.username}@${config.host}` : `${protocol.toUpperCase()} ${panes.value.length + 1}`,
-    protocol, type, config: config || null, status: 'disconnected'
+    protocol, type, config: config || null, status: 'disconnected', lastError: ''
   });
   activePane.value = panes.value.length - 1;
 }
@@ -72,6 +83,22 @@ function closePane(idx) {
 
 function onPaneStatus(idx, status) {
   if (panes.value[idx]) panes.value[idx].status = status;
+}
+function onPaneError(idx, message) {
+  if (panes.value[idx]) panes.value[idx].lastError = message;
+}
+function retryPane(idx) {
+  const pane = panes.value[idx];
+  if (!pane) return;
+  pane.status = 'disconnected';
+  pane.lastError = '';
+}
+function editPane(idx) {
+  const pane = panes.value[idx];
+  if (!pane || !pane.config) return;
+  const host = pane.config.host || '';
+  const { showInfo } = useNotifications();
+  showInfo(t('form.loadedForEditing', { name: pane.config.name || host }));
 }
 
 defineExpose({ panes, activePane, addPane,

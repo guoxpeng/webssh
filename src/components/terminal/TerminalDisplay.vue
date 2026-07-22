@@ -40,7 +40,7 @@ const props = defineProps({
   nodeConfig: { type: Object, required: true },
 });
 
-const emit = defineEmits(['status-change']);
+const emit = defineEmits(['status-change', 'error-message']);
 
 const xtermContainerRef = ref(null);
 let term = null;
@@ -130,6 +130,7 @@ const initializeTerminal = async () => {
       const errorMessage = typeof errorEventOrMessage === 'string' ? errorEventOrMessage
         : (errorEventOrMessage.message || 'Unknown WebSocket error');
       emit('status-change', 'error');
+      emit('error-message', errorMessage);
       terminalStore.setActiveSendFunction(null);
       term?.writeln(`\r\n\x1b[31m❌ ${errorMessage}\x1b[0m`);
       if (!reconnectScheduled) scheduleReconnect();
