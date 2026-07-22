@@ -140,8 +140,35 @@ html, body {
 }
 
 /* Responsive padding tweaks */
+@media screen and (max-width: 768px) {
+  .container { padding-left: 0.5rem; padding-right: 0.5rem; }
+  body { -webkit-text-size-adjust: 100%; }
+
+  .app-page { padding: 0.4rem !important; }
+  :deep(.workbench-content) { padding: 0.5rem !important; }
+
+  /* Larger touch areas in side nav */
+  .sidebar-item { padding: 0.75rem 0.85rem !important; min-height: 48px; }
+  .sidebar-label { font-size: 0.95em !important; }
+
+  /* Condensed toolbar */
+  .terminal-toolbar { padding: 0.2rem 0.4rem !important; gap: 0.3rem; }
+  .toolbar-btn { padding: 0.25rem 0.4rem !important; font-size: 0.7em; }
+
+  /* Connection form full width */
+  .conn-layout { grid-template-columns: 1fr !important; }
+  .conn-sidebar { max-width: 100% !important; }
+
+  /* SFTP panel full-width on mobile */
+  .sftp-panel { width: 100% !important; position: absolute; inset: 0; z-index: 30; }
+  .sftp-divider { display: none; }
+  .terminal-pane { width: 100% !important; }
+}
+
 @media screen and (max-width: 480px) {
-  .container { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .saved-item { padding: 0.55rem 0.5rem; }
+  .saved-item-name { font-size: 0.8rem; }
+  .toolbar-title { font-size: 0.75em; }
 }
 
 /* Prevent text selection on long-press in terminal */
