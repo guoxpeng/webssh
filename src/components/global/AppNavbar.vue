@@ -11,7 +11,7 @@
            class="navbar-burger"
            :class="{ 'is-active': menuActive }"
            @click="toggleMenu"
-           aria-label="menu"
+           :aria-label="t('common.menu')"
            :aria-expanded="menuActive ? 'true' : 'false'">
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>

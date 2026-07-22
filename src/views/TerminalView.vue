@@ -10,7 +10,7 @@
       <div class="toolbar-right" v-if="terminalStore.activeSession">
         <ProtocolBadge :protocol="connectionStore.currentNodeDetails?.protocol || 'ssh'" />
         <span class="toolbar-status" :class="`is-${connectionStore.connectionStatus}`">
-          <span class="status-dot"></span>{{ connectionStore.connectionStatus }}
+          <span class="status-dot"></span>{{ t('status.' + connectionStore.connectionStatus, connectionStore.connectionStatus) }}
         </span>
         <div class="quick-cmds" v-if="terminalStore.recentCommands.length > 0">
           <button class="toolbar-btn" @click="showQuickCmds = !showQuickCmds" :title="t('terminal.recentCommands')">
@@ -29,6 +29,9 @@
           </div>
         </div>
         <button class="toolbar-btn" @click="handleResize" :title="t('terminal.fit')"><Maximize2 :size="14"/></button>
+        <button class="toolbar-btn" @click="openFileManager" :title="t('sftp.fileManager')">
+          <Folder :size="14"/>
+        </button>
         <button class="toolbar-btn" @click="showTunnels = !showTunnels" :title="t('terminal.tunnels')">
           <GitBranch :size="14"/>
         </button>
@@ -78,7 +81,7 @@ import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { ConnectionStatus } from '@/utils/constants';
-import { Power, Terminal, Server, Maximize2, GitBranch, Clock } from 'lucide-vue-next';
+import { Power, Terminal, Server, Maximize2, GitBranch, Clock, Folder } from 'lucide-vue-next';
 
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
@@ -93,6 +96,10 @@ const canDisconnect = computed(() =>
   connectionStore.connectionStatus === ConnectionStatus.CONNECTED ||
   connectionStore.connectionStatus === ConnectionStatus.CONNECTING
 );
+
+function openFileManager() {
+  splitPaneRef.value?.addPane('sftp', connectionStore.currentNodeDetails?.protocol || 'ssh');
+}
 
 function sendCommand(cmd) {
   if (connectionStore.isConnected) {

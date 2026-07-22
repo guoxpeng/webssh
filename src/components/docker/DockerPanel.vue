@@ -45,7 +45,7 @@
       </div>
       <div v-else class="docker-empty">
         <Container :size="32" class="docker-empty-icon"/>
-        <p class="is-size-7">Run `docker ps` on the server to see containers</p>
+        <p class="is-size-7">{{ t('common.noResults') }}</p>
       </div>
     </div>
   </div>

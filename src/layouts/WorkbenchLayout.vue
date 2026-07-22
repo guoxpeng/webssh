@@ -22,7 +22,7 @@
             <TerminalSquare :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
           </a>
-          <a class="sidebar-item" @click="showPalette = true" title="Quick search (Ctrl+P)" role="button" tabindex="0">
+          <a class="sidebar-item" @click="showPalette = true" :title="t('nav.quickSearch')" role="button" tabindex="0">
             <Search :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.search') }}</span>
           </a>
@@ -34,7 +34,7 @@
             <Settings :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.settings') }}</span>
           </a>
-          <a class="sidebar-item" @click="toggleTheme" title="Toggle theme" role="button" tabindex="0">
+          <a class="sidebar-item" @click="toggleTheme" :title="t('nav.toggleTheme')" role="button" tabindex="0">
             <Sun v-if="uiStore.currentTheme === 'light'" :size="22" stroke-width="1.5"/>
             <Moon v-else :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">
@@ -64,7 +64,7 @@
         </span>
       </div>
       <div class="statusbar-right">
-        <span class="statusbar-item">{{ terminalStore.sessionCount }} session{{ terminalStore.sessionCount !== 1 ? 's' : '' }}</span>
+        <span class="statusbar-item">{{ t('terminal.sessions', { count: terminalStore.sessionCount }) }}</span>
         <span class="statusbar-item">{{ uiStore.currentTheme === 'dark' ? t('settings.dark') : t('settings.light') }}</span>
         <span class="statusbar-item">
           <kbd class="statusbar-kbd">Ctrl+P</kbd>
@@ -159,7 +159,7 @@ onMounted(() => {
   // Auto-backup check
   const bakStore = useBackupStore();
   if (bakStore.shouldAutoBackup()) {
-    bakStore.createBackup('Auto-backup', bakStore.scheduler.includeCredentials).then(() => {
+    bakStore.createBackup(t('backup.autoLabel'), bakStore.scheduler.includeCredentials).then(() => {
       bakStore.cleanupOldBackups();
     });
   }

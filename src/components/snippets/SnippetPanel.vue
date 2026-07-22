@@ -95,7 +95,7 @@ function addNew() {
   store.addSnippet({ title: newTitle.value.trim(), command: newCommand.value.trim(), tags, favorite: false });
   newTitle.value = ''; newCommand.value = ''; newTags.value = '';
   showAddForm.value = false;
-  showSuccess('Snippet added.');
+  showSuccess(t('snippets.added'));
 }
 
 function runSnippet(s) {
@@ -110,7 +110,7 @@ function exportSnips() {
   a.href = url; a.download = `haossh-snippets-${Date.now()}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  showSuccess('Snippets exported.');
+  showSuccess(t('snippets.exported'));
 }
 
 function triggerImport() { importInput.value?.click(); }
@@ -121,8 +121,8 @@ function onImportFile(e) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     const count = store.importSnippets(ev.target?.result || '');
-    if (count > 0) showSuccess(`Imported ${count} snippets.`);
-    else showError('No valid snippets found.');
+    if (count > 0) showSuccess(t('snippets.imported', { count }));
+    else showError(t('snippets.importFailed'));
   };
   reader.readAsText(file);
   e.target.value = '';

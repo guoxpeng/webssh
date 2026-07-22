@@ -1,12 +1,12 @@
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="modal is-active" role="dialog" aria-modal="true" :aria-label="title"
+    <div v-if="visible" class="modal is-active" role="dialog" aria-modal="true" :aria-label="title || t('common.confirm')"
          @keydown.escape="onCancel" ref="dialogRef">
       <div class="modal-background" @click="onCancel"></div>
       <div class="modal-card" ref="cardRef">
         <header class="modal-card-head">
           <p class="modal-card-title">{{ title }}</p>
-          <button class="delete" aria-label="Close dialog" @click="onCancel"></button>
+          <button class="delete" :aria-label="t('common.close')" @click="onCancel"></button>
         </header>
         <section class="modal-card-body">
           <p>{{ message }}</p>
@@ -22,13 +22,16 @@
 
 <script setup>
 import { ref, watch, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  title: { type: String, default: 'Confirm' },
-  message: { type: String, default: 'Are you sure?' },
-  confirmText: { type: String, default: 'Confirm' },
-  cancelText: { type: String, default: 'Cancel' },
+  title: { type: String, default: undefined },
+  message: { type: String, default: undefined },
+  confirmText: { type: String, default: undefined },
+  cancelText: { type: String, default: undefined },
 });
 
 const emit = defineEmits(['confirm', 'cancel']);

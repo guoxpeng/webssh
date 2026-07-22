@@ -7,17 +7,19 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
+
+const { t } = useI18n();
 
 const props = defineProps({
   protocol: { type: String, default: 'ssh' },
 });
 
 const iconMap = { ssh: Terminal, rdp: Monitor, vnc: Video, telnet: Wifi };
-const labelMap = { ssh: 'SSH', rdp: 'RDP', vnc: 'VNC', telnet: 'Telnet' };
 
 const icon = computed(() => iconMap[props.protocol]);
-const protocolLabel = computed(() => labelMap[props.protocol] || props.protocol.toUpperCase());
+const protocolLabel = computed(() => t('protocol.' + props.protocol, props.protocol.toUpperCase()));
 </script>
 
 <style lang="scss" scoped>

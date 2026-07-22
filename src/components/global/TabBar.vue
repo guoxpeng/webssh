@@ -9,16 +9,20 @@
         <span class="tab-indicator" :class="`is-${session.status}`"></span>
         <span class="tab-label">{{ session.name }}</span>
         <button class="tab-close" @click.stop="$emit('close', session.id)"
-                aria-label="Close session">&times;</button>
+                 :aria-label="t('terminal.closeSession')">&times;</button>
       </div>
     </div>
     <div class="tab-actions">
-      <span class="tag is-light is-small">{{ sessions.length }} session{{ sessions.length > 1 ? 's' : '' }}</span>
+      <span class="tag is-light is-small">{{ t('terminal.sessions', { count: sessions.length }) }}</span>
     </div>
   </div>
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+
 defineProps({
   sessions: { type: Array, required: true },
   activeId: { type: String, default: null },

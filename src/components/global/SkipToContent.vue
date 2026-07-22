@@ -1,10 +1,14 @@
 <template>
   <a href="#main-content" class="skip-to-content" @click.prevent="skip">
-    Skip to content
+    {{ t('common.skipToContent') }}
   </a>
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+
 function skip() {
   const el = document.getElementById('main-content');
   if (el) { el.setAttribute('tabindex', '-1'); el.focus(); }

@@ -2,9 +2,9 @@
   <footer class="footer app-footer">
     <div class="content has-text-centered">
       <p>
-        <strong>WebSSH | arksec.net</strong> &copy; {{ new Date().getFullYear() }}.
+        <strong>{{ t('app.name') }} | arksec.net</strong> &copy; {{ new Date().getFullYear() }}.
         <span class="is-size-7 has-text-grey-light">
-          Crafted with <Heart :size="14" fill="red" color="red" class="icon-heart"/>
+          {{ t('app.tagline') }} <Heart :size="14" fill="red" color="red" class="icon-heart"/>
         </span>
       </p>
     </div>
@@ -12,7 +12,10 @@
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n';
 import { Heart } from 'lucide-vue-next';
+
+const { t } = useI18n();
 </script>
 
 <style lang="scss" scoped>

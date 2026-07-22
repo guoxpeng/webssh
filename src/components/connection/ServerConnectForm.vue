@@ -14,15 +14,18 @@
       <div class="form-field span-2">
         <label for="scf-name">{{ t('form.label') }}</label>
         <div class="input-wrap">
-          <Tag :size="15"/>
+          <FileText :size="15"/>
           <input id="scf-name" v-model.trim="form.name" :placeholder="t('form.label')" required/>
         </div>
       </div>
 
       <div class="form-field span-2">
         <label for="scf-group">{{ t('form.group') }}</label>
-        <input id="scf-group" v-model="form.group" list="group-suggestions"
-               :placeholder="t('form.groupPlaceholder')" class="input-sm"/>
+        <div class="input-wrap">
+          <Folder :size="15"/>
+          <input id="scf-group" v-model="form.group" list="group-suggestions"
+                 :placeholder="t('form.groupPlaceholder')"/>
+        </div>
         <datalist id="group-suggestions">
           <option v-for="g in existingGroups" :key="g" :value="g"/>
         </datalist>
@@ -38,7 +41,10 @@
 
       <div class="form-field">
         <label for="scf-port">{{ t('form.port') }}</label>
-        <input id="scf-port" v-model.number="form.port" type="number" min="1" max="65535" class="input-sm" required/>
+        <div class="input-wrap">
+          <Network :size="15"/>
+          <input id="scf-port" v-model.number="form.port" type="number" min="1" max="65535" required/>
+        </div>
       </div>
 
       <div class="form-field">
@@ -57,7 +63,7 @@
         <label for="scf-user">{{ t('form.username') }}</label>
         <div class="input-wrap">
           <User :size="15"/>
-          <input id="scf-user" v-model.trim="form.username" placeholder="root" required/>
+          <input id="scf-user" v-model.trim="form.username" :placeholder="t('form.username')" required/>
         </div>
       </div>
 
@@ -80,19 +86,22 @@
                     class="key-input"/>
           <input v-else v-model="form.auth_value" type="password"
                  :placeholder="t('form.passwordPlaceholder')" :required="authValueRequired" autocomplete="new-password"/>
+          <div v-if="form.auth_type === 'key'" class="key-actions">
+            <button type="button" class="key-upload-btn" @click="triggerKeyFileInput" :title="t('form.keyFileUpload')">
+              <Upload :size="14"/>
+            </button>
+            <input type="file" ref="keyFileInputRef" accept=".pem,.ppk,.key,.cer,.id_rsa,.id_ecdsa,.id_ed25519" style="display:none" @change="onKeyFileSelect"/>
+          </div>
+        </div>
+        <div v-if="form.auth_type === 'key' && keyFileInfo" class="key-info">
+          <span class="key-info-badge" :class="'is-' + keyFileInfo.type">{{ keyFileInfo.label }}</span>
+          <span class="key-info-detail">{{ keyFileInfo.detail }}</span>
         </div>
         <p v-if="willUseRememberedCredentialForSubmit" class="form-hint is-success">
           <CheckCircle :size="12"/> {{ t('form.usingRemembered') }}
         </p>
       </div>
 
-      <div class="form-field span-2">
-        <label class="checkbox-label">
-          <input type="checkbox" v-model="form.rememberForSession"/>
-          <span>{{ t('form.rememberSession') }}</span>
-          <HelpCircle :size="13" class="hint-icon" :title="t('form.rememberHint')"/>
-        </label>
-      </div>
     </div>
 
     <div class="form-actions">
@@ -112,7 +121,7 @@ import { ref, computed, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { ConnectionStatus } from '@/utils/constants';
-import { Tag, Server as ServerIcon, User, KeyRound, TerminalSquare, ShieldCheck, RotateCcw, HelpCircle, CheckCircle, Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
+import { FileText, Folder, Network, Server as ServerIcon, User, KeyRound, TerminalSquare, ShieldCheck, RotateCcw, CheckCircle, Upload, Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
 import { useNotifications } from '@/composables/useNotifications';
 
 const { t } = useI18n();
@@ -122,7 +131,64 @@ const emit = defineEmits(['connect', 'test-connection', 'form-cleared']);
 
 const connectionStore = useConnectionStore();
 const formElement = ref(null);
+const keyFileInputRef = ref(null);
+const keyFileInfo = ref(null);
 const { showError } = useNotifications();
+
+const KEY_TYPE_MAP = {
+  'OPENSSH':    { label: 'OpenSSH',   class: 'openssh' },
+  'RSA':        { label: 'RSA',       class: 'rsa' },
+  'EC':         { label: 'ECDSA',     class: 'ecdsa' },
+  'DSA':        { label: 'DSA',       class: 'dsa' },
+  'SSH2':       { label: 'SSH2',      class: 'ssh2' },
+  'PUTTY':      { label: 'PuTTY PPK', class: 'putty' },
+  'PRIVATE KEY':{ label: 'Private Key', class: 'generic' },
+};
+
+function detectKeyType(content) {
+  if (!content || typeof content !== 'string') return null;
+  const trimmed = content.trim();
+  const firstLine = trimmed.split('\n')[0].trim();
+  for (const [marker, info] of Object.entries(KEY_TYPE_MAP)) {
+    if (firstLine.includes(marker) || firstLine.includes(`BEGIN ${marker}`)) {
+      return info;
+    }
+  }
+  if (trimmed.startsWith('PuTTY-User-Key-File')) return KEY_TYPE_MAP.PUTTY;
+  return null;
+}
+
+function triggerKeyFileInput() {
+  keyFileInputRef.value?.click();
+}
+
+function onKeyFileSelect(e) {
+  const file = e.target?.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const content = ev.target?.result;
+    if (typeof content === 'string') {
+      form.value.auth_value = content;
+      const detected = detectKeyType(content);
+      if (detected) {
+        keyFileInfo.value = {
+          type: detected.class,
+          label: detected.label,
+          detail: file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)',
+        };
+      } else {
+        keyFileInfo.value = {
+          type: 'generic',
+          label: file.name,
+          detail: (file.size / 1024).toFixed(1) + ' KB',
+        };
+      }
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
 
 const protocols = [
   { id: 'ssh', label: 'SSH', icon: Terminal },
@@ -134,9 +200,9 @@ const protocols = [
 const existingGroups = computed(() => connectionStore.groups.filter(g => g !== 'Ungrouped'));
 
 const defaultForm = () => ({
-  id: null, name: 'My Server ' + (Date.now() % 10000),
+  id: null, name: t('form.defaultName', { n: Date.now() % 10000 }),
   host: '', port: 22, username: '', protocol: 'ssh', group: '',
-  auth_type: 'password', auth_value: '', rememberForSession: false,
+  auth_type: 'password', auth_value: '',
 });
 
 const form = ref(defaultForm());
@@ -145,7 +211,7 @@ const isConnecting = computed(() => connectionStore.connectionStatus === Connect
 const isLoading = computed(() => isTesting.value || isConnecting.value);
 
 const willUseRememberedCredentialForSubmit = computed(() =>
-  !!(form.value.id && form.value.rememberForSession && !form.value.auth_value.trim() &&
+  !!(form.value.id && !form.value.auth_value.trim() &&
     connectionStore.getCredentialFromSessionStorage(form.value.id)?.auth_value)
 );
 
@@ -164,7 +230,7 @@ watch(() => props.initialData, (d) => {
 
 function clearForm() {
   form.value = defaultForm();
-  form.value.name = `My Server ${connectionStore.savedConnections.length + 1}`;
+  form.value.name = t('form.defaultName', { n: connectionStore.savedConnections.length + 1 });
   connectionStore.sshTestResult = null;
   emit('form-cleared');
 }
@@ -184,8 +250,7 @@ function validate() {
 
 function submit(action) {
   if (!validate()) return;
-  emit(action === 'connect' ? 'connect' : 'test-connection', { ...form.value });
-  if (!willUseRememberedCredentialForSubmit.value) form.value.auth_value = '';
+  emit(action === 'connect' ? 'connect' : 'test-connection', { ...form.value, rememberForSession: true });
 }
 
 const onConnectSubmit = () => submit('connect');
@@ -244,6 +309,39 @@ const onTestSubmit = () => submit('test');
   flex: 1; border: none; background: none; outline: none; font-size: 0.8em;
   font-family: var(--bulma-family-monospace); resize: vertical; color: var(--bulma-text);
   min-height: 70px;
+}
+
+.key-actions {
+  display: flex; flex-direction: column; gap: 2px; align-self: stretch;
+  justify-content: flex-start; padding-top: 2px;
+}
+
+.key-upload-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border: 1.5px solid var(--bulma-border);
+  border-radius: 6px; background: var(--bulma-input-background-color);
+  color: var(--bulma-text-light); cursor: pointer; transition: all 0.12s;
+  &:hover { border-color: var(--bulma-primary); color: var(--bulma-primary); background: rgba(99,102,241,0.06); }
+}
+
+.key-info {
+  display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem;
+}
+
+.key-info-badge {
+  font-size: 0.65em; font-weight: 600; padding: 1px 6px; border-radius: 4px;
+  &.is-openssh { background: hsl(155, 30%, 92%); color: hsl(155, 55%, 30%); }
+  &.is-rsa { background: hsl(210, 30%, 92%); color: hsl(210, 55%, 30%); }
+  &.is-ecdsa { background: hsl(270, 30%, 92%); color: hsl(270, 55%, 40%); }
+  &.is-dsa { background: hsl(40, 30%, 92%); color: hsl(40, 55%, 30%); }
+  &.is-putty { background: hsl(330, 30%, 92%); color: hsl(330, 55%, 35%); }
+  &.is-ssh2 { background: hsl(190, 30%, 92%); color: hsl(190, 55%, 30%); }
+  &.is-generic { background: hsl(0, 0%, 92%); color: hsl(0, 0%, 40%); }
+}
+
+.key-info-detail {
+  font-size: 0.7em; color: var(--bulma-text-light);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .protocol-selector {

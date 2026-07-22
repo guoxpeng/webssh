@@ -4,7 +4,7 @@
       <h3 class="panel-title"><Database :size="16"/> {{ t('backup.title') }}</h3>
       <div class="panel-actions">
         <button class="panel-action-btn" @click="createNew" :disabled="store.creating" :title="t('backup.create')">
-          <Plus :size="14"/> New
+          <Plus :size="14"/> {{ t('backup.new') }}
         </button>
         <button class="panel-action-btn" @click="triggerImport" :title="t('snippets.import')">
           <Upload :size="14"/>
@@ -65,7 +65,7 @@
         <ChevronRight :size="12" class="section-chevron" :class="{ 'is-open': showScheduleForm }"/>
         <span>{{ t('backup.autoBackup') }}</span>
         <span class="section-badge" v-if="store.scheduler.enabled">{{ store.scheduler.interval }}</span>
-        <span class="section-badge is-disabled" v-else>off</span>
+        <span class="section-badge is-disabled" v-else>{{ t('common.off') }}</span>
       </div>
       <div v-if="showScheduleForm" class="section-body">
         <label class="toggle-label">
@@ -100,8 +100,8 @@
       <div class="section-header" @click="showCloudForm = !showCloudForm">
         <ChevronRight :size="12" class="section-chevron" :class="{ 'is-open': showCloudForm }"/>
         <span>{{ t('backup.cloudBackup') }}</span>
-        <span class="section-badge" v-if="store.cloud.enabled">on</span>
-        <span class="section-badge is-disabled" v-else>off</span>
+        <span class="section-badge" v-if="store.cloud.enabled">{{ t('common.on') }}</span>
+        <span class="section-badge is-disabled" v-else>{{ t('common.off') }}</span>
       </div>
       <div v-if="showCloudForm" class="section-body">
         <label class="toggle-label">
@@ -146,13 +146,13 @@
             <div class="backup-info">
               <span class="backup-label">
                 {{ bak.label }}
-                <Lock v-if="bak.encrypted" :size="10" class="inv-lock" title="Encrypted"/>
-                <ShieldCheck v-if="bak.checksum" :size="10" class="inv-check" title="Integrity verified"/>
+                <Lock v-if="bak.encrypted" :size="10" class="inv-lock" :title="t('common.encrypted')"/>
+                <ShieldCheck v-if="bak.checksum" :size="10" class="inv-check" :title="t('common.integrityVerified')"/>
               </span>
               <span class="backup-meta">
                 {{ formatTime(bak.createdAt) }}
-                &middot; {{ bak.connections.length }} conns
-                <template v-if="bak.inventory?.credentialCount"> &middot; {{ bak.inventory.credentialCount }} creds</template>
+                &middot; {{ t('backup.connections', { count: bak.connections.length }) }}
+                <template v-if="bak.inventory?.credentialCount"> &middot; {{ t('backup.credentials', { count: bak.inventory.credentialCount }) }}</template>
                 &middot; {{ formatSize(bak.size) }}
               </span>
             </div>
@@ -214,7 +214,7 @@ function formatTime(ts) {
 }
 
 function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024) return bytes + ' ' + t('common.bytes');
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
@@ -231,7 +231,7 @@ async function createNew() {
 }
 
 async function doRestore(bak) {
-  const credInfo = bak.inventory?.credentialCount ? ` (${bak.inventory.credentialCount} encrypted credentials)` : '';
+  const credInfo = bak.inventory?.credentialCount ? t('backup.restoreCredInfo', { count: bak.inventory.credentialCount }) : '';
   if (!confirm(t('backup.restoreConfirm', { label: bak.label, connCount: bak.connections.length }))) return;
   restoringId.value = bak.id;
   try {

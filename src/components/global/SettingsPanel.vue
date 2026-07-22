@@ -34,7 +34,7 @@
               <span>{{ t('settings.fontSize') }}</span>
               <div class="buttons are-small has-addons">
                 <button class="button" @click="adjustFontSize(-1)" :disabled="fontSize <= 12">{{ t('settings.fontSizeDecrease') }}</button>
-                <button class="button is-static">{{ fontSize }}px</button>
+                <button class="button is-static">{{ fontSize }}<span class="is-sr-only">{{ t('common.pixels') }}</span>px</button>
                 <button class="button" @click="adjustFontSize(1)" :disabled="fontSize >= 20">{{ t('settings.fontSizeIncrease') }}</button>
               </div>
             </div>
@@ -123,12 +123,12 @@ const currentLocale = ref(localStorage.getItem('appLocale') || 'en-US');
 
 const themes = [
   {
-    id: 'light', label: 'Light',
+    id: 'light', label: t('settings.light'),
     colors: { primary: '#6366f1', sidebar: '#f0f2f8', text: '#cdd0db' },
     previewStyle: { background: '#f8f9fc' },
   },
   {
-    id: 'dark', label: 'Dark',
+    id: 'dark', label: t('settings.dark'),
     colors: { primary: '#818cf8', sidebar: '#1a1a2e', text: '#64647a' },
     previewStyle: { background: '#0f0f1a' },
   },

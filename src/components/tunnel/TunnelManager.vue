@@ -18,16 +18,25 @@
       </div>
       <div class="field">
         <label class="label is-small">{{ form.type === 'local' ? t('tunnel.localPort') : t('tunnel.bindPort') }}</label>
-        <input class="input is-small" type="number" v-model.number="form.bindPort" placeholder="8080"/>
+        <div class="input-wrap">
+          <Network :size="14"/>
+          <input class="input is-small" type="number" v-model.number="form.bindPort" placeholder="8080"/>
+        </div>
       </div>
       <template v-if="form.type !== 'dynamic'">
         <div class="field">
           <label class="label is-small">{{ t('tunnel.targetHost') }}</label>
-          <input class="input is-small" v-model="form.targetHost" placeholder="localhost"/>
+          <div class="input-wrap">
+            <Server :size="14"/>
+            <input class="input is-small" v-model="form.targetHost" :placeholder="t('tunnel.targetHost')"/>
+          </div>
         </div>
         <div class="field">
           <label class="label is-small">{{ t('tunnel.targetPort') }}</label>
-          <input class="input is-small" type="number" v-model.number="form.targetPort" placeholder="3306"/>
+          <div class="input-wrap">
+            <Network :size="14"/>
+            <input class="input is-small" type="number" v-model.number="form.targetPort" placeholder="3306"/>
+          </div>
         </div>
       </template>
       <div class="field is-grouped is-grouped-right">
@@ -44,12 +53,12 @@
         </div>
         <div class="tunnel-status">
           <span class="status-dot" :class="`is-${tun.status}`"></span>
-          <button class="button is-small is-text" @click="deleteTunnel(tun.id)" title="Delete tunnel">&times;</button>
+          <button class="button is-small is-text" @click="deleteTunnel(tun.id)" :title="t('common.remove')">&times;</button>
         </div>
       </div>
     </div>
     <div v-else class="tunnel-empty">
-      <p class="is-size-7 has-text-grey">No tunnels configured</p>
+      <p class="is-size-7 has-text-grey">{{ t('common.noResults') }}</p>
     </div>
   </div>
 </template>
@@ -58,7 +67,7 @@
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
-import { GitBranch } from 'lucide-vue-next';
+import { GitBranch, Network, Server } from 'lucide-vue-next';
 
 const tunnels = ref([]);
 const showForm = ref(false);
@@ -116,6 +125,13 @@ function deleteTunnel(id) {
   margin-bottom: 0.5rem;
   .field { margin-bottom: 0.35rem; }
   .label { font-size: 0.7em; }
+  .input-wrap {
+    display: flex; align-items: center; gap: 0.35rem;
+    padding: 0.3rem 0.5rem; border-radius: 6px;
+    border: 1.5px solid var(--bulma-border); background: var(--bulma-input-background-color);
+    input { flex: 1; border: none; background: none; outline: none; font-size: 0.8em; color: var(--bulma-text); }
+    .lucide { flex-shrink: 0; color: var(--bulma-text-light); }
+  }
 }
 
 .tunnel-item {

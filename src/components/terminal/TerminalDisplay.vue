@@ -23,6 +23,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 // import { AttachAddon } from '@xterm/addon-attach'; // 如果您决定使用 AttachAddon
 
+import { useI18n } from 'vue-i18n';
 import { useUiStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { ConnectionStatus } from '@/utils/constants';
@@ -34,6 +35,7 @@ const props = defineProps({
   }
 });
 
+const { t } = useI18n();
 const xtermContainerRef = ref(null);
 const uiStore = useUiStore(); // 仅用于主题切换，如果终端颜色固定则不需要
 const connectionStore = useConnectionStore();
@@ -122,11 +124,11 @@ const initializeTerminal = async () => {
 
   const scheduleReconnect = () => {
     if (reconnectAttempt >= RECONNECT_DELAYS.length) {
-      term.writeln('\r\n\x1b[31m❌ Max reconnection attempts reached.\x1b[0m');
+      term.writeln('\r\n\x1b[31m❌ ' + t('terminal.maxReconnects') + '\x1b[0m');
       return;
     }
     const delay = RECONNECT_DELAYS[reconnectAttempt++];
-    term.writeln(`\r\n\x1b[33m↻ Reconnecting in ${delay / 1000}s (attempt ${reconnectAttempt}/${RECONNECT_DELAYS.length})...\x1b[0m`);
+    term.writeln(`\r\n\x1b[33m↻ ${t('terminal.reconnecting', { sec: delay / 1000, attempt: reconnectAttempt, max: RECONNECT_DELAYS.length })}\x1b[0m`);
     reconnectTimer = setTimeout(() => {
       connectionStore.connectToShell(props.nodeConfig, callbacks);
     }, delay);
@@ -143,7 +145,7 @@ const initializeTerminal = async () => {
   const callbacks = {
     onOpen: () => {
       clearReconnect();
-      term.writeln('\r\n\x1b[32m✅ SSH session initiated.\x1b[0m');
+      term.writeln('\r\n\x1b[32m✅ ' + t('terminal.sessionInitiated') + '\x1b[0m');
       term.focus();
     },
     onMessage: (data) => {
@@ -151,7 +153,7 @@ const initializeTerminal = async () => {
     },
     onClose: (event) => {
       const reason = event.reason || (event.wasClean ? 'Clean close.' : 'Unclean close.');
-      term.writeln(`\r\n\x1b[33mℹ️ Connection closed. Code: ${event.code}. ${reason}\x1b[0m`);
+      term.writeln(`\r\n\x1b[33mℹ️ ${t('terminal.connectionClosed', { code: event.code, reason })}\x1b[0m`);
       if (connectionStore.connectionStatus !== ConnectionStatus.DISCONNECTED) {
         scheduleReconnect();
       }
@@ -159,7 +161,7 @@ const initializeTerminal = async () => {
     onError: (errorEventOrMessage) => {
       const errorMessage = typeof errorEventOrMessage === 'string' ? errorEventOrMessage
         : (errorEventOrMessage.message || 'Unknown WebSocket error');
-      term.writeln(`\r\n\x1b[31m❌ Error: ${errorMessage}\x1b[0m`);
+      term.writeln(`\r\n\x1b[31m❌ ${t('terminal.connectionError', { message: errorMessage })}\x1b[0m`);
       scheduleReconnect();
     }
   };

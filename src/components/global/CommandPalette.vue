@@ -70,9 +70,9 @@ function fuzzyMatch(text, pattern) {
 }
 
 const actionItems = computed(() => [
-  { id: 'action-new-conn', label: t('commandPalette.newConnection'), desc: t('commandPalette.newConnectionDesc'), icon: Plus, badge: 'Action', action: () => router.push('/') },
-  { id: 'action-terminal', label: t('commandPalette.openTerminal'), desc: t('commandPalette.openTerminalDesc'), icon: Terminal, badge: 'View', action: () => router.push('/terminal') },
-  { id: 'action-toggle-theme', label: t('commandPalette.toggleTheme', { theme: uiStore.currentTheme === 'light' ? 'Dark' : 'Light' }), desc: t('commandPalette.toggleThemeDesc'), icon: uiStore.currentTheme === 'light' ? Moon : Sun, badge: 'UI', action: () => uiStore.toggleTheme() },
+  { id: 'action-new-conn', label: t('commandPalette.newConnection'), desc: t('commandPalette.newConnectionDesc'), icon: Plus, badge: t('common.search'), action: () => router.push('/') },
+  { id: 'action-terminal', label: t('commandPalette.openTerminal'), desc: t('commandPalette.openTerminalDesc'), icon: Terminal, badge: t('nav.terminal'), action: () => router.push('/terminal') },
+  { id: 'action-toggle-theme', label: t('commandPalette.toggleTheme', { theme: uiStore.currentTheme === 'light' ? 'Dark' : 'Light' }), desc: t('commandPalette.toggleThemeDesc'), icon: uiStore.currentTheme === 'light' ? Moon : Sun, badge: t('settings.title'), action: () => uiStore.toggleTheme() },
 ]);
 
 const serverItems = computed(() =>
@@ -81,7 +81,7 @@ const serverItems = computed(() =>
     label: c.name,
     desc: `${c.username}@${c.host}:${c.port}`,
     icon: Server,
-    badge: 'Server',
+    badge: t('server.title'),
     action: () => {
       connectionStore.loadConnectionForEditing(c.id);
       const sid = terminalStore.createSession(connectionStore.currentNodeDetails);

@@ -13,10 +13,10 @@
         </button>
       </div>
       <div class="pane-actions">
-        <button class="pane-action-btn" @click="splitVertical" title="Split Vertical" v-if="panes.length < 4">
+        <button class="pane-action-btn" @click="splitVertical" :title="t('terminal.splitVertical')" v-if="panes.length < 4">
           <div class="split-icon-col"><span></span><span></span></div>
         </button>
-        <button class="pane-action-btn" @click="splitHorizontal" title="Split Horizontal" v-if="panes.length < 4">
+        <button class="pane-action-btn" @click="splitHorizontal" :title="t('terminal.splitHorizontal')" v-if="panes.length < 4">
           <div class="split-icon-row"><span></span><span></span></div>
         </button>
       </div>
@@ -39,13 +39,15 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import TerminalDisplay from './TerminalDisplay.vue';
 import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
 import DockerPanel from '@/components/docker/DockerPanel.vue';
 import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
 import { Terminal, Monitor, Video, Wifi, Plus } from 'lucide-vue-next';
 
-const panes = ref([{ id: 'pane-0', name: 'Terminal', protocol: 'ssh', type: 'terminal', config: null, status: 'disconnected' }]);
+const { t } = useI18n();
+const panes = ref([{ id: 'pane-0', name: t('terminal.title'), protocol: 'ssh', type: 'terminal', config: null, status: 'disconnected' }]);
 const activePane = ref(0);
 const gridLayout = ref({ direction: 'none', splits: [] });
 

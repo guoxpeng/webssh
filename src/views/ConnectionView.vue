@@ -68,17 +68,17 @@
               <div class="group-header" @click="toggleGroup(grp)" role="button" tabindex="0"
                    @keydown.enter="toggleGroup(grp)">
                 <ChevronRight :size="12" class="group-chevron" :class="{ 'is-open': openGroups.has(grp) }"/>
-                <span class="group-name">{{ grp }}</span>
+                <span class="group-name">{{ groupLabel(grp) }}</span>
                 <span class="group-count">{{ groupCounts[grp] }}</span>
               </div>
               <template v-if="openGroups.has(grp)">
                 <div v-for="(conn, idx) in groupConnections(grp)" :key="conn.id"
                      :ref="el => setItemRef(el, idx)"
                      class="saved-item" :class="{ 'is-focused': focusedIndex === idx }"
-                     @dblclick="quickConnect(conn)"
-                     @click="focusedIndex = idx"
+                      @dblclick="quickConnect(conn)"
+                      @click="loadForEditing(conn.id)"
                      @keydown.enter="quickConnect(conn)"
-                     tabindex="0" role="button" :aria-label="`Connect to ${conn.name}`">
+                     tabindex="0" role="button" :aria-label="t('server.connectTo', { name: conn.name })">
                   <div class="saved-item-left">
                     <ProtocolBadge :protocol="conn.protocol || 'ssh'"/>
                     <div class="saved-item-info">
@@ -129,6 +129,8 @@ const connectionStore = useConnectionStore();
 const router = useRouter();
 const { t } = useI18n();
 const { showSuccess, showError, showInfo, showWarning } = useNotifications();
+
+const groupLabel = (g) => g === 'Ungrouped' ? t('server.ungrouped') : g;
 
 const formInitialData = ref(null);
 const connectionToRemove = ref(null);
@@ -213,7 +215,7 @@ const testOutput = computed(() => {
   if (!r) return '';
   const lines = [];
   if (r.output?.length) lines.push(...r.output);
-  if (r.error?.length) lines.push('--- ERROR ---', ...r.error);
+  if (r.error?.length) lines.push(t('common.error'), ...r.error);
   return lines.join('\n');
 });
 
@@ -282,7 +284,7 @@ async function handleFormTest(nodeConfig) {
 function handleFormConnect(nodeConfig) {
   formInitialData.value = null;
   const saved = connectionStore.addConnection(nodeConfig);
-  connectionStore.setCurrentNodeDetails(saved);
+  connectionStore.setCurrentNodeDetails({ ...nodeConfig, id: saved.id });
   showInfo(t('form.connecting', { name: saved.name }));
   router.push({ name: 'Terminal' });
 }
@@ -297,7 +299,7 @@ function loadForEditing(id) {
 }
 
 function quickConnect(conn) {
-  const full = { ...conn, auth_type: conn.auth_type || 'password', auth_value: '', rememberForSession: false };
+  const full = { ...conn, auth_type: conn.auth_type || 'password', auth_value: '' };
   const remembered = connectionStore.getCredentialFromSessionStorage(conn.id);
   if (remembered?.auth_value) {
     full.auth_value = remembered.auth_value;
