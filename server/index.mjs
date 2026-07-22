@@ -30,6 +30,13 @@ setInterval(() => {
   }
 }, 30000);
 
+function findSession(host, port, username) {
+  for (const [id, s] of sessions) {
+    if (s.host === host && s.port === (port || 22) && s.username === username) return s.client;
+  }
+  return null;
+}
+
 // Prevent process crash on unhandled errors
 process.on('uncaughtException', (err) => {
   console.error('❗ Uncaught Exception:', err.message);
