@@ -17,21 +17,24 @@
 
         <div class="section">
           <label class="section-label">{{ t('macro.selectConnections') }}</label>
-          <div class="conn-search">
-            <Search :size="13" class="search-icon"/>
-            <input type="text" v-model="connSearch" :placeholder="t('macro.searchConn')" class="conn-search-input"/>
-          </div>
           <div class="conn-list">
             <label class="conn-item select-all-item" @click.stop>
               <input type="checkbox" :checked="allSelected" @change="toggleAll" class="conn-check"/>
               <span class="conn-name">{{ allSelected ? t('macro.deselectAll') : t('macro.selectAll') }}</span>
             </label>
-            <label v-for="conn in filteredConnections" :key="conn.id || conn.name" class="conn-item">
+            <label v-for="conn in connections" :key="conn.id || conn.name" class="conn-item">
               <input type="checkbox" :value="conn" v-model="selectedConnections" class="conn-check"/>
               <span class="conn-name">{{ conn.name || conn.host }}</span>
               <span class="conn-meta">{{ conn.protocol || 'SSH' }} · {{ conn.host }}</span>
             </label>
-            <div v-if="filteredConnections.length === 0" class="conn-empty">{{ t('macro.noConnections') }}</div>
+            <div v-if="connections.length === 0" class="conn-empty">{{ t('macro.noConnections') }}</div>
+          </div>
+          <button v-if="!confirmed && results.length === 0" class="btn-confirm-inline" :disabled="!canRun" @click="confirmed = true">
+            <Check :size="14"/> {{ t('macro.confirmSelection') }} ({{ selectedConnections.length }})
+          </button>
+          <div v-if="confirmed && results.length === 0" class="confirm-banner">
+            ✅ {{ t('macro.confirmedCount', { count: selectedConnections.length }) }}
+            <button class="unconfirm-btn" @click="confirmed = false">{{ t('macro.unconfirm') }}</button>
           </div>
         </div>
 
@@ -65,27 +68,15 @@
         </div>
       </div>
 
-      <div v-if="confirmed && results.length === 0" class="confirm-banner">
-        ✅ {{ t('macro.confirmedCount', { count: selectedConnections.length }) }}
-        <button class="unconfirm-btn" @click="confirmed = false">{{ t('macro.unconfirm') }}</button>
-      </div>
-
       <div class="batch-footer">
         <button class="btn-cancel" @click="$emit('close')" v-if="!running">{{ t('common.cancel') }}</button>
         <button v-if="results.length > 0 && !running" class="btn-reset" @click="results = []">
           <RotateCcw :size="14"/> {{ t('macro.runAgain') }}
         </button>
-        <template v-if="results.length === 0 && !confirmed">
-          <button class="btn-confirm" :disabled="!canRun" @click="confirmed = true">
-            <Check :size="14"/> {{ t('macro.confirmSelection') }} ({{ selectedConnections.length }})
-          </button>
-        </template>
-        <template v-if="confirmed && results.length === 0">
-          <button class="btn-run" :disabled="!canRun || running" @click="startBatch">
-            <Loader2 v-if="running" :size="14" class="spin"/>
-            {{ running ? t('macro.running') : t('macro.batchRun') }}
-          </button>
-        </template>
+        <button v-if="confirmed && results.length === 0" class="btn-run" :disabled="!canRun || running" @click="startBatch">
+          <Loader2 v-if="running" :size="14" class="spin"/>
+          {{ running ? t('macro.running') : t('macro.batchRun') }}
+        </button>
       </div>
     </div>
   </div>
@@ -97,7 +88,7 @@ import { useMacroStore } from '@/stores/macroStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
-import { Play, X, Search, Loader2, RotateCcw, Check } from 'lucide-vue-next';
+import { Play, X, Loader2, RotateCcw, Check } from 'lucide-vue-next';
 import SshWebSocketService from '@/services/sshWebSocketService';
 
 const { t } = useI18n();
@@ -108,7 +99,6 @@ const { showSuccess, showError } = useNotifications();
 
 const selectedMacroId = ref('');
 const selectedConnections = ref([]);
-const connSearch = ref('');
 const runDelay = ref(500);
 const stopOnError = ref(true);
 const running = ref(false);
@@ -118,15 +108,6 @@ const results = ref([]);
 
 const connections = computed(() => {
   return connStore.savedConnections || [];
-});
-
-const filteredConnections = computed(() => {
-  const q = connSearch.value.toLowerCase().trim();
-  if (!q) return connections.value;
-    return connections.value.filter(c =>
-      (c.name || '').toLowerCase().includes(q) ||
-      (c.host || '').toLowerCase().includes(q)
-    );
 });
 
 const selectedMacro = computed(() => {
@@ -303,6 +284,14 @@ function cancelRun() {
   border: 1px solid var(--bulma-border);
   &:hover:not(:disabled) { background: var(--bulma-border-light); }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+.btn-confirm-inline {
+  width: 100%; border: 1px solid var(--bulma-primary); color: var(--bulma-primary);
+  border-radius: 6px; padding: 0.35rem; font-size: 0.75em; cursor: pointer; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin-top: 0.35rem;
+  background: transparent;
+  &:hover:not(:disabled) { background: rgba(var(--bulma-primary-rgb, 99,102,241), 0.08); }
+  &:disabled { opacity: 0.35; cursor: not-allowed; border-color: var(--bulma-border-light); color: var(--bulma-text-light); }
 }
 .confirm-banner {
   display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem;
