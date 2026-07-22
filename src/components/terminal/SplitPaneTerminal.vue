@@ -78,6 +78,7 @@ import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
+import { useConnectionStore } from '@/stores/connectionStore';
 import TerminalDisplay from './TerminalDisplay.vue';
 import ConnectionErrorPanel from './ConnectionErrorPanel.vue';
 import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
@@ -150,7 +151,14 @@ function addPane(type, protocol, config) {
 function openSftpForActivePane() {
   const pane = panes.value[activePane.value];
   if (!pane || !pane.config) return;
-  addPane('sftp', pane.protocol || 'ssh', pane.config);
+  const connStore = useConnectionStore();
+  const cfg = { ...pane.config };
+  if (!cfg.auth_value && cfg.id) {
+    connStore.getCredentialFromSessionStorage(cfg.id).then(cred => {
+      if (cred?.auth_value) { cfg.auth_value = cred.auth_value; cfg.auth_type = cred.auth_type; }
+    });
+  }
+  addPane('sftp', pane.protocol || 'ssh', cfg);
 }
 
 function closePane(idx) {

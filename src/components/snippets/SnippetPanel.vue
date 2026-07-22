@@ -3,6 +3,9 @@
     <div class="panel-header">
       <h3 class="panel-title"><TerminalSquare :size="16"/> {{ t('snippets.title') }}</h3>
       <div class="panel-actions">
+        <button v-if="selectedIds.length > 0" class="panel-action-btn batch-run-btn" @click="batchRunSelected" :title="t('snippets.batchRun')">
+          <Layers :size="14"/> {{ selectedIds.length }}
+        </button>
         <button class="panel-action-btn" @click="showAddForm = !showAddForm" :title="t('snippets.addSnippet')">
           <Plus :size="14"/>
         </button>
@@ -32,6 +35,7 @@
     <div class="panel-list" v-if="store.snippets.length > 0">
       <div v-for="(s, idx) in store.snippets" :key="s.id" class="snippet-item">
         <div class="snippet-top">
+          <input type="checkbox" :value="s.id" v-model="selectedIds" class="snippet-check" @click.stop/>
           <span class="snippet-num">{{ idx + 1 }}</span>
           <div class="snippet-info" @click="s.expanded = !s.expanded">
             <span class="snippet-title">{{ s.title }}</span>
@@ -43,6 +47,7 @@
             </button>
             <button class="snip-btn" @click="runSnippet(s)" :title="t('snippets.sendToTerminal')"><Play :size="13"/></button>
             <button class="snip-btn" @click="startEdit(s)" :title="t('common.edit')"><Edit3 :size="12"/></button>
+            <button class="snip-btn" @click="sendToMacro(s)" :title="t('snippets.sendToMacro')"><ArrowRightCircle :size="12"/></button>
             <button class="snip-btn is-danger" @click="store.removeSnippet(s.id)" :title="t('common.delete')"><Trash2 :size="13"/></button>
           </div>
         </div>
@@ -65,19 +70,27 @@
     <div v-else class="panel-empty">
       <p>{{ t('snippets.noSnippets') }}</p>
     </div>
+
+    <BatchExecutionDialog v-if="showBatch" @close="showBatch = false" :presetSteps="batchSteps"/>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useSnippetStore } from '@/stores/snippetStore';
+import { useMacroStore } from '@/stores/macroStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
-import { TerminalSquare, Plus, Download, Upload, X, Star, Play, Trash2, Edit3 } from 'lucide-vue-next';
+import {
+  TerminalSquare, Plus, Download, Upload, X, Star, Play, Trash2, Edit3,
+  Layers, ArrowRightCircle,
+} from 'lucide-vue-next';
+import BatchExecutionDialog from '@/components/macro/BatchExecutionDialog.vue';
 
 const { t } = useI18n();
 const emit = defineEmits(['close', 'run']);
 const store = useSnippetStore();
+const macroStore = useMacroStore();
 const { showSuccess, showError } = useNotifications();
 
 const showAddForm = ref(false);
@@ -86,10 +99,16 @@ const newCommand = ref('');
 const newTags = ref('');
 const titleInput = ref(null);
 const importInput = ref(null);
-
 const editingId = ref(null);
 const editTitle = ref('');
 const editCommand = ref('');
+const selectedIds = ref([]);
+const showBatch = ref(false);
+const batchSteps = ref([]);
+
+const selectedSnippets = computed(() => {
+  return store.snippets.filter(s => selectedIds.value.includes(s.id));
+});
 
 function addNew() {
   if (!newTitle.value.trim() || !newCommand.value.trim()) {
@@ -117,14 +136,33 @@ function saveEdit(id) {
   showSuccess(t('common.saved'));
 }
 
+function sendToMacro(s) {
+  const steps = [{ command: s.command, delay: 300 }];
+  macroStore.addMacro({
+    name: s.title,
+    description: '',
+    steps,
+    tags: [...s.tags],
+    favorite: false,
+  });
+  showSuccess(t('snippets.sentToMacro', { name: s.title }));
+  selectedIds.value = [];
+}
+
+function batchRunSelected() {
+  const snips = selectedSnippets.value;
+  if (snips.length === 0) return;
+  batchSteps.value = snips.map(s => ({ command: s.command, delay: 300 }));
+  showBatch.value = true;
+}
+
 function exportSnips() {
   const data = store.exportSnippets();
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `haossh-snippets-${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = `webssh-codehandbook-${Date.now()}.json`;
+  a.click(); URL.revokeObjectURL(url);
   showSuccess(t('snippets.exported'));
 }
 
@@ -148,12 +186,9 @@ function onImportFile(e) {
 .snippet-panel {
   background: var(--bulma-box-background-color);
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 440px;
+  border-radius: 12px; overflow: hidden; width: 460px;
 }
-.panel-header {
-  display: flex; align-items: center; padding: 0.65rem 0.75rem;
-  border-bottom: 1px solid var(--bulma-border-light);
-}
+.panel-header { display: flex; align-items: center; padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--bulma-border-light); }
 .panel-title { font-size: 0.85em; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.35rem; flex: 1; }
 .panel-actions { display: flex; gap: 2px; }
 .panel-action-btn {
@@ -161,6 +196,7 @@ function onImportFile(e) {
   color: var(--bulma-text-light); display: flex;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
 }
+.batch-run-btn { color: var(--bulma-primary); font-weight: 600; font-size: 0.75em; gap: 2px; }
 .add-form { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; border-bottom: 1px solid var(--bulma-border-light); }
 .form-input, .form-textarea {
   border: 1px solid var(--bulma-border); border-radius: 6px; padding: 0.3rem 0.5rem;
@@ -169,46 +205,23 @@ function onImportFile(e) {
 }
 .form-textarea { resize: vertical; font-family: var(--bulma-family-monospace); }
 .add-form-actions, .edit-form-actions { display: flex; gap: 0.35rem; }
-.add-btn, .save-edit-btn {
-  flex: 1; border: none; border-radius: 6px; padding: 0.3rem; font-size: 0.75em; cursor: pointer; font-weight: 500;
-  background: var(--bulma-primary); color: white;
-}
-.cancel-btn, .cancel-edit-btn {
-  flex: 1; border: none; border-radius: 6px; padding: 0.3rem; font-size: 0.75em; cursor: pointer; font-weight: 500;
-  background: var(--bulma-border-light); color: var(--bulma-text);
-}
+.add-btn, .save-edit-btn { flex: 1; border: none; border-radius: 6px; padding: 0.3rem; font-size: 0.75em; cursor: pointer; font-weight: 500; background: var(--bulma-primary); color: white; }
+.cancel-btn, .cancel-edit-btn { flex: 1; border: none; border-radius: 6px; padding: 0.3rem; font-size: 0.75em; cursor: pointer; font-weight: 500; background: var(--bulma-border-light); color: var(--bulma-text); }
 .edit-form { padding: 0.4rem 0; display: flex; flex-direction: column; gap: 0.3rem; }
 
 .panel-list { max-height: 420px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
-.snippet-item {
-  padding: 0.5rem 0.75rem;
-  & + & { border-top: 1px solid var(--bulma-border-light); }
-}
-.snippet-top { display: flex; align-items: center; gap: 0.5rem; }
-.snippet-num {
-  font-size: 0.65em; color: var(--bulma-text-light); font-weight: 600;
-  min-width: 18px; text-align: center; flex-shrink: 0; font-family: monospace;
-}
+.snippet-item { padding: 0.5rem 0.75rem; & + & { border-top: 1px solid var(--bulma-border-light); } }
+.snippet-top { display: flex; align-items: center; gap: 0.4rem; }
+.snippet-check { accent-color: var(--bulma-primary); flex-shrink: 0; }
+.snippet-num { font-size: 0.65em; color: var(--bulma-text-light); font-weight: 600; min-width: 18px; text-align: center; flex-shrink: 0; font-family: monospace; }
 .snippet-info { flex: 1; cursor: pointer; min-width: 0; }
 .snippet-title { display: block; font-size: 0.85em; font-weight: 500; }
 .snippet-cmd-preview { display: block; font-size: 0.7em; color: var(--bulma-text-light); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 .snippet-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; .snippet-item:hover & { opacity: 1; } }
-.snip-btn {
-  background: none; border: none; padding: 0.3rem; border-radius: 6px; cursor: pointer;
-  color: var(--bulma-text-light); display: flex;
-  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-  &.is-fav.is-active { color: #f59e0b; }
-  &.is-danger:hover { color: var(--bulma-danger); }
-}
+.snip-btn { background: none; border: none; padding: 0.3rem; border-radius: 6px; cursor: pointer; color: var(--bulma-text-light); display: flex; &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); } &.is-fav.is-active { color: #f59e0b; } &.is-danger:hover { color: var(--bulma-danger); } }
 .snippet-detail { margin-top: 0.35rem; }
-.snippet-command {
-  background: var(--bulma-scheme-main-ter); border-radius: 6px; padding: 0.5rem 0.65rem;
-  font-size: 0.75em; overflow-x: auto; margin: 0; code { color: var(--bulma-text); }
-}
+.snippet-command { background: var(--bulma-scheme-main-ter); border-radius: 6px; padding: 0.5rem 0.65rem; font-size: 0.75em; overflow-x: auto; margin: 0; code { color: var(--bulma-text); } }
 .snippet-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
-.snippet-tag {
-  font-size: 0.65em; padding: 2px 7px; border-radius: 4px;
-  background: var(--bulma-primary); color: white; opacity: 0.85;
-}
+.snippet-tag { font-size: 0.65em; padding: 2px 7px; border-radius: 4px; background: var(--bulma-primary); color: white; opacity: 0.85; }
 .panel-empty { padding: 1.5rem; text-align: center; font-size: 0.85em; color: var(--bulma-text-light); }
 </style>

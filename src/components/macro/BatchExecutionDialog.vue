@@ -85,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useMacroStore } from '@/stores/macroStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useNotifications } from '@/composables/useNotifications';
@@ -94,6 +94,9 @@ import { Play, X, Loader2, RotateCcw, Check } from 'lucide-vue-next';
 import SshWebSocketService from '@/services/sshWebSocketService';
 
 const { t } = useI18n();
+const props = defineProps({
+  presetSteps: { type: Array, default: null },
+});
 const emit = defineEmits(['close']);
 const store = useMacroStore();
 const connStore = useConnectionStore();
@@ -106,6 +109,22 @@ const stopOnError = ref(true);
 const running = ref(false);
 const cancelled = ref(false);
 const confirmed = ref(false);
+const tempMacroId = ref(null);
+
+watch(() => props.presetSteps, (steps) => {
+  if (steps && steps.length > 0) {
+    if (tempMacroId.value) store.removeMacro(tempMacroId.value);
+    const m = store.addMacro({
+      name: 'Code Handbook Batch',
+      description: '',
+      steps,
+      tags: [],
+      favorite: false,
+    });
+    tempMacroId.value = m.id;
+    selectedMacroId.value = m.id;
+  }
+}, { immediate: true });
 const results = ref([]);
 
 const connections = computed(() => {

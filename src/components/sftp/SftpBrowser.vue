@@ -369,23 +369,34 @@ function showMessage(msg, type = 'is-info') {
 
 async function getAuth() {
   const src = props.nodeConfig || connStore.currentNodeDetails;
-  const auth = {
+  let authValue = src?.auth_value || '';
+  let authType = src?.auth_type || 'password';
+
+  if (!authValue && src?.id) {
+    try {
+      const cred = await connStore.getCredentialFromSessionStorage(src.id);
+      if (cred?.auth_value) { authValue = cred.auth_value; authType = cred.auth_type || 'password'; }
+    } catch {}
+  }
+
+  if (!authValue && src?.host) {
+    const conns = connStore.savedConnections || [];
+    const match = conns.find(c => c.host === src.host && c.username === src.username);
+    if (match?.id) {
+      try {
+        const cred = await connStore.getCredentialFromSessionStorage(match.id);
+        if (cred?.auth_value) { authValue = cred.auth_value; authType = cred.auth_type || 'password'; }
+      } catch {}
+    }
+  }
+
+  return {
     host: src?.host,
     port: src?.port || 22,
     username: src?.username,
-    auth_type: src?.auth_type || 'password',
-    auth_value: src?.auth_value || '',
+    auth_type: authType,
+    auth_value: authValue,
   };
-  if (!auth.auth_value && src?.id) {
-    try {
-      const cred = await connStore.getCredentialFromSessionStorage(src.id);
-      if (cred?.auth_value) {
-        auth.auth_value = cred.auth_value;
-        auth.auth_type = cred.auth_type || 'password';
-      }
-    } catch {}
-  }
-  return auth;
 }
 
 async function api(action, data = {}) {
