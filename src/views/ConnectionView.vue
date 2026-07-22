@@ -283,11 +283,18 @@ const resultClass = computed(() => {
 });
 const resultIcon = computed(() => connectionStore.sshTestResult?.success ? '\u2705' : '\u274C');
 
-function exportConnections() {
-  const data = JSON.stringify(connectionStore.savedConnections, null, 2);
+async function exportConnections() {
+  const includePwd = confirm(t('server.exportPasswordWarning'));
+  let data;
+  if (includePwd) {
+    data = JSON.stringify(await connectionStore.getConnectionsWithCredentials(), null, 2);
+  } else {
+    data = JSON.stringify(connectionStore.savedConnections, null, 2);
+  }
   const blob = new Blob([data], { type: 'application/json' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = `webssh-connections-${Date.now()}.json`;
+  a.href = URL.createObjectURL(blob);
+  a.download = `webssh-connections-${Date.now()}.json`;
   a.click(); URL.revokeObjectURL(a.href);
   showSuccess(t('server.exported', { count: connectionStore.savedConnections.length }));
 }

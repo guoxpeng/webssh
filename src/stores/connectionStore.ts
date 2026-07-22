@@ -362,6 +362,22 @@ export const useConnectionStore = defineStore('connection', () => {
   function setOnCommandSentCallback(cb) { onCommandSentCallback = cb; }
   function disconnectShell() { wsService.disconnect(); }
 
+  async function getConnectionsWithCredentials() {
+    const result = [];
+    for (const c of savedConnections.value) {
+      const entry = { ...c };
+      try {
+        const cred = await getCredentialFromSessionStorage(c.id);
+        if (cred?.auth_value) {
+          entry.auth_value = cred.auth_value;
+          entry.auth_type = cred.auth_type || 'password';
+        }
+      } catch {}
+      result.push(entry);
+    }
+    return result;
+  }
+
   return {
     currentNodeDetails, connectionStatus, sshTestResult, sshTestLoading,
     savedConnections, groups, connectionsByGroup, groupOrder, groupCollapsed,
@@ -370,6 +386,7 @@ export const useConnectionStore = defineStore('connection', () => {
     connectToShell, sendShellData, setOnCommandSentCallback, disconnectShell,
     addConnection, removeConnection, loadConnectionForEditing,
     getCredentialFromSessionStorage, saveCredentialToSessionStorage, clearAllSessionCredentials,
+    getConnectionsWithCredentials,
     createGroup, renameGroup, deleteGroup, moveConnectionToGroup,
     toggleGroupCollapsed, isGroupCollapsed, togglePinConnection,
   };

@@ -33,6 +33,7 @@ export default {
     delete: 'Delete',
     removeConfirm: 'Remove "{name}"? This cannot be undone.',
     exported: 'Exported {count} connections.',
+    exportPasswordWarning: 'Include plaintext passwords in export?\n\n⚠ WARNING: The exported file will contain your server passwords in plaintext. Anyone with this file can access your servers.\n\nClick OK to include passwords, Cancel to export without passwords.',
     importFailed: 'Failed to import. Check the file format.',
     connectTo: 'Connect to {name}',
     ungrouped: 'Ungrouped',

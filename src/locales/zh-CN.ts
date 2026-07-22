@@ -33,6 +33,7 @@ export default {
     delete: '删除',
     removeConfirm: '确定要删除 "{name}" 吗？此操作不可恢复。',
     exported: '已导出 {count} 个连接。',
+    exportPasswordWarning: '导出文件中包含明文密码？\n\n⚠ 警告：导出文件将包含服务器明文密码，任何拥有此文件的人都可以访问你的服务器。\n\n点击"确定"包含密码，点击"取消"不含密码。',
     importFailed: '导入失败，请检查文件格式。',
     connectTo: '连接到 {name}',
     ungrouped: '未分组',
