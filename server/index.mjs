@@ -339,6 +339,8 @@ function handleSSH(ws, config) {
       stream.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
       stream.stderr.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
       stream.on('close', () => { log('Shell closed'); ws.removeListener('message', onWsMsg); cleanup(); });
+      // Handle WebSocket close without killing SSH
+      ws.on('close', () => { log('WS closed (SSH kept alive)'); ws.removeListener('message', onWsMsg); });
     });
   });
   client.on('error', (err) => {
