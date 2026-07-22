@@ -39,8 +39,13 @@
 
     <div class="terminal-body">
       <div class="terminal-main-area" :class="{ 'has-sftp': showSftpPanel }">
-        <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }"/>
-        <div v-if="showSftpPanel && sftpPanelConfig" class="sftp-panel">
+        <div class="terminal-pane" :style="showSftpPanel ? { width: `calc(100% - ${sftpWidth}px)` } : {}">
+          <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }"/>
+        </div>
+        <div v-if="showSftpPanel" class="sftp-divider" @mousedown="startDrag">
+          <GripVertical :size="12"/>
+        </div>
+        <div v-if="showSftpPanel && sftpPanelConfig" class="sftp-panel" :style="{ width: sftpWidth + 'px' }">
           <div class="sftp-panel-header">
             <FolderOpen :size="14"/>
             <span>{{ sftpPanelConfig.host }}</span>
@@ -90,7 +95,7 @@ import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useMacroStore } from '@/stores/macroStore';
-import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square, Settings2 } from 'lucide-vue-next';
+import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square, Settings2, GripVertical } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const connectionStore = useConnectionStore();
@@ -103,6 +108,8 @@ const showDisconnectDialog = ref(false);
 const showTermSettings = ref(false);
 const showSftpPanel = ref(false);
 const sftpPanelKey = ref(0);
+const sftpWidth = ref(360);
+let dragging = false;
 const connecting = ref(false);
 const progressPct = ref(0);
 let progressTimer = null;
@@ -237,6 +244,30 @@ function onTermSettingsUpdate(opts) {
 
 function onDocClick() { showTermSettings.value = false; }
 
+function startDrag(e) {
+  e.preventDefault();
+  dragging = true;
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  const onMove = (ev) => {
+    if (!dragging) return;
+    const bodyWidth = document.querySelector('.terminal-body')?.offsetWidth || 1200;
+    const x = ev.clientX;
+    const panelRight = bodyWidth;
+    const newWidth = Math.max(200, Math.min(600, panelRight - x));
+    sftpWidth.value = newWidth;
+  };
+  const onUp = () => {
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
 function restoreSavedLayout() {
   const saved = terminalStore.restoreLayout();
   if (saved.length === 0) return;
@@ -308,7 +339,13 @@ onBeforeUnmount(() => {
 
 .terminal-main-area {
   display: flex; height: 100%;
-  &.has-sftp :deep(.split-pane-terminal) { flex: 1; min-width: 0; }
+}
+.terminal-pane { flex: 1; min-width: 0; overflow: hidden; }
+.sftp-divider {
+  width: 6px; flex-shrink: 0; cursor: col-resize;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bulma-scheme-main-ter); color: var(--bulma-text-light);
+  &:hover, &:active { background: var(--bulma-primary); color: white; }
 }
 .sftp-panel {
   width: 360px; flex-shrink: 0; display: flex; flex-direction: column;
