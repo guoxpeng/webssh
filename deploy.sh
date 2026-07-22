@@ -39,14 +39,14 @@ else
   cd "$DIR"
 fi
 
-# --- Phase 3: npm install (30% → 60%) ---
+# --- Phase 3: npm install (30% → 55%) ---
 echo -e "  ${YELLOW}[█████·····] 30%${NC}  Installing dependencies..."
-npm install --silent --no-audit --no-fund >/dev/null 2>&1
-echo -e "  ${YELLOW}[████████··] 60%${NC}  Done."
+npm install --no-audit --no-fund 2>&1 | tail -3
+echo -e "  ${YELLOW}[███████···] 55%${NC}  Done."
 
-# --- Phase 4: Build frontend (65% → 85%) ---
-echo -e "  ${YELLOW}[████████▌·] 65%${NC}  Building frontend..."
-npm run build >/dev/null 2>&1
+# --- Phase 4: Build frontend (60% → 85%) ---
+echo -e "  ${YELLOW}[████████▌·] 60%${NC}  Building frontend..."
+BUILD_OUT=$(npm run build 2>&1) || { echo "$BUILD_OUT" | tail -20; err "Build failed."; }
 echo -e "  ${YELLOW}[█████████·] 85%${NC}  Done."
 
 # --- Phase 5: Start server (90% → 100%) ---
@@ -77,7 +77,9 @@ echo $! > "$PID_FILE"
 sleep 2
 
 # Verify it's running
-if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+sleep 2
+HEALTH=$(curl -s --max-time 2 http://localhost:${PORT}/health 2>/dev/null || echo "")
+if [ -n "$HEALTH" ]; then
   echo -e "  ${GREEN}[██████████] 100%${NC} Done!"
   echo ""
   echo -e "  ${BOLD}${GREEN}  ✓ WebSSH 已启动${NC}"
