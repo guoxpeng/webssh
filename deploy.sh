@@ -23,11 +23,10 @@ DIR="webssh"
 if [ -d "$DIR" ]; then
   info "Updating existing installation in $DIR..."
   cd "$DIR"
-  # Stash any local changes (e.g. package-lock.json modified by npm) before pull
-  git stash --include-untracked 2>/dev/null || true
-  git pull
-  # Restore stashed changes (user modifications) if any
-  git stash pop 2>/dev/null || true
+  # Force sync with remote, discarding any local changes (package-lock.json, etc.)
+  git fetch origin
+  git reset --hard origin/main
+  git clean -fd 2>/dev/null || true
 else
   info "Cloning repository..."
   git clone --depth=1 "$REPO" "$DIR"
