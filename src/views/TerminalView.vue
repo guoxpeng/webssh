@@ -8,12 +8,22 @@
         </span>
       </div>
       <div class="toolbar-right" v-if="paneCount > 0">
-        <button class="toolbar-btn" @click="openSftp" :title="t('sftp.fileManager')">
-          <FolderOpen :size="14"/>
-        </button>
-        <button class="toolbar-btn is-danger" @click="showDisconnectDialog = true" :title="t('terminal.disconnect')">
-          <Power :size="14"/>
-        </button>
+        <div class="dropdown-wrap" @click.stop>
+          <button class="toolbar-btn dropdown-trigger" @click="showToolMenu = !showToolMenu">
+            <FolderOpen :size="14"/>
+            <span>{{ t('sftp.fileManager') }}</span>
+            <ChevronDown :size="10"/>
+          </button>
+          <div v-if="showToolMenu" class="dropdown-menu" @click="showToolMenu = false">
+            <div class="dropdown-item" @click="openSftp">
+              <FolderOpen :size="14"/> {{ t('sftp.fileManager') }}
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item is-danger" @click="showDisconnectDialog = true">
+              <Power :size="14"/> {{ t('terminal.disconnect') }}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -57,7 +67,7 @@ import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
-import { Power, Terminal, Server, FolderOpen } from 'lucide-vue-next';
+import { Power, Terminal, Server, FolderOpen, ChevronDown } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const connectionStore = useConnectionStore();
@@ -66,6 +76,7 @@ const router = useRouter();
 
 const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
+const showToolMenu = ref(false);
 const connecting = ref(false);
 const progressPct = ref(0);
 let progressTimer = null;
@@ -114,14 +125,18 @@ function onDisconnectConfirmed() {
   router.push({ name: 'ConnectionHome' });
 }
 
+function onDocClick() { showToolMenu.value = false; }
+
 onMounted(() => {
   processPendingConnections();
+  document.addEventListener('click', onDocClick);
 });
 onActivated(() => {
   processPendingConnections();
 });
 
 onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick);
   if (progressTimer) clearTimeout(progressTimer);
   terminalStore.clearAll();
 });
@@ -153,6 +168,23 @@ onBeforeUnmount(() => {
 }
 
 .terminal-body { flex: 1; overflow: hidden; position: relative; }
+
+.dropdown-wrap { position: relative; }
+.dropdown-trigger { gap: 0.3rem; }
+.dropdown-menu {
+  position: absolute; right: 0; top: 100%; margin-top: 4px; z-index: 50;
+  min-width: 160px; background: var(--bulma-scheme-main);
+  border: 1px solid var(--bulma-border-light); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden;
+}
+.dropdown-item {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.65rem; font-size: 0.8em; cursor: pointer;
+  color: var(--bulma-text); transition: background 0.1s;
+  &:hover { background: var(--bulma-scheme-main-bis); }
+  &.is-danger { color: var(--bulma-danger); }
+}
+.dropdown-divider { height: 1px; background: var(--bulma-border-light); margin: 2px 0; }
 
 .connecting-overlay {
   position: absolute; inset: 0; z-index: 20;

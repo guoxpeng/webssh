@@ -26,8 +26,8 @@
             <TerminalSquare :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
           </a>
-          <a class="sidebar-item" @click="showPalette = true; closeMobileMenu()" :title="t('nav.quickSearch')" role="button" tabindex="0">
-            <Search :size="22" stroke-width="1.5"/>
+          <a class="sidebar-item" @click="showQuickConnect = true; closeMobileMenu()" :title="t('nav.search')" role="button" tabindex="0">
+            <ArrowRightCircle :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.search') }}</span>
           </a>
           <a class="sidebar-item" @click="showBackup = true; closeMobileMenu()" :title="t('nav.backup')" role="button" tabindex="0">
@@ -106,17 +106,33 @@
         <BackupPanel @close="showBackup = false"/>
       </div>
     </div>
-    <CommandPalette :visible="showPalette" @close="showPalette = false" />
     <SettingsPanel :visible="showSettings" @close="showSettings = false" />
+    <div v-if="showQuickConnect" class="snippet-overlay">
+      <div class="snippet-overlay-backdrop" @click="showQuickConnect = false"></div>
+      <div class="snippet-overlay-panel">
+        <div class="quick-connect-dialog">
+          <h3 class="qc-title"><ArrowRightCircle :size="18"/> {{ t('nav.search') }}</h3>
+          <div class="qc-body">
+            <input ref="qcInputRef" v-model="quickConnectStr" class="qc-input"
+                   placeholder="user@host:port" @keydown.enter="doQuickConnect"/>
+            <p class="qc-hint">{{ t('server.noSavedHint') }}</p>
+          </div>
+          <div class="qc-actions">
+            <button class="qc-btn is-primary" @click="doQuickConnect">{{ t('form.connect') }}</button>
+            <button class="qc-btn" @click="showQuickConnect = false">{{ t('common.cancel') }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import AppNavbar from '@/components/global/AppNavbar.vue';
 import AppNotification from '@/components/global/AppNotification.vue';
-import CommandPalette from '@/components/global/CommandPalette.vue';
 import SettingsPanel from '@/components/global/SettingsPanel.vue';
 import SkipToContent from '@/components/global/SkipToContent.vue';
 import { useUiStore } from '@/stores/uiStore';
@@ -126,18 +142,21 @@ import { useBackupStore } from '@/stores/backupStore';
 import SnippetPanel from '@/components/snippets/SnippetPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import { ConnectionStatus } from '@/utils/constants';
-import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database } from 'lucide-vue-next';
+import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle } from 'lucide-vue-next';
 
 const { t } = useI18n();
+const router = useRouter();
 const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
 const sidebarCollapsed = ref(false);
 const mobileMenuOpen = ref(false);
-const showPalette = ref(false);
+const showQuickConnect = ref(false);
 const showSettings = ref(false);
 const showSnippets = ref(false);
 const showBackup = ref(false);
+const quickConnectStr = ref('');
+const qcInputRef = ref(null);
 
 function closeMobileMenu() { mobileMenuOpen.value = false; }
 function onSidebarNavClick(e) {
@@ -165,8 +184,7 @@ const statusText = computed(() => {
 
 function onGlobalKeydown(e) {
   const isCtrl = e.ctrlKey || e.metaKey;
-  if (isCtrl && e.key === 'k') { e.preventDefault(); showPalette.value = !showPalette.value; }
-  else if (isCtrl && e.key === 'p') { e.preventDefault(); showPalette.value = !showPalette.value; }
+  if (isCtrl && e.key === 'p') { e.preventDefault(); showQuickConnect.value = !showQuickConnect.value; }
 }
 
 function onRunSnippet(snippet) {
@@ -179,6 +197,34 @@ function onRunSnippet(snippet) {
     showWarning(t('terminal.connectFirst'));
   }
 }
+
+function doQuickConnect() {
+  const str = quickConnectStr.value.trim();
+  if (!str) return;
+  let user = 'root', host = str, port = 22;
+  if (str.includes('@')) {
+    const parts = str.split('@');
+    user = parts[0];
+    host = parts[1];
+  }
+  if (host.includes(':')) {
+    const parts = host.split(':');
+    host = parts[0];
+    port = parseInt(parts[1]) || 22;
+  }
+  connectionStore.pendingConnections.push({
+    id: Date.now().toString(), name: `${user}@${host}:${port}`,
+    host, port, username: user, protocol: 'ssh',
+    auth_type: 'password', auth_value: '', rememberForSession: false,
+  });
+  showQuickConnect.value = false;
+  quickConnectStr.value = '';
+  router.push('/terminal');
+}
+
+watch(showQuickConnect, (val) => {
+  if (val) nextTick(() => qcInputRef.value?.focus());
+});
 
 function toggleTheme() { uiStore.toggleTheme(); sidebarCollapsed.value = false; }
 
@@ -295,5 +341,33 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   .sidebar-item { padding: 0.7rem 0.75rem; }
   .sidebar-label { display: inline !important; }
   .collapse-icon { display: none; }
+}
+
+/* Quick Connect dialog */
+.quick-connect-dialog {
+  background: var(--bulma-scheme-main); border-radius: 12px;
+  width: 400px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+}
+.qc-title {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.75rem 1rem; margin: 0; font-size: 0.95em; font-weight: 600;
+  border-bottom: 1px solid var(--bulma-border-light);
+}
+.qc-body { padding: 1rem; }
+.qc-input {
+  width: 100%; box-sizing: border-box; padding: 0.6rem 0.75rem;
+  border: 1px solid var(--bulma-border); border-radius: 8px; font-size: 0.9em;
+  background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none;
+  &:focus { border-color: var(--bulma-primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+}
+.qc-hint { font-size: 0.75em; color: var(--bulma-text-light); margin: 0.5rem 0 0; }
+.qc-actions {
+  display: flex; gap: 0.5rem; padding: 0 1rem 1rem;
+}
+.qc-btn {
+  flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--bulma-border-light);
+  font-size: 0.85em; cursor: pointer; background: var(--bulma-scheme-main-ter); color: var(--bulma-text);
+  &.is-primary { background: var(--bulma-primary); color: white; border-color: transparent; }
+  &:hover { opacity: 0.9; }
 }
 </style>

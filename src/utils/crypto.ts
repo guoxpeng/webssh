@@ -5,9 +5,11 @@ const IV_LENGTH = 12;
 export const STORAGE_VERIFY_KEY = 'haossh_verify';
 export const STORAGE_SALT_KEY = 'haossh_verify_salt';
 
-// crypto.subtle is undefined on HTTP (non-localhost), provide fallback
+// crypto.subtle methods are undefined on HTTP (non-localhost), provide fallback
 function haveSubtle(): boolean {
-  return typeof crypto !== 'undefined' && typeof (crypto as any).subtle !== 'undefined' && !!(crypto as any).subtle;
+  if (typeof crypto === 'undefined') return false;
+  const s = (crypto as any).subtle;
+  return typeof s !== 'undefined' && s !== null && typeof s.digest === 'function';
 }
 
 // ---- Pure JS SHA-256 fallback ----

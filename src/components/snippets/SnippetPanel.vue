@@ -133,17 +133,17 @@ function onImportFile(e) {
 .snippet-panel {
   background: var(--bulma-box-background-color);
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 320px;
+  border-radius: 12px; overflow: hidden; width: 440px;
 }
 
 .panel-header {
-  display: flex; align-items: center; padding: 0.5rem 0.65rem;
+  display: flex; align-items: center; padding: 0.65rem 0.75rem;
   border-bottom: 1px solid var(--bulma-border-light);
 }
-.panel-title { font-size: 0.8em; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.35rem; flex: 1; }
+.panel-title { font-size: 0.85em; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.35rem; flex: 1; }
 .panel-actions { display: flex; gap: 2px; }
 .panel-action-btn {
-  background: none; border: none; padding: 0.2rem; border-radius: 4px; cursor: pointer;
+  background: none; border: none; padding: 0.3rem 0.4rem; border-radius: 6px; cursor: pointer;
   color: var(--bulma-text-light); display: flex;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
 }
@@ -173,37 +173,37 @@ function onImportFile(e) {
 .add-btn { background: var(--bulma-primary); color: white; }
 .cancel-btn { background: var(--bulma-border-light); color: var(--bulma-text); }
 
-.panel-list { max-height: 320px; overflow-y: auto; }
+.panel-list { max-height: 420px; overflow-y: auto; }
 
 .snippet-item {
-  padding: 0.35rem 0.6rem;
+  padding: 0.5rem 0.75rem;
   & + & { border-top: 1px solid var(--bulma-border-light); }
 }
 
-.snippet-top { display: flex; align-items: center; gap: 0.35rem; }
+.snippet-top { display: flex; align-items: center; gap: 0.5rem; }
 .snippet-info { flex: 1; cursor: pointer; min-width: 0; }
-.snippet-title { display: block; font-size: 0.75em; font-weight: 500; }
-.snippet-cmd-preview { display: block; font-size: 0.6em; color: var(--bulma-text-light); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snippet-title { display: block; font-size: 0.85em; font-weight: 500; }
+.snippet-cmd-preview { display: block; font-size: 0.7em; color: var(--bulma-text-light); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 
-.snippet-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; .snippet-item:hover & { opacity: 1; } }
+.snippet-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; .snippet-item:hover & { opacity: 1; } }
 .snip-btn {
-  background: none; border: none; padding: 0.2rem; border-radius: 4px; cursor: pointer;
+  background: none; border: none; padding: 0.3rem; border-radius: 6px; cursor: pointer;
   color: var(--bulma-text-light); display: flex;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
   &.is-fav.is-active { color: #f59e0b; }
   &.is-danger:hover { color: var(--bulma-danger); }
 }
 
-.snippet-detail { margin-top: 0.25rem; }
+.snippet-detail { margin-top: 0.35rem; }
 .snippet-command {
-  background: var(--bulma-scheme-main-ter); border-radius: 4px; padding: 0.3rem 0.5rem;
-  font-size: 0.65em; overflow-x: auto; margin: 0; code { color: var(--bulma-text); }
+  background: var(--bulma-scheme-main-ter); border-radius: 6px; padding: 0.5rem 0.65rem;
+  font-size: 0.75em; overflow-x: auto; margin: 0; code { color: var(--bulma-text); }
 }
-.snippet-tags { display: flex; flex-wrap: wrap; gap: 0.2rem; margin-top: 0.2rem; }
+.snippet-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
 .snippet-tag {
-  font-size: 0.55em; padding: 1px 5px; border-radius: 4px;
-  background: var(--bulma-primary); color: white; opacity: 0.8;
+  font-size: 0.65em; padding: 2px 7px; border-radius: 4px;
+  background: var(--bulma-primary); color: white; opacity: 0.85;
 }
 
-.panel-empty { padding: 1rem; text-align: center; font-size: 0.75em; color: var(--bulma-text-light); }
+.panel-empty { padding: 1.5rem; text-align: center; font-size: 0.85em; color: var(--bulma-text-light); }
 </style>
