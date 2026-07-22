@@ -42,19 +42,52 @@
         <div class="sidebar-card">
           <div class="sidebar-card-header">
             <History :size="16"/> {{ t('server.savedServers') }}
-            <div class="sidebar-header-actions" v-if="connectionStore.savedConnections.length > 0">
+            <div class="sidebar-header-actions">
+              <button class="header-action-btn" @click="showNewGroupInput = true" :title="t('server.newGroup')"><FolderPlus :size="14"/></button>
               <button class="header-action-btn" @click="exportConnections" :title="t('server.export')"><Download :size="14"/></button>
               <button class="header-action-btn" @click="triggerImport" :title="t('server.import')"><Upload :size="14"/></button>
             </div>
             <span class="sidebar-badge">{{ filteredConnections.length }}</span>
             <input type="file" ref="importInputRef" accept=".json" style="display:none" @change="onImportFile"/>
           </div>
+
+          <!-- New group input -->
+          <div v-if="showNewGroupInput" class="new-group-row">
+            <input ref="newGroupInputRef" type="text" v-model="newGroupName" :placeholder="t('server.groupNamePlaceholder')"
+                   class="new-group-input" @keydown.enter="confirmCreateGroup" @keydown.escape="cancelCreateGroup" @blur="cancelCreateGroup"/>
+          </div>
+
           <div class="sidebar-search" v-if="connectionStore.savedConnections.length > 0">
             <Search :size="14" class="sidebar-search-icon"/>
             <input type="text" v-model="searchQuery" :placeholder="t('server.searchPlaceholder')"
                    class="sidebar-search-input" spellcheck="false"/>
             <button v-if="searchQuery" class="sidebar-search-clear" @click="searchQuery = ''">&times;</button>
           </div>
+
+          <!-- Pinned connections -->
+          <div v-if="connectionStore.pinnedConnections.length > 0 && !searchQuery" class="pinned-section">
+            <div class="pinned-header">
+              <MapPin :size="11"/> {{ t('server.pinned') }} <span class="pinned-count">{{ connectionStore.pinnedConnections.length }}</span>
+            </div>
+            <div v-for="conn in connectionStore.pinnedConnections" :key="conn.id"
+                 class="saved-item pinned-item"
+                 @dblclick="quickConnect(conn)" @click="loadForEditing(conn.id)"
+                 draggable="true" @dragstart="onDragStart($event, conn)"
+                 @dragover.prevent @dragenter.prevent>
+              <div class="saved-item-left">
+                <ProtocolBadge :protocol="conn.protocol || 'ssh'"/>
+                <div class="saved-item-info">
+                  <span class="saved-item-name">{{ conn.name }}</span>
+                  <span class="saved-item-desc">{{ conn.username }}@{{ conn.host }}:{{ conn.port }}</span>
+                </div>
+              </div>
+              <div class="saved-item-actions">
+                <button class="icon-btn is-pinned" @click.stop="connectionStore.togglePinConnection(conn.id)" :title="t('server.unpin')"><MapPinOff :size="13"/></button>
+                <button class="icon-btn is-primary" @click.stop="quickConnect(conn)" :title="t('form.connect')"><Play :size="14"/></button>
+              </div>
+            </div>
+          </div>
+
           <div v-if="connectionStore.savedConnections.length === 0" class="sidebar-empty">
             <FolderSearch :size="36" class="empty-icon"/>
             <p>{{ t('server.noSavedServers') }}</p>
@@ -65,19 +98,24 @@
           </div>
           <div v-else class="sidebar-list" ref="sidebarListRef" tabindex="-1" @keydown="onSidebarKeydown">
             <template v-for="(grp, gi) in visibleGroups" :key="grp">
-              <div class="group-header" @click="toggleGroup(grp)" role="button" tabindex="0"
-                   @keydown.enter="toggleGroup(grp)">
-                <ChevronRight :size="12" class="group-chevron" :class="{ 'is-open': openGroups.has(grp) }"/>
+              <div class="group-header" @click="connectionStore.toggleGroupCollapsed(grp)" role="button" tabindex="0"
+                   @keydown.enter="connectionStore.toggleGroupCollapsed(grp)"
+                   @contextmenu.prevent="showGroupContextMenu($event, grp)">
+                <ChevronRight :size="12" class="group-chevron" :class="{ 'is-open': !connectionStore.isGroupCollapsed(grp) }"/>
                 <span class="group-name">{{ groupLabel(grp) }}</span>
                 <span class="group-count">{{ groupCounts[grp] }}</span>
+                <button class="group-menu-btn" @click.stop="showGroupContextMenu($event, grp)"><MoreHorizontal :size="11"/></button>
               </div>
-              <template v-if="openGroups.has(grp)">
+              <template v-if="!connectionStore.isGroupCollapsed(grp)">
                 <div v-for="(conn, idx) in groupConnections(grp)" :key="conn.id"
                      :ref="el => setItemRef(el, idx)"
-                     class="saved-item" :class="{ 'is-focused': focusedIndex === idx }"
-                      @dblclick="quickConnect(conn)"
-                      @click="loadForEditing(conn.id)"
+                     class="saved-item" :class="{ 'is-focused': focusedIndex === idx, 'is-dragging': dragConnId === conn.id }"
+                     @dblclick="quickConnect(conn)" @click="loadForEditing(conn.id)"
                      @keydown.enter="quickConnect(conn)"
+                     draggable="true" @dragstart="onDragStart($event, conn)"
+                     @dragover.prevent="onDragOver($event, conn, grp)"
+                     @dragleave="onDragLeave"
+                     @drop.prevent="onDrop($event, conn, grp)"
                      tabindex="0" role="button" :aria-label="t('server.connectTo', { name: conn.name })">
                   <div class="saved-item-left">
                     <ProtocolBadge :protocol="conn.protocol || 'ssh'"/>
@@ -87,11 +125,16 @@
                     </div>
                   </div>
                   <div class="saved-item-actions">
+                    <button class="icon-btn" :class="{ 'is-pinned': conn.pinned }" @click.stop="connectionStore.togglePinConnection(conn.id)"
+                            :title="conn.pinned ? t('server.unpin') : t('server.pin')">
+                      <MapPin v-if="!conn.pinned" :size="12"/> <MapPinOff v-else :size="12"/>
+                    </button>
                     <button class="icon-btn" @click.stop="loadForEditing(conn.id)" :title="t('server.edit')"><Edit3 :size="14"/></button>
                     <button class="icon-btn is-primary" @click.stop="quickConnect(conn)" :title="t('form.connect')"><Play :size="14"/></button>
                     <button class="icon-btn is-danger" @click.stop="confirmRemoveConnection(conn)" :title="t('server.delete')"><Trash2 :size="14"/></button>
                   </div>
                 </div>
+                <div v-if="isDragOverGroup === grp && dragConnId && dragConnId !== groupConnections(grp)?.[0]?.id" class="drop-zone"></div>
               </template>
             </template>
           </div>
@@ -99,6 +142,27 @@
 
         <TunnelManager/>
       </aside>
+    </div>
+
+    <!-- Group context menu -->
+    <div v-if="groupMenuVisible" class="context-menu" :style="groupMenuStyle" @click.stop>
+      <div class="context-item" @click="renameGroupAction">{{ t('server.renameGroup') }}</div>
+      <div class="context-item" @click="connectAllInGroup">{{ t('server.connectAll') }}</div>
+      <div class="context-divider"></div>
+      <div class="context-item is-danger" @click="deleteGroupAction">{{ t('server.deleteGroup') }}</div>
+    </div>
+
+    <!-- Rename dialog -->
+    <div v-if="renamingGroup" class="rename-overlay" @click.self="renamingGroup = null">
+      <div class="rename-dialog">
+        <h4>{{ t('server.renameGroup') }}</h4>
+        <input ref="renameInputRef" type="text" v-model="renameValue" class="rename-input"
+               @keydown.enter="confirmRename" @keydown.escape="renamingGroup = null"/>
+        <div class="rename-actions">
+          <button class="rename-btn" @click="confirmRename">{{ t('common.save') }}</button>
+          <button class="rename-btn cancel" @click="renamingGroup = null">{{ t('common.cancel') }}</button>
+        </div>
+      </div>
     </div>
 
     <ConfirmDialog
@@ -114,7 +178,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ServerConnectForm from '@/components/connection/ServerConnectForm.vue';
 import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
@@ -123,7 +187,10 @@ import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
-import { Server, History, Edit3, Trash2, Play, FolderSearch, Search, Download, Upload, ChevronRight } from 'lucide-vue-next';
+import {
+  Server, History, Edit3, Trash2, Play, FolderSearch, Search, Download, Upload,
+  ChevronRight, FolderPlus, MapPin, MapPinOff, MoreHorizontal,
+} from 'lucide-vue-next';
 
 const connectionStore = useConnectionStore();
 const router = useRouter();
@@ -139,13 +206,11 @@ const importInputRef = ref(null);
 const sidebarListRef = ref(null);
 const itemRefs = ref([]);
 const focusedIndex = ref(-1);
-const openGroups = ref(new Set(connectionStore.groups));
+const showNewGroupInput = ref(false);
+const newGroupName = ref('');
+const newGroupInputRef = ref(null);
 
-const visibleGroups = computed(() => {
-  const q = searchQuery.value.toLowerCase().trim();
-  if (q) return connectionStore.groups;
-  return connectionStore.groups;
-});
+const visibleGroups = computed(() => connectionStore.groups);
 
 const groupCounts = computed(() => {
   const counts = {};
@@ -165,33 +230,26 @@ function groupConnections(grp) {
   );
 }
 
-function toggleGroup(grp) {
-  if (openGroups.value.has(grp)) openGroups.value.delete(grp);
-  else openGroups.value.add(grp);
-  openGroups.value = new Set(openGroups.value);
-}
-
-// When searching, open all groups
 watch(searchQuery, () => {
   if (searchQuery.value.trim()) {
-    openGroups.value = new Set(connectionStore.groups);
+    connectionStore.groups.forEach(g => {
+      if (connectionStore.isGroupCollapsed(g)) connectionStore.toggleGroupCollapsed(g);
+    });
   }
 });
 
-function setItemRef(el, idx) {
-  if (el) itemRefs.value[idx] = el;
-}
+function setItemRef(el, idx) { if (el) itemRefs.value[idx] = el; }
 
 function onSidebarKeydown(e) {
-  const len = filteredConnections.value.length;
-  if (len === 0) return;
+  const all = filteredConnections.value;
+  if (all.length === 0) return;
   if (e.key === 'ArrowDown') {
     e.preventDefault();
-    focusedIndex.value = focusedIndex.value < len - 1 ? focusedIndex.value + 1 : 0;
+    focusedIndex.value = focusedIndex.value < all.length - 1 ? focusedIndex.value + 1 : 0;
     itemRefs.value[focusedIndex.value]?.focus();
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
-    focusedIndex.value = focusedIndex.value > 0 ? focusedIndex.value - 1 : len - 1;
+    focusedIndex.value = focusedIndex.value > 0 ? focusedIndex.value - 1 : all.length - 1;
     itemRefs.value[focusedIndex.value]?.focus();
   }
 }
@@ -221,50 +279,30 @@ const testOutput = computed(() => {
 
 const resultClass = computed(() => {
   const r = connectionStore.sshTestResult;
-  if (!r) return '';
-  if (r.success) return 'is-success';
-  if (r.error?.length && r.output?.length) return 'is-warning';
-  return 'is-danger';
+  if (!r) return ''; return r.success ? 'is-success' : (r.error?.length && r.output?.length ? 'is-warning' : 'is-danger');
 });
-
-const resultIcon = computed(() => {
-  const r = connectionStore.sshTestResult;
-  if (!r) return '';
-  return r.success ? '\u2705' : '\u274C';
-});
+const resultIcon = computed(() => connectionStore.sshTestResult?.success ? '\u2705' : '\u274C');
 
 function exportConnections() {
   const data = JSON.stringify(connectionStore.savedConnections, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `webssh-connections-${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  a.href = URL.createObjectURL(blob); a.download = `webssh-connections-${Date.now()}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
   showSuccess(t('server.exported', { count: connectionStore.savedConnections.length }));
 }
-
 function triggerImport() { importInputRef.value?.click(); }
-
 function onImportFile(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const file = e.target.files?.[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
-      const imported = JSON.parse(ev.target?.result);
+      const imported = JSON.parse(ev.target?.result || '[]');
       if (!Array.isArray(imported)) throw new Error('Invalid format');
       let count = 0;
-      for (const conn of imported) {
-        if (conn.name && conn.host) {
-          connectionStore.addConnection(conn);
-          count++;
-        }
-      }
+      for (const conn of imported) { if (conn.name && conn.host) { connectionStore.addConnection(conn); count++; } }
       showSuccess(t('server.exported', { count }));
-    } catch {
-      showError(t('server.importFailed'));
-    }
+    } catch { showError(t('server.importFailed')); }
   };
   reader.readAsText(file);
   e.target.value = '';
@@ -273,12 +311,8 @@ function onImportFile(e) {
 async function handleFormTest(nodeConfig) {
   formInitialData.value = null;
   const result = await connectionStore.testConnection(nodeConfig);
-  if (result.success) {
-    const saved = connectionStore.addConnection(nodeConfig);
-      showSuccess(t('form.testSuccess', { name: saved.name }));
-    } else {
-      showError(t('form.testFailed', { name: nodeConfig.name, error: result.error?.join('; ') }));
-  }
+  if (result.success) { const saved = connectionStore.addConnection(nodeConfig); showSuccess(t('form.testSuccess', { name: saved.name })); }
+  else { showError(t('form.testFailed', { name: nodeConfig.name, error: result.error?.join('; ') })); }
 }
 
 function handleFormConnect(nodeConfig) {
@@ -290,9 +324,7 @@ function handleFormConnect(nodeConfig) {
     connectionStore.saveCredentialToSessionStorage(saved.id, nodeConfig.auth_type, nodeConfig.auth_value);
   }
   connectionStore.pendingConnections.push({ ...nodeConfig, id: saved.id });
-  if (router.currentRoute.value.name !== 'Terminal') {
-    router.push({ name: 'Terminal' });
-  }
+  if (router.currentRoute.value.name !== 'Terminal') router.push({ name: 'Terminal' });
 }
 
 function loadForEditing(id) {
@@ -312,15 +344,12 @@ async function quickConnect(conn) {
     const saved = connectionStore.addConnection(full);
     connectionStore.setCurrentNodeDetails({ ...full, id: saved.id });
     connectionStore.pendingConnections.push({ ...full, id: saved.id });
-    if (router.currentRoute.value.name !== 'Terminal') {
-      router.push({ name: 'Terminal' });
-    }
+    if (router.currentRoute.value.name !== 'Terminal') router.push({ name: 'Terminal' });
   } else {
     showWarning(t('form.noSavedCredentials', { name: conn.name }));
     loadForEditing(conn.id);
   }
 }
-
 function confirmRemoveConnection(conn) { connectionToRemove.value = conn; }
 function onRemoveConfirmed() {
   if (connectionToRemove.value) {
@@ -329,166 +358,180 @@ function onRemoveConfirmed() {
     connectionToRemove.value = null;
   }
 }
+
+// --- New Group ---
+function confirmCreateGroup() {
+  const name = newGroupName.value.trim();
+  if (name && connectionStore.createGroup(name)) {
+    showSuccess(t('server.groupCreated', { name }));
+  }
+  showNewGroupInput.value = false;
+  newGroupName.value = '';
+}
+function cancelCreateGroup() { showNewGroupInput.value = false; newGroupName.value = ''; }
+
+// --- Group Context Menu ---
+const groupMenuVisible = ref(false);
+const groupMenuStyle = ref({});
+const groupMenuTarget = ref('');
+
+function showGroupContextMenu(e, grp) {
+  groupMenuTarget.value = grp;
+  groupMenuStyle.value = { top: e.clientY + 'px', left: e.clientX + 'px' };
+  groupMenuVisible.value = true;
+  document.addEventListener('click', closeGroupMenu, { once: true });
+}
+function closeGroupMenu() { groupMenuVisible.value = false; }
+
+const renamingGroup = ref(null);
+const renameValue = ref('');
+const renameInputRef = ref(null);
+
+function renameGroupAction() {
+  groupMenuVisible.value = false;
+  renameValue.value = groupMenuTarget.value;
+  renamingGroup.value = groupMenuTarget.value;
+  nextTick(() => renameInputRef.value?.focus());
+}
+function confirmRename() {
+  if (renameValue.value.trim() && renameValue.value.trim() !== renamingGroup.value) {
+    connectionStore.renameGroup(renamingGroup.value, renameValue.value.trim());
+    showSuccess(t('server.groupRenamed'));
+  }
+  renamingGroup.value = null;
+}
+function deleteGroupAction() {
+  groupMenuVisible.value = false;
+  const grp = groupMenuTarget.value;
+  if (connectionStore.deleteGroup(grp)) showSuccess(t('server.groupDeleted', { name: grp }));
+}
+function connectAllInGroup() {
+  groupMenuVisible.value = false;
+  const conns = connectionStore.connectionsByGroup(groupMenuTarget.value);
+  if (conns.length === 0) return;
+  for (const conn of conns) {
+    connectionStore.pendingConnections.push({ ...conn });
+  }
+  showSuccess(t('server.connectingAll', { count: conns.length }));
+  if (router.currentRoute.value.name !== 'Terminal') router.push({ name: 'Terminal' });
+}
+
+// --- Drag & Drop ---
+const dragConnId = ref(null);
+const dragSourceGroup = ref('');
+const isDragOverGroup = ref(null);
+
+function onDragStart(e, conn) {
+  dragConnId.value = conn.id;
+  dragSourceGroup.value = conn.group || 'Ungrouped';
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', conn.id);
+}
+
+function onDragOver(e, conn, grp) {
+  isDragOverGroup.value = grp;
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function onDragLeave() { isDragOverGroup.value = null; }
+
+function onDrop(e, conn, targetGroup) {
+  e.preventDefault();
+  isDragOverGroup.value = null;
+  if (dragConnId.value) {
+    connectionStore.moveConnectionToGroup(dragConnId.value, targetGroup);
+    dragConnId.value = null;
+  }
+}
 </script>
 
 <style lang="scss" scoped>
 .conn-view { max-width: 1200px; margin: 0 auto; }
-
-.conn-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 1.5rem;
-}
-
+.conn-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
 .conn-title { font-size: 1.4em; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; margin: 0; }
 .conn-subtitle { font-size: 0.8em; color: var(--bulma-text-light); margin: 0; }
-
-.conn-count {
-  display: flex; flex-direction: column; align-items: center;
-  background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%));
-  color: white; padding: 0.4rem 0.8rem; border-radius: 10px; line-height: 1.2;
-}
+.conn-count { display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%)); color: white; padding: 0.4rem 0.8rem; border-radius: 10px; line-height: 1.2; }
 .count-num { font-size: 1.4em; font-weight: 700; }
 .count-label { font-size: 0.6em; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8; }
-
-.conn-layout {
-  display: grid; grid-template-columns: 1fr minmax(300px, 420px); gap: 1.5rem; align-items: start;
-}
-
+.conn-layout { display: grid; grid-template-columns: 1fr minmax(300px, 420px); gap: 1.5rem; align-items: start; }
 .conn-main { min-width: 0; }
-
 .test-progress { margin-top: 0.75rem; height: 3px; border-radius: 2px; overflow: hidden; background: var(--bulma-border-light); }
 .test-bar { height: 100%; width: 30%; background: var(--bulma-primary); border-radius: 2px; animation: testSlide 1.2s ease-in-out infinite; }
 @keyframes testSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
-
-.test-result {
-  margin-top: 0.75rem; border-radius: 10px; overflow: hidden; border: 1px solid;
-  &.is-success { border-color: var(--bulma-success); }
-  &.is-danger { border-color: var(--bulma-danger); }
-  &.is-warning { border-color: var(--bulma-warning); }
-}
-
-.test-result-header {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.4rem 0.75rem; font-size: 0.8em;
-  .is-success & { background: hsl(155,30%,95%); }
-  .is-danger & { background: hsl(350,30%,95%); }
-  .is-warning & { background: hsl(38,30%,95%); }
-}
+.test-result { margin-top: 0.75rem; border-radius: 10px; overflow: hidden; border: 1px solid; }
+.test-result.is-success { border-color: var(--bulma-success); }
+.test-result.is-danger { border-color: var(--bulma-danger); }
+.test-result.is-warning { border-color: var(--bulma-warning); }
+.test-result-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem; font-size: 0.8em; }
+.test-result.is-success & { background: hsl(155,30%,95%); }
+.test-result.is-danger & { background: hsl(350,30%,95%); }
+.test-result.is-warning & { background: hsl(38,30%,95%); }
 .test-result-title { font-weight: 600; flex: 1; }
 .test-result-status { font-weight: 500; }
 .test-result-time { color: var(--bulma-text-light); font-family: var(--bulma-family-monospace); font-size: 0.9em; }
 .test-result-close { background: none; border: none; font-size: 1.2em; cursor: pointer; color: var(--bulma-text-light); padding: 0; line-height: 1; }
-
-.test-result-body {
-  padding: 0.5rem 0.75rem; max-height: 150px; overflow-y: auto;
-  pre { margin: 0; font-size: 0.75em; background: none; padding: 0; }
-  code { color: var(--bulma-text); }
-}
-
+.test-result-body { padding: 0.5rem 0.75rem; max-height: 150px; overflow-y: auto; pre { margin: 0; font-size: 0.75em; background: none; padding: 0; } code { color: var(--bulma-text); } }
 .conn-sidebar { display: flex; flex-direction: column; gap: 0.75rem; }
-
-.sidebar-card {
-  background: var(--bulma-box-background-color);
-  backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden;
-}
-
-.sidebar-card-header {
-  display: flex; align-items: center; gap: 0.4rem;
-  padding: 0.6rem 0.75rem; font-size: 0.8em; font-weight: 600;
-  border-bottom: 1px solid var(--bulma-border-light);
-}
-
+.sidebar-card { background: var(--bulma-box-background-color); backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light); border-radius: 12px; overflow: hidden; }
+.sidebar-card-header { display: flex; align-items: center; gap: 0.4rem; padding: 0.6rem 0.75rem; font-size: 0.8em; font-weight: 600; border-bottom: 1px solid var(--bulma-border-light); }
 .sidebar-header-actions { display: flex; gap: 2px; margin-left: auto; margin-right: 0.25rem; }
-.header-action-btn {
-  background: none; border: none; padding: 0.2rem; border-radius: 4px; cursor: pointer;
-  color: var(--bulma-text-light); display: flex; transition: all 0.1s;
-  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-}
+.header-action-btn { background: none; border: none; padding: 0.2rem; border-radius: 4px; cursor: pointer; color: var(--bulma-text-light); display: flex; &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); } }
+.sidebar-badge { font-size: 0.8em; padding: 1px 6px; border-radius: 6px; background: var(--bulma-border-light); color: var(--bulma-text-light); }
 
-.sidebar-badge {
-  font-size: 0.8em; padding: 1px 6px; border-radius: 6px;
-  background: var(--bulma-border-light); color: var(--bulma-text-light);
-}
+.new-group-row { padding: 0.35rem 0.65rem; border-bottom: 1px solid var(--bulma-border-light); }
+.new-group-input { width: 100%; padding: 0.3rem 0.5rem; border: 1px solid var(--bulma-primary); border-radius: 6px; font-size: 0.75em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none; }
 
-.sidebar-search {
-  display: flex; align-items: center; gap: 0.4rem;
-  padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--bulma-border-light);
-}
+.sidebar-search { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--bulma-border-light); }
 .sidebar-search-icon { flex-shrink: 0; color: var(--bulma-text-light); }
-.sidebar-search-input {
-  flex: 1; border: none; background: none; outline: none; font-size: 0.8em;
-  color: var(--bulma-text); min-width: 0;
-  &::placeholder { color: var(--bulma-text-light); }
-}
-.sidebar-search-clear {
-  background: none; border: none; cursor: pointer; font-size: 1em; line-height: 1;
-  color: var(--bulma-text-light); padding: 0 2px;
-  &:hover { color: var(--bulma-text); }
-}
-
-.sidebar-empty {
-  padding: 1.5rem; text-align: center; color: var(--bulma-text-light);
-  .empty-icon { opacity: 0.3; margin-bottom: 0.5rem; }
-}
-
+.sidebar-search-input { flex: 1; border: none; background: none; outline: none; font-size: 0.8em; color: var(--bulma-text); min-width: 0; &::placeholder { color: var(--bulma-text-light); } }
+.sidebar-search-clear { background: none; border: none; cursor: pointer; font-size: 1em; line-height: 1; color: var(--bulma-text-light); padding: 0 2px; &:hover { color: var(--bulma-text); } }
+.sidebar-empty { padding: 1.5rem; text-align: center; color: var(--bulma-text-light); .empty-icon { opacity: 0.3; margin-bottom: 0.5rem; } }
 .sidebar-list { max-height: 400px; overflow-y: auto; }
 
-.group-header {
-  display: flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.65rem;
-  font-size: 0.7em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
-  color: var(--bulma-text-light); cursor: pointer; user-select: none;
-  &:hover { color: var(--bulma-text); }
-  & + & { border-top: 1px solid var(--bulma-border-light); margin-top: 0.25rem; padding-top: 0.5rem; }
-}
+.pinned-section { border-bottom: 1px solid var(--bulma-border-light); }
+.pinned-header { display: flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.65rem; font-size: 0.65em; font-weight: 500; color: var(--bulma-text-light); }
+.pinned-count { opacity: 0.5; }
+.pinned-item { background: rgba(var(--bulma-primary-rgb, 99,102,241), 0.03); }
+
+.group-header { display: flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.65rem; font-size: 0.7em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--bulma-text-light); cursor: pointer; user-select: none; &:hover { color: var(--bulma-text); } & + & { border-top: 1px solid var(--bulma-border-light); margin-top: 0.25rem; padding-top: 0.5rem; } }
 .group-chevron { transition: transform 0.15s; flex-shrink: 0; &.is-open { transform: rotate(90deg); } }
 .group-name { flex: 1; }
 .group-count { font-size: 0.85em; opacity: 0.6; }
+.group-menu-btn { background: none; border: none; padding: 2px; border-radius: 4px; cursor: pointer; color: var(--bulma-text-light); opacity: 0; display: flex; .group-header:hover & { opacity: 1; } &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); } }
 
-.saved-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0.5rem 0.75rem; cursor: pointer; transition: background 0.1s;
-  &:hover, &.is-focused { background: var(--bulma-scheme-main-ter); }
-  &.is-focused { outline: 2px solid var(--bulma-primary); outline-offset: -2px; }
-  & + & { border-top: 1px solid var(--bulma-border-light); }
-}
-
+.saved-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; cursor: pointer; transition: background 0.1s; &.is-dragging { opacity: 0.4; } &:hover, &.is-focused { background: var(--bulma-scheme-main-ter); } &.is-focused { outline: 2px solid var(--bulma-primary); outline-offset: -2px; } & + & { border-top: 1px solid var(--bulma-border-light); } }
 .saved-item-left { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
 .saved-item-info { min-width: 0; }
 .saved-item-name { display: block; font-size: 0.8em; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
 .saved-item-desc { display: block; font-size: 0.65em; color: var(--bulma-text-light); overflow: hidden; text-overflow: ellipsis; }
+.saved-item-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s; flex-shrink: 0; .saved-item:hover & { opacity: 1; } .pinned-item & { opacity: 1; } }
 
-.saved-item-actions {
-  display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s; flex-shrink: 0;
-  .saved-item:hover & { opacity: 1; }
-}
+.icon-btn { background: none; border: none; padding: 0.25rem; border-radius: 6px; cursor: pointer; color: var(--bulma-text-light); display: flex; transition: all 0.1s; &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); } &.is-primary:hover { color: var(--bulma-primary); } &.is-danger:hover { color: var(--bulma-danger); } &.is-pinned { color: #f59e0b; } }
 
-.icon-btn {
-  background: none; border: none; padding: 0.25rem; border-radius: 6px;
-  cursor: pointer; color: var(--bulma-text-light); display: flex;
-  transition: all 0.1s;
-  &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); }
-  &.is-primary:hover { color: var(--bulma-primary); }
-  &.is-danger:hover { color: var(--bulma-danger); }
-}
+.drop-zone { height: 3px; margin: 0 0.75rem; border-radius: 2px; background: var(--bulma-primary); }
+
+.context-menu { position: fixed; z-index: 2000; min-width: 160px; background: var(--bulma-scheme-main); border: 1px solid var(--bulma-border-light); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden; }
+.context-item { display: flex; align-items: center; padding: 0.45rem 0.65rem; font-size: 0.75em; cursor: pointer; &:hover { background: var(--bulma-scheme-main-bis); } &.is-danger { color: var(--bulma-danger); } }
+.context-divider { height: 1px; background: var(--bulma-border-light); margin: 2px 0; }
+
+.rename-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 2001; }
+.rename-dialog { background: var(--bulma-scheme-main); border-radius: 12px; padding: 1rem; width: 320px; }
+.rename-dialog h4 { margin: 0 0 0.5rem; font-size: 0.9em; }
+.rename-input { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--bulma-border); border-radius: 6px; font-size: 0.85em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none; &:focus { border-color: var(--bulma-primary); } }
+.rename-actions { display: flex; gap: 0.35rem; margin-top: 0.5rem; }
+.rename-btn { flex: 1; border: none; border-radius: 6px; padding: 0.35rem; font-size: 0.8em; cursor: pointer; font-weight: 500; background: var(--bulma-primary); color: white; &.cancel { background: var(--bulma-border-light); color: var(--bulma-text); } }
 
 @media (max-width: 768px) {
   .conn-layout { grid-template-columns: 1fr; }
   .saved-item-actions { opacity: 1; }
   .conn-header { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
-  .conn-header .title { font-size: 1.25rem; }
   .sidebar-card { border-left: none; padding-left: 0; margin-left: 0; }
   .sidebar-list { max-height: none; }
 }
-
 @media (max-width: 480px) {
   .conn-view { padding: 0.5rem; }
   .conn-header { margin-bottom: 0.75rem; }
-  .conn-main .card { padding: 0.75rem; }
   .saved-item { padding: 0.5rem 0.6rem; }
-  .saved-item-main { gap: 0.5rem; }
-  .saved-item-icon { width: 28px; height: 28px; font-size: 0.75rem; }
-  .saved-item-info { gap: 0; }
   .saved-item-name { font-size: 0.8rem; }
   .saved-item-desc { font-size: 0.65rem; }
 }
