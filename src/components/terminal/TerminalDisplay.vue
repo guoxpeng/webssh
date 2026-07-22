@@ -84,12 +84,14 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import SshWebSocketService from '@/services/sshWebSocketService';
 import { useTerminalStore } from '@/stores/terminalStore';
+import { useConnectionStore } from '@/stores/connectionStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
+const connectionStore = useConnectionStore();
 const snippetStore = useSnippetStore();
 
 const props = defineProps({
@@ -281,6 +283,10 @@ const initializeTerminal = async () => {
       if (destroyed) return;
       clearReconnect();
       emit('status-change', 'connected');
+      const cfg = props.nodeConfig;
+      if (cfg?.id && cfg?.auth_value) {
+        connectionStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value);
+      }
       term?.writeln('\r\n\x1b[32m✅ Session initiated\x1b[0m');
       term?.focus();
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));

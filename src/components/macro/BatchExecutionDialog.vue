@@ -1,4 +1,5 @@
 <template>
+  <Teleport to="body">
   <div class="batch-overlay">
     <div class="batch-dialog">
       <div class="batch-header">
@@ -23,17 +24,17 @@
               <span class="conn-name">{{ allSelected ? t('macro.deselectAll') : t('macro.selectAll') }}</span>
             </label>
             <label v-for="conn in connections" :key="conn.id || conn.name" class="conn-item">
-              <input type="checkbox" :value="conn" v-model="selectedConnections" class="conn-check"/>
+              <input type="checkbox" :value="conn.id" v-model="selectedConnIds" class="conn-check"/>
               <span class="conn-name">{{ conn.name || conn.host }}</span>
               <span class="conn-meta">{{ conn.protocol || 'SSH' }} · {{ conn.host }}</span>
             </label>
             <div v-if="connections.length === 0" class="conn-empty">{{ t('macro.noConnections') }}</div>
           </div>
-          <button v-if="!confirmed && results.length === 0" class="btn-confirm-inline" :disabled="!canRun" @click="confirmed = true">
-            <Check :size="14"/> {{ t('macro.confirmSelection') }} ({{ selectedConnections.length }})
+          <button v-if="!confirmed && results.length === 0" class="btn-confirm-inline" :disabled="!canConfirm" @click="confirmed = true">
+            <Check :size="14"/> {{ t('macro.confirmSelection') }} ({{ selectedConnIds.length }})
           </button>
           <div v-if="confirmed && results.length === 0" class="confirm-banner">
-            ✅ {{ t('macro.confirmedCount', { count: selectedConnections.length }) }}
+            ✅ {{ t('macro.confirmedCount', { count: selectedConnIds.length }) }}
             <button class="unconfirm-btn" @click="confirmed = false">{{ t('macro.unconfirm') }}</button>
           </div>
         </div>
@@ -73,13 +74,14 @@
         <button v-if="results.length > 0 && !running" class="btn-reset" @click="results = []">
           <RotateCcw :size="14"/> {{ t('macro.runAgain') }}
         </button>
-        <button v-if="confirmed && results.length === 0" class="btn-run" :disabled="!canRun || running" @click="startBatch">
+        <button v-if="confirmed && results.length === 0" class="btn-run" :disabled="!canExecute || running" @click="startBatch">
           <Loader2 v-if="running" :size="14" class="spin"/>
-          {{ running ? t('macro.running') : t('macro.batchRun') }}
+          {{ running ? t('macro.running') : (selectedMacroId ? t('macro.batchRun') : t('macro.selectMacro')) }}
         </button>
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -98,7 +100,7 @@ const connStore = useConnectionStore();
 const { showSuccess, showError } = useNotifications();
 
 const selectedMacroId = ref('');
-const selectedConnections = ref([]);
+const selectedConnIds = ref([]);
 const runDelay = ref(500);
 const stopOnError = ref(true);
 const running = ref(false);
@@ -110,24 +112,32 @@ const connections = computed(() => {
   return connStore.savedConnections || [];
 });
 
+const selectedConnections = computed(() => {
+  return connections.value.filter(c => selectedConnIds.value.includes(c.id));
+});
+
 const selectedMacro = computed(() => {
   return store.macros.find(m => m.id === selectedMacroId.value);
 });
 
-const canRun = computed(() => {
-  return selectedMacroId.value && selectedConnections.value.length > 0;
+const canConfirm = computed(() => {
+  return selectedConnIds.value.length > 0;
+});
+
+const canExecute = computed(() => {
+  return selectedMacroId.value && selectedConnIds.value.length > 0;
 });
 
 const allSelected = computed(() => {
   if (connections.value.length === 0) return false;
-  return selectedConnections.value.length === connections.value.length;
+  return selectedConnIds.value.length === connections.value.length;
 });
 
 function toggleAll() {
   if (allSelected.value) {
-    selectedConnections.value = [];
+    selectedConnIds.value = [];
   } else {
-    selectedConnections.value = [...connections.value];
+    selectedConnIds.value = connections.value.map(c => c.id);
   }
 }
 
@@ -137,11 +147,12 @@ function sleep(ms) {
 
 async function startBatch() {
   const macro = selectedMacro.value;
-  if (!macro || selectedConnections.value.length === 0) return;
+  const conns = selectedConnections.value;
+  if (!macro || conns.length === 0) return;
 
   running.value = true;
   cancelled.value = false;
-  results.value = selectedConnections.value.map(c => ({
+  results.value = conns.map(c => ({
     connId: c.id || c.name,
     connName: c.name || c.host,
     status: 'pending',
@@ -151,7 +162,7 @@ async function startBatch() {
   for (let i = 0; i < results.value.length; i++) {
     if (cancelled.value) break;
     const r = results.value[i];
-    const conn = selectedConnections.value[i];
+    const conn = conns[i];
     r.status = 'running';
 
     try {
