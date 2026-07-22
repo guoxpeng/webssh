@@ -53,7 +53,7 @@ echo -e "  ${YELLOW}[█████████·] 85%${NC}  Done."
 echo -e "  ${YELLOW}[█████████▌] 90%${NC}  Starting server..."
 
 # Kill existing instance if any
-PID_FILE="$DIR/webssh.pid"
+PID_FILE="webssh.pid"
 if [ -f "$PID_FILE" ]; then
   OLD_PID=$(cat "$PID_FILE")
   kill "$OLD_PID" 2>/dev/null || true
@@ -64,6 +64,12 @@ fi
 IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
 [ -z "$IP" ] && IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 [ -z "$IP" ] && IP="localhost"
+
+# Detect public IP (show at end if found)
+PUBLIC_IP=""
+PUBLIC_IP=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || true)
+[ -z "$PUBLIC_IP" ] && PUBLIC_IP=$(curl -s --max-time 3 https://checkip.amazonaws.com 2>/dev/null || true)
+[ -z "$PUBLIC_IP" ] && PUBLIC_IP=$(curl -s --max-time 3 https://ifconfig.me/ip 2>/dev/null || true)
 
 # Start in background
 nohup env PORT="$PORT" node server/index.mjs > webssh.log 2>&1 &
@@ -77,13 +83,17 @@ if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   echo -e "  ${BOLD}${GREEN}  ✓ WebSSH 已启动${NC}"
   echo -e "  ═══════════════════════════════════"
   echo -e ""
-  echo -e "  ${BOLD}🔗 打开浏览器访问：${NC}"
-  echo -e ""
-  echo -e "      ${GREEN}${BOLD}http://${IP}:${PORT}${NC}"
+  echo -e "  ${BOLD}🔗 本地访问：${NC}"
+  echo -e "      ${GREEN}${BOLD}http://localhost:${PORT}${NC}"
   echo -e ""
   if [ "$IP" != "localhost" ] && [ -n "$IP" ]; then
-    echo -e "  ${BOLD}📱 局域网内其他设备也可以访问：${NC}"
+    echo -e "  ${BOLD}📱 局域网访问：${NC}"
     echo -e "      ${CYAN}http://${IP}:${PORT}${NC}"
+    echo -e ""
+  fi
+  if [ -n "$PUBLIC_IP" ]; then
+    echo -e "  ${BOLD}🌍 公网访问：${NC}"
+    echo -e "      ${YELLOW}http://${PUBLIC_IP}:${PORT}${NC}"
     echo -e ""
   fi
   echo -e "  ═══════════════════════════════════"
