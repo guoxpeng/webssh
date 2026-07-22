@@ -99,7 +99,7 @@ const props = defineProps({
   termSettings: { type: Object, default: null },
 });
 
-const emit = defineEmits(['status-change', 'error-message', 'shell-exit']);
+const emit = defineEmits(['status-change', 'error-message', 'shell-exit', 'session-id']);
 
 const xtermContainerRef = ref(null);
 const searchInputRef = ref(null);
@@ -111,6 +111,7 @@ const searchResultCount = ref(0);
 const commandInput = ref('');
 const snippetDragIdx = ref(null);
 const snippetDragOverIdx = ref(null);
+const sshSessionId = ref(null);
 let term = null;
 let fitAddon = null;
 let searchAddon = null;
@@ -292,7 +293,21 @@ const initializeTerminal = async () => {
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
     },
     onMessage: (data) => {
-      if (!destroyed) term?.write(typeof data === 'string' ? data : new Uint8Array(data));
+      if (destroyed) return;
+      const str = typeof data === 'string' ? data : '';
+      if (str.startsWith('{') && str.includes('"type"')) {
+        try {
+          const msg = JSON.parse(str);
+          if (msg.type === 'session' && msg.sessionId) {
+            sshSessionId.value = msg.sessionId;
+            emit('session-id', msg.sessionId);
+            return;
+          }
+          if (msg.type === 'status') return;
+          if (msg.type === 'error') { term?.writeln(`\r\n\x1b[31m${msg.message}\x1b[0m`); return; }
+        } catch {}
+      }
+      term?.write(typeof data === 'string' ? data : new Uint8Array(data));
     },
     onClose: (event, manual) => {
       if (destroyed) return;

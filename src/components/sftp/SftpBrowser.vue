@@ -400,14 +400,22 @@ async function getAuth() {
 }
 
 async function api(action, data = {}) {
-  const auth = await getAuth();
-  if (!auth.host) { showMessage(t('sftp.notConnected'), 'is-error'); return null; }
-  if (!auth.auth_value) { showMessage(t('sftp.noCredential'), 'is-error'); return null; }
+  const src = props.nodeConfig;
+  const hasSession = src?.sessionId;
+  let auth = {};
+  if (!hasSession) {
+    auth = await getAuth();
+    if (!auth.host) { showMessage(t('sftp.notConnected'), 'is-error'); return null; }
+    if (!auth.auth_value) { showMessage(t('sftp.noCredential'), 'is-error'); return null; }
+  }
+  const payload = hasSession
+    ? { sessionId: src.sessionId, host: src.host, ...data }
+    : { ...auth, ...data };
   try {
     const resp = await fetch(`${getApiBaseUrl()}/sftp/${action}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...auth, ...data }),
+      body: JSON.stringify(payload),
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));

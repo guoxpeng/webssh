@@ -22,6 +22,14 @@ const MIME = { '.html':'text/html','.js':'application/javascript','.css':'text/c
 const PORT = parseInt(process.env.PORT || '9627', 10);
 const WS_PATH = process.env.WS_PATH || '/ws/ssh';
 
+const sessions = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, s] of sessions) {
+    if (now - s.createdAt > 600000) { try { s.client.end(); } catch {} sessions.delete(id); }
+  }
+}, 30000);
+
 // Prevent process crash on unhandled errors
 process.on('uncaughtException', (err) => {
   console.error('❗ Uncaught Exception:', err.message);
@@ -55,6 +63,36 @@ async function withSftp(body, fn) {
     if (body.auth_type === 'key') cfg.privateKey = body.auth_value;
     else cfg.password = body.auth_value;
     try { conn.connect(cfg); } catch (e) { clearTimeout(timeout); reject(e); }
+  });
+}
+
+async function withSessionSftp(body, fn) {
+  let conn, ownsClient = false;
+  if (body.sessionId && sessions.has(body.sessionId)) {
+    conn = sessions.get(body.sessionId).client;
+  } else {
+    conn = new Client();
+    ownsClient = true;
+  }
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => { reject(new Error('SFTP timeout')); }, 15000);
+    const done = () => { clearTimeout(timeout); if (ownsClient) { try { conn.end(); } catch {} } };
+    const onReady = () => {
+      conn.sftp((err, sftp) => {
+        if (err) { done(); reject(err); return; }
+        fn(sftp, conn).then(r => { done(); resolve(r); }).catch(e => { done(); reject(e); });
+      });
+    };
+    if (ownsClient) {
+      const cfg = { host: body.host, port: body.port || 22, username: body.username || 'root', readyTimeout: 8000 };
+      if (body.auth_type === 'key') cfg.privateKey = body.auth_value;
+      else cfg.password = body.auth_value;
+      conn.on('ready', onReady);
+      conn.on('error', e => { done(); reject(e); });
+      try { conn.connect(cfg); } catch (e) { done(); reject(e); }
+    } else {
+      onReady();
+    }
   });
 }
 
@@ -160,11 +198,12 @@ const server = createServer(async (req, res) => {
   }
 
   const action = req.url.slice('/api/sftp/'.length);
+  const runSftp = body.sessionId && sessions.has(body.sessionId) ? withSessionSftp : withSftp;
 
   try {
     switch (action) {
       case 'list': {
-        const entries = await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        const entries = await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           sftp.readdir(body.path || '/', (err, list) => {
             if (err) { reject(err); return; }
             const result = list.filter(e => e.filename !== '.' && e.filename !== '..')
@@ -182,7 +221,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'stat': {
-        const stat = await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        const stat = await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           sftp.stat(body.path, (err, st) => {
             if (err) { reject(err); return; }
             resolve({ size: st.size, mode: st.mode, mtime: st.mtime ? new Date(st.mtime * 1000).toISOString() : null });
@@ -192,7 +231,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'read': {
-        const content = await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        const content = await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           const chunks = [];
           sftp.createReadStream(body.path)
             .on('data', (chunk) => chunks.push(chunk))
@@ -203,7 +242,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'write': {
-        await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           const buf = Buffer.from(body.content, body.encoding === 'base64' ? 'base64' : 'utf8');
           sftp.writeFile(body.path, buf, (err) => {
             if (err) reject(err); else resolve();
@@ -213,7 +252,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'delete': {
-        await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           sftp.unlink(body.path, (err) => {
             if (err) reject(err); else resolve();
           });
@@ -222,7 +261,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'rmdir': {
-        await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           sftp.rmdir(body.path, (err) => {
             if (err) reject(err); else resolve();
           });
@@ -231,7 +270,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'mkdir': {
-        await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           sftp.mkdir(body.path, (err) => {
             if (err) reject(err); else resolve();
           });
@@ -240,7 +279,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'rename': {
-        await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           sftp.rename(body.srcPath, body.destPath, (err) => {
             if (err) reject(err); else resolve();
           });
@@ -249,7 +288,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'chmod': {
-        await withSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
           sftp.chmod(body.path, parseInt(body.mode, 8), (err) => {
             if (err) reject(err); else resolve();
           });
@@ -276,11 +315,16 @@ function handleSSH(ws, config) {
     readyTimeout: 10000, keepaliveInterval: 10000,
   };
   const tag = `[SSH ${cfg.host}:${cfg.port}]`;
+  let sessionId = null;
   const log = (m) => console.log(`${tag} ${m}`);
-  const cleanup = () => { try { client.end(); } catch {}; try { ws.close(); } catch {}; client.removeAllListeners(); ws.removeAllListeners(); };
+  const cleanup = () => { if (sessionId) sessions.delete(sessionId); try { client.end(); } catch {}; try { ws.close(); } catch {}; client.removeAllListeners(); ws.removeAllListeners(); };
 
   client.on('ready', () => {
     log('Connected');
+    const sessionId2 = `${cfg.host}_${cfg.port}_${cfg.username}_${Date.now().toString(36)}`;
+    sessionId = sessionId2;
+    sessions.set(sessionId2, { client, createdAt: Date.now() });
+    ws.send(JSON.stringify({ type: 'session', sessionId: sessionId2 }));
     ws.send(JSON.stringify({ type: 'status', message: 'connected' }));
     client.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
       if (err) { ws.send(JSON.stringify({ type: 'error', message: err.message })); return; }
