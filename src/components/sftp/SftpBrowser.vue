@@ -1,8 +1,11 @@
 <template>
   <div class="sftp-browser" @drop.prevent="onDropFiles" @dragover.prevent="dragOver = true" @dragleave.prevent="dragOver = false" :class="{ 'is-dragover': dragOver }">
     <div v-if="dragOver" class="sftp-drop-overlay">
-      <Upload :size="32"/>
-      <span>{{ t('sftp.upload') }}</span>
+      <div class="drop-circle">
+        <Upload :size="36"/>
+      </div>
+      <span class="drop-label">{{ t('sftp.upload') }}</span>
+      <span class="drop-hint">{{ t('sftp.dropHint') }}</span>
     </div>
     <div class="sftp-toolbar">
       <div class="sftp-toolbar-left">
@@ -504,10 +507,27 @@ onMounted(() => { refresh(); });
 
 .sftp-drop-overlay {
   position: absolute; inset: 0; z-index: 500;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;
-  background: rgba(99, 102, 241, 0.1); backdrop-filter: blur(4px);
-  color: var(--bulma-primary); font-weight: 600; font-size: 1.2em;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem;
+  background: rgba(99, 102, 241, 0.08); backdrop-filter: blur(6px);
+  color: var(--bulma-primary); font-weight: 600; font-size: 1em;
+  animation: dropFadeIn 0.2s ease-out;
 }
+@keyframes dropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.drop-circle {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(99, 102, 241, 0.12); display: flex;
+  align-items: center; justify-content: center;
+  animation: dropPulse 1.2s ease-in-out infinite;
+}
+@keyframes dropPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.drop-label { font-size: 1em; font-weight: 600; }
+.drop-hint { font-size: 0.75em; opacity: 0.7; font-weight: 400; }
 
 .sftp-toolbar {
   display: flex; align-items: center; justify-content: space-between;

@@ -26,9 +26,9 @@
             <TerminalSquare :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
           </a>
-          <a class="sidebar-item" @click="showQuickConnect = true; closeMobileMenu()" :title="t('nav.search')" role="button" tabindex="0">
-            <ArrowRightCircle :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.search') }}</span>
+          <a class="sidebar-item" @click="showMacro = true; closeMobileMenu()" :title="t('macro.title')" role="button" tabindex="0">
+            <PlayCircle :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('macro.title') }}</span>
           </a>
           <a class="sidebar-item" @click="showBackup = true; closeMobileMenu()" :title="t('nav.backup')" role="button" tabindex="0">
             <Database :size="22" stroke-width="1.5"/>
@@ -107,30 +107,18 @@
       </div>
     </div>
     <SettingsPanel :visible="showSettings" @close="showSettings = false" />
-    <div v-if="showQuickConnect" class="snippet-overlay">
-      <div class="snippet-overlay-backdrop" @click="showQuickConnect = false"></div>
+    <div v-if="showMacro" class="snippet-overlay">
+      <div class="snippet-overlay-backdrop" @click="showMacro = false"></div>
       <div class="snippet-overlay-panel">
-        <div class="quick-connect-dialog">
-          <h3 class="qc-title"><ArrowRightCircle :size="18"/> {{ t('nav.search') }}</h3>
-          <div class="qc-body">
-            <input ref="qcInputRef" v-model="quickConnectStr" class="qc-input"
-                   placeholder="user@host:port" @keydown.enter="doQuickConnect"/>
-            <p class="qc-hint">{{ t('server.noSavedHint') }}</p>
-          </div>
-          <div class="qc-actions">
-            <button class="qc-btn is-primary" @click="doQuickConnect">{{ t('form.connect') }}</button>
-            <button class="qc-btn" @click="showQuickConnect = false">{{ t('common.cancel') }}</button>
-          </div>
-        </div>
+        <MacroPanel @close="showMacro = false" @run="onRunMacro"/>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
 import AppNavbar from '@/components/global/AppNavbar.vue';
 import AppNotification from '@/components/global/AppNotification.vue';
 import SettingsPanel from '@/components/global/SettingsPanel.vue';
@@ -139,24 +127,23 @@ import { useUiStore } from '@/stores/uiStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useBackupStore } from '@/stores/backupStore';
+import { useMacroStore } from '@/stores/macroStore';
 import SnippetPanel from '@/components/snippets/SnippetPanel.vue';
+import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import { ConnectionStatus } from '@/utils/constants';
-import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle } from 'lucide-vue-next';
+import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle, PlayCircle } from 'lucide-vue-next';
 
 const { t } = useI18n();
-const router = useRouter();
 const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
 const sidebarCollapsed = ref(false);
 const mobileMenuOpen = ref(false);
-const showQuickConnect = ref(false);
+const showMacro = ref(false);
 const showSettings = ref(false);
 const showSnippets = ref(false);
 const showBackup = ref(false);
-const quickConnectStr = ref('');
-const qcInputRef = ref(null);
 
 function closeMobileMenu() { mobileMenuOpen.value = false; }
 function onSidebarNavClick(e) {
@@ -184,7 +171,7 @@ const statusText = computed(() => {
 
 function onGlobalKeydown(e) {
   const isCtrl = e.ctrlKey || e.metaKey;
-  if (isCtrl && e.key === 'p') { e.preventDefault(); showQuickConnect.value = !showQuickConnect.value; }
+  if (isCtrl && e.key === 'p') { e.preventDefault(); showMacro.value = !showMacro.value; }
 }
 
 function onRunSnippet(snippet) {
@@ -198,33 +185,22 @@ function onRunSnippet(snippet) {
   }
 }
 
-function doQuickConnect() {
-  const str = quickConnectStr.value.trim();
-  if (!str) return;
-  let user = 'root', host = str, port = 22;
-  if (str.includes('@')) {
-    const parts = str.split('@');
-    user = parts[0];
-    host = parts[1];
+function onRunMacro(macro) {
+  showMacro.value = false;
+  if (terminalStore.activeSendFunction && macro.steps.length) {
+    const send = terminalStore.activeSendFunction;
+    let totalDelay = 0;
+    for (const step of macro.steps) {
+      totalDelay += step.delay || 300;
+      setTimeout(() => send(step.command + '\n'), totalDelay);
+    }
+    const macroStore = useMacroStore();
+    macroStore.incrementRunCount(macro.id);
+  } else {
+    const { showWarning } = useNotifications();
+    showWarning(t('terminal.connectFirst'));
   }
-  if (host.includes(':')) {
-    const parts = host.split(':');
-    host = parts[0];
-    port = parseInt(parts[1]) || 22;
-  }
-  connectionStore.pendingConnections.push({
-    id: Date.now().toString(), name: `${user}@${host}:${port}`,
-    host, port, username: user, protocol: 'ssh',
-    auth_type: 'password', auth_value: '', rememberForSession: false,
-  });
-  showQuickConnect.value = false;
-  quickConnectStr.value = '';
-  router.push('/terminal');
 }
-
-watch(showQuickConnect, (val) => {
-  if (val) nextTick(() => qcInputRef.value?.focus());
-});
 
 function toggleTheme() { uiStore.toggleTheme(); sidebarCollapsed.value = false; }
 
@@ -273,13 +249,34 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 .statusbar-item { display: inline-flex; align-items: center; white-space: nowrap; }
 .statusbar-kbd { font-size: 0.85em; padding: 1px 5px; border-radius: 3px; background: var(--bulma-border-light); color: var(--bulma-text-light); }
 
-:deep(.page-enter-active), :deep(.page-leave-active) { transition: opacity 0.2s ease, transform 0.2s ease; }
-:deep(.page-enter-from) { opacity: 0; transform: translateY(8px); }
-:deep(.page-leave-to) { opacity: 0; transform: translateY(-8px); }
+:deep(.page-enter-active), :deep(.page-leave-active) { transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+:deep(.page-enter-from) { opacity: 0; transform: translateY(12px) scale(0.98); }
+:deep(.page-leave-to) { opacity: 0; transform: translateY(-12px) scale(0.98); }
 
 .snippet-overlay {
   position: fixed; inset: 0; z-index: 1000;
   display: flex; align-items: center; justify-content: center;
+  animation: overlayIn 0.15s ease-out;
+}
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.snippet-overlay-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.3);
+  animation: backdropIn 0.2s ease-out;
+}
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.snippet-overlay-panel {
+  position: relative; z-index: 1; max-height: 80vh;
+  animation: panelIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .snippet-overlay-backdrop {
   position: absolute; inset: 0; background: rgba(0,0,0,0.3);
