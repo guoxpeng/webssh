@@ -70,7 +70,9 @@ async function withSessionSftp(body, fn) {
   let conn, ownsClient = false;
   if (body.sessionId && sessions.has(body.sessionId)) {
     conn = sessions.get(body.sessionId).client;
-  } else {
+    if (conn._sock && conn._sock.destroyed) { sessions.delete(body.sessionId); conn = null; }
+  }
+  if (!conn) {
     conn = new Client();
     ownsClient = true;
   }
@@ -312,7 +314,8 @@ function handleSSH(ws, config) {
     host: config.host, port: config.port || 22, username: config.username,
     password: config.auth_type === 'password' ? config.auth_value : undefined,
     privateKey: config.auth_type === 'key' ? config.auth_value : undefined,
-    readyTimeout: 10000, keepaliveInterval: 10000,
+    readyTimeout: 15000, keepaliveInterval: 30000, keepaliveCountMax: 3,
+    debug: (s) => { if (s.includes('DEBUG')) console.log(`${tag} ${s}`); },
   };
   const tag = `[SSH ${cfg.host}:${cfg.port}]`;
   let sessionId = null;
@@ -529,6 +532,13 @@ function fetchPublicIP(retries = 0) {
   req.on('error', () => fetchPublicIP(retries + 1));
   req.on('timeout', () => { req.destroy(); fetchPublicIP(retries + 1); });
 }
+
+server.on('error', (err) => {
+  console.error('Server error:', err.message);
+  if (err.code === 'EADDRINUSE') { console.error(`Port ${PORT} is already in use.`); process.exit(1); }
+});
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
 
 server.listen(PORT, () => {
   const ip = getLocalIP();

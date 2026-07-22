@@ -234,9 +234,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   background: var(--bulma-scheme-main-bis);
   border-right: 1px solid var(--bulma-border-light); padding: 1.5rem 0 0.75rem;
   display: flex; flex-direction: column; overflow: hidden;
+  contain: layout style;
   &.is-collapsed { width: 56px; min-width: 56px; max-width: 56px; }
 }
-.sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0.5rem; flex: 1; }
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0.5rem; flex: 1; contain: layout style; }
 .sidebar-item {
   display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; border-radius: 8px;
   color: var(--bulma-text-light); text-decoration: none; transition: all 0.12s ease; cursor: pointer; white-space: nowrap;
