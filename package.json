@@ -15,9 +15,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "cap:sync": "npx cap sync",
-    "cap:android": "npx cap open android",
-    "cap:ios": "npx cap open ios",
-    "cap:electron": "npx cap open @capacitor-community/electron"
+    "cap:add:android": "npx cap add android",
+    "cap:open:android": "npx cap open android",
+    "cap:build:android": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug && echo 'APK: android/app/build/outputs/apk/debug/app-debug.apk'",
+    "cap:open:ios": "npx cap open ios",
+    "cap:open:electron": "npx cap open @capacitor-community/electron"
   },
   "dependencies": {
     "@capacitor-community/electron": "^5.0.1",
