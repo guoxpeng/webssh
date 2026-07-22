@@ -118,6 +118,7 @@ let fitAddon = null;
 let searchAddon = null;
 let wsService = null;
 let destroyed = false;
+let handshakeTimer = null;
 
 const quickSnippets = computed(() => snippetStore.snippets.filter(s => s.favorite).slice(0, 12));
 
@@ -280,10 +281,15 @@ const initializeTerminal = async () => {
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   };
 
+  const clearHandshakeTimer = () => {
+    if (handshakeTimer) { clearTimeout(handshakeTimer); handshakeTimer = null; }
+  };
+
   const callbacks = {
     onOpen: () => {
       if (destroyed) return;
       clearReconnect();
+      clearHandshakeTimer();
       emit('status-change', 'connected');
       handshakeComplete = false;
       const cfg = props.nodeConfig;
@@ -293,6 +299,12 @@ const initializeTerminal = async () => {
       term?.writeln('\r\n\x1b[32m✅ Session initiated\x1b[0m');
       term?.focus();
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
+      handshakeTimer = setTimeout(() => {
+        if (!handshakeComplete && !destroyed) {
+          term?.writeln('\r\n\x1b[31m❌ SSH handshake timed out\r\n\x1b[0m');
+          wsService?.disconnect();
+        }
+      }, 35000);
     },
     onMessage: (data) => {
       if (destroyed) return;
@@ -305,8 +317,8 @@ const initializeTerminal = async () => {
             emit('session-id', msg.sessionId);
             return;
           }
-          if (msg.type === 'status') { handshakeComplete = true; return; }
-          if (msg.type === 'error') { term?.writeln(`\r\n\x1b[31m${msg.message}\x1b[0m`); handshakeComplete = true; return; }
+          if (msg.type === 'status') { handshakeComplete = true; clearHandshakeTimer(); return; }
+          if (msg.type === 'error') { term?.writeln(`\r\n\x1b[31m${msg.message}\x1b[0m`); handshakeComplete = true; clearHandshakeTimer(); return; }
         } catch {}
       }
       handshakeComplete = true;
@@ -314,6 +326,7 @@ const initializeTerminal = async () => {
     },
     onClose: (event, manual) => {
       if (destroyed) return;
+      clearHandshakeTimer();
       emit('status-change', 'disconnected');
       terminalStore.setActiveSendFunction(null);
       if (event && event.wasClean && !manual && event.code === 1000) {
@@ -324,6 +337,7 @@ const initializeTerminal = async () => {
     },
     onError: (errorEventOrMessage) => {
       if (destroyed) return;
+      clearHandshakeTimer();
       const errorMessage = typeof errorEventOrMessage === 'string' ? errorEventOrMessage
         : (errorEventOrMessage.message || 'Unknown WebSocket error');
       emit('status-change', 'error');
@@ -435,6 +449,7 @@ onMounted(initializeTerminal);
 
 onBeforeUnmount(() => {
   destroyed = true;
+  clearHandshakeTimer();
   window.removeEventListener('resize', handleResize);
   terminalStore.setActiveSendFunction(null);
   if (wsService) { wsService.disconnect(); wsService = null; }

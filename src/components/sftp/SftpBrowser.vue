@@ -644,7 +644,6 @@ async function doDelete() {
 onMounted(() => { refresh(); });
 
 watch(() => props.nodeConfig, () => {
-  currentPath.value = '/';
   refresh();
 });
 </script>

@@ -58,7 +58,7 @@ async function withSftp(body, fn) {
     conn.on('close', () => { clearTimeout(timeout); });
     const cfg = {
       host: body.host, port: body.port || 22, username: body.username || 'root',
-      readyTimeout: 8000, keepaliveInterval: 10000,
+      readyTimeout: 20000, keepaliveInterval: 10000,
     };
     if (body.auth_type === 'key') cfg.privateKey = body.auth_value;
     else cfg.password = body.auth_value;
@@ -86,7 +86,7 @@ async function withSessionSftp(body, fn) {
       });
     };
     if (ownsClient) {
-      const cfg = { host: body.host, port: body.port || 22, username: body.username || 'root', readyTimeout: 8000 };
+      const cfg = { host: body.host, port: body.port || 22, username: body.username || 'root', readyTimeout: 20000 };
       if (body.auth_type === 'key') cfg.privateKey = body.auth_value;
       else cfg.password = body.auth_value;
       conn.on('ready', onReady);
@@ -181,7 +181,7 @@ const server = createServer(async (req, res) => {
           });
         });
         conn2.on('error', (err) => resolve({ success: false, error: [err.message] }));
-        const cfg = { host: node.host, port: node.port || 22, username: node.username, readyTimeout: 8000 };
+        const cfg = { host: node.host, port: node.port || 22, username: node.username, readyTimeout: 20000 };
         if (node.auth_type === 'key') cfg.privateKey = node.auth_value;
         else cfg.password = node.auth_value;
         conn2.connect(cfg);
@@ -315,7 +315,7 @@ function handleSSH(ws, config) {
     host: config.host, port: config.port || 22, username: config.username,
     password: config.auth_type === 'password' ? config.auth_value : undefined,
     privateKey: config.auth_type === 'key' ? config.auth_value : undefined,
-    readyTimeout: 15000, keepaliveInterval: 30000, keepaliveCountMax: 3,
+    readyTimeout: 30000, keepaliveInterval: 30000, keepaliveCountMax: 3,
     debug: (s) => { if (s.includes('DEBUG')) console.log(`${tag} ${s}`); },
   };
   let sessionId = null;

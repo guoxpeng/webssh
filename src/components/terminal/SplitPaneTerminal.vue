@@ -152,9 +152,20 @@ function addPane(type, protocol, config) {
 let sftpOpening = false;
 async function openSftpForActivePane() {
   if (sftpOpening) return;
-  for (const p of panes.value) { if (p.type === 'sftp') return; }
   const pane = panes.value[activePane.value];
   if (!pane || !pane.config) return;
+
+  // If an SFTP pane already exists, update it to follow the active terminal
+  const existingSftp = panes.value.find(p => p.type === 'sftp');
+  if (existingSftp) {
+    const idx = panes.value.indexOf(existingSftp);
+    await syncSftpConfig(existingSftp, pane);
+    if (idx !== activePane.value) {
+      activePane.value = idx;
+    }
+    return;
+  }
+
   sftpOpening = true;
   const connStore = useConnectionStore();
   const cfg = { ...pane.config };
@@ -169,6 +180,19 @@ async function openSftpForActivePane() {
   }
   addPane('sftp', pane.protocol || 'ssh', cfg);
   sftpOpening = false;
+}
+
+async function syncSftpConfig(sftpPane, terminalPane) {
+  const connStore = useConnectionStore();
+  const newCfg = { ...terminalPane.config };
+  if (!newCfg.auth_value && newCfg.id) {
+    try {
+      const cred = await connStore.getCredentialFromSessionStorage(newCfg.id);
+      if (cred?.auth_value) { newCfg.auth_value = cred.auth_value; newCfg.auth_type = cred.auth_type || 'password'; }
+    } catch {}
+  }
+  sftpPane.config = newCfg;
+  panes.value = [...panes.value];
 }
 
 function closePane(idx) {
@@ -297,11 +321,12 @@ watch(activePane, (idx) => {
   const pane = panes.value[idx];
   if (!pane || pane.type !== 'terminal' || !pane.config) return;
   for (const p of panes.value) {
-    if (p.type === 'sftp' && p.config?.host !== pane.config?.host) {
-      p.config = pane.config;
-      panes.value = [...panes.value];
+    if (p.type === 'sftp') {
+      p.config = { ...pane.config };
+      break;
     }
   }
+  panes.value = [...panes.value];
 });
 onBeforeUnmount(() => { if (keyHandler) document.removeEventListener('keydown', keyHandler); cleanupTouch(); });
 
