@@ -54,8 +54,7 @@
           <TerminalDisplay :node-config="pane.config" :term-settings="pane.termSettings" v-if="pane.type === 'terminal' && pane.status !== 'error'"
                            @status-change="(s) => onPaneStatus(idx, s)"
                            @error-message="(m) => onPaneError(idx, m)"
-                           @shell-exit="onShellExit(idx)"
-                           @session-id="(sid) => onSessionId(idx, sid)"/>
+                           @shell-exit="onShellExit(idx)"/>
           <ConnectionErrorPanel v-else-if="pane.type === 'terminal' && pane.status === 'error'"
                                 :config="pane.config" :message="pane.lastError"
                                 @retry="retryPane(idx)"
@@ -224,13 +223,6 @@ function editPane(idx) {
 
 function onShellExit(idx) {
   setTimeout(() => closePane(idx), 1500);
-}
-
-function onSessionId(idx, sid) {
-  if (panes.value[idx]) {
-    panes.value[idx].config = { ...panes.value[idx].config, sessionId: sid };
-    panes.value = [...panes.value];
-  }
 }
 
 function updateTerminalSettings(opts) {

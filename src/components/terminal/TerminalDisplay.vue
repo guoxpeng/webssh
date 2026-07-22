@@ -99,7 +99,7 @@ const props = defineProps({
   termSettings: { type: Object, default: null },
 });
 
-const emit = defineEmits(['status-change', 'error-message', 'shell-exit', 'session-id']);
+const emit = defineEmits(['status-change', 'error-message', 'shell-exit']);
 
 const xtermContainerRef = ref(null);
 const searchInputRef = ref(null);
@@ -111,7 +111,6 @@ const searchResultCount = ref(0);
 const commandInput = ref('');
 const snippetDragIdx = ref(null);
 const snippetDragOverIdx = ref(null);
-const sshSessionId = ref(null);
 let term = null;
 let fitAddon = null;
 let searchAddon = null;
@@ -292,6 +291,8 @@ const initializeTerminal = async () => {
       term?.focus();
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
     },
+    // ⚠ DO NOT intercept/filter onMessage — terminal data must pass through as-is.
+    // Any JSON parsing here will break SSH when shell outputs JSON-like text.
     onMessage: (data) => {
       if (!destroyed) term?.write(typeof data === 'string' ? data : new Uint8Array(data));
     },

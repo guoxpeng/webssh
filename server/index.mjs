@@ -200,7 +200,7 @@ const server = createServer(async (req, res) => {
   }
 
   const action = req.url.slice('/api/sftp/'.length);
-  const sftpFn = body.sessionId && sessions.has(body.sessionId) ? withSessionSftp : withSftp;
+  const sftpFn = body.auth_value && body.host ? withSftp : withSessionSftp;
 
   try {
     switch (action) {
@@ -309,6 +309,9 @@ const server = createServer(async (req, res) => {
 const wss = new WebSocketServer({ server, path: WS_PATH });
 
 function handleSSH(ws, config) {
+  // ⚠ DO NOT send JSON through the WebSocket in this handler.
+  // The client writes ALL WebSocket data directly to the terminal.
+  // Any JSON will appear as garbled text or be misinterpreted.
   const client = new Client();
   const cfg = {
     host: config.host, port: config.port || 22, username: config.username,
