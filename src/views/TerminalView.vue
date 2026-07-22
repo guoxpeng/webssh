@@ -30,9 +30,6 @@
             <FolderOpen :size="14"/>
             <span>{{ t('sftp.fileManager') }}</span>
           </button>
-          <button class="toolbar-btn is-danger" @click="showDisconnectDialog = true" :title="t('terminal.disconnect')">
-            <Power :size="14"/>
-          </button>
         </div>
       </div>
     </div>
@@ -254,8 +251,9 @@ function startDrag(e) {
     const bodyWidth = document.querySelector('.terminal-body')?.offsetWidth || 1200;
     const x = ev.clientX;
     const panelRight = bodyWidth;
-    const newWidth = Math.max(200, Math.min(600, panelRight - x));
-    sftpWidth.value = newWidth;
+      const newWidth = Math.max(200, Math.min(600, panelRight - x));
+      sftpWidth.value = newWidth;
+      window.dispatchEvent(new Event('resize'));
   };
   const onUp = () => {
     dragging = false;

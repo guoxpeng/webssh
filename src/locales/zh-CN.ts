@@ -317,6 +317,7 @@ export default {
     noConnection: '未选择连接',
     selectHint: '从上方选择一台已保存的服务器浏览文件。',
     switchConnection: '切换',
+    newConnection: '新建连接',
   },
   common: {
     close: '关闭',

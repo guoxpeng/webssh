@@ -317,6 +317,7 @@ export default {
     noConnection: 'No connection selected',
     selectHint: 'Select a saved server above to browse its files.',
     switchConnection: 'Switch',
+    newConnection: 'New Connection',
   },
   common: {
     close: 'Close',
