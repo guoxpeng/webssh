@@ -230,7 +230,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 </script>
 
 <style lang="scss" scoped>
-.workbench-layout { display: flex; flex-direction: column; min-height: 100vh; background: var(--bulma-body-background-color); }
+.workbench-layout { display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--bulma-body-background-color); overflow: hidden; }
 .workbench-body { display: flex; flex: 1; margin-top: 3.25rem; min-height: 0; }
 .workbench-sidebar {
   position: fixed; top: 3.25rem; left: 0; bottom: 24px; z-index: 100;
