@@ -463,6 +463,7 @@ export default {
   pwa: {
     installPrompt: 'Install WebSSH for the best experience',
     install: 'Install',
+    insecureWarning: 'Running on HTTP — encryption is disabled. Use HTTPS for secure password handling.',
   },
   status: {
     connected: 'Connected',

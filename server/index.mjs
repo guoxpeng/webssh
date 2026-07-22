@@ -122,7 +122,29 @@ function parseBody(req) {
   });
 }
 
+// --- Rate limiter ---
+const rateMap = new Map();
+function checkRate(ip) {
+  const now = Date.now();
+  const entry = rateMap.get(ip) || { count: 0, reset: now + 60000 };
+  if (now > entry.reset) { entry.count = 0; entry.reset = now + 60000; }
+  entry.count++;
+  rateMap.set(ip, entry);
+  return entry.count <= 60;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of rateMap) { if (now > v.reset) rateMap.delete(k); }
+}, 60000);
+
 const server = createServer(async (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+  if (!checkRate(ip)) { res.writeHead(429); res.end('Too many requests'); return; }
+
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

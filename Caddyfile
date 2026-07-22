@@ -1,0 +1,5 @@
+# Replace example.com with your domain
+webssh.example.com {
+    reverse_proxy webssh:9627
+    encode gzip
+}

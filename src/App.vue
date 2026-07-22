@@ -1,6 +1,9 @@
 <template>
   <UnlockScreen @unlocked="onUnlocked" v-if="!unlocked"/>
-  <WorkbenchLayout v-else />
+  <div v-if="unlocked && !isSecure" class="insecure-warning">
+    ⚠ {{ t('pwa.insecureWarning') }}
+  </div>
+  <WorkbenchLayout v-else-if="unlocked" />
   <div v-if="showInstall" class="pwa-install-banner">
     <span class="pwa-install-text">{{ t('pwa.installPrompt') }}</span>
     <button class="pwa-install-btn" @click="promptInstall">{{ t('pwa.install') }}</button>
@@ -16,12 +19,14 @@ import { useUiStore } from '@/stores/uiStore';
 import { onMounted } from 'vue';
 import { usePwaInstall } from '@/composables/usePwaInstall';
 import { useI18n } from 'vue-i18n';
+import { isSecureContext } from '@/utils/crypto';
 
 const { t } = useI18n();
 const { showInstall, promptInstall, dismissInstall } = usePwaInstall();
 
 const uiStore = useUiStore();
 const unlocked = ref(false);
+const isSecure = ref(true);
 
 function onUnlocked(masterPassword) {
   sessionStorage.setItem('haossh_master', masterPassword);
@@ -29,6 +34,7 @@ function onUnlocked(masterPassword) {
 }
 
 onMounted(() => {
+  isSecure.value = isSecureContext();
   const stored = sessionStorage.getItem('haossh_master');
   if (stored) {
     unlocked.value = true;
@@ -85,6 +91,11 @@ onMounted(() => {
 .pwa-dismiss-btn {
   background: none; border: none; font-size: 1.1em; color: var(--bulma-text-light);
   cursor: pointer; padding: 0 0.2rem;
+}
+.insecure-warning {
+  text-align: center; padding: 0.4rem; font-size: 0.78em;
+  background: hsl(40,90%,50%); color: #1a1a1a; font-weight: 500;
+  position: sticky; top: 3.25rem; z-index: 50;
 }
 @keyframes slideUp {
   from { opacity: 0; transform: translateX(-50%) translateY(20px); }

@@ -463,6 +463,7 @@ export default {
   pwa: {
     installPrompt: '安装 WebSSH 以获得最佳体验',
     install: '安装',
+    insecureWarning: '当前使用 HTTP 连接 —— 加密功能不可用。请使用 HTTPS 以确保密码安全。',
   },
   status: {
     connected: '已连接',

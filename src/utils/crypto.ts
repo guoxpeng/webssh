@@ -12,6 +12,10 @@ function haveSubtle(): boolean {
   return typeof s !== 'undefined' && s !== null && typeof s.digest === 'function';
 }
 
+export function isSecureContext(): boolean {
+  return haveSubtle();
+}
+
 // ---- Pure JS SHA-256 fallback ----
 function sha256(data: Uint8Array): Uint8Array {
   const rightRotate = (x: number, c: number) => (x >>> c) | (x << (32 - c));
