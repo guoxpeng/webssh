@@ -252,7 +252,7 @@ const isLoading = computed(() => isTesting.value || isConnecting.value);
 
 const willUseRememberedCredentialForSubmit = computed(() =>
   !!(form.value.id && !form.value.auth_value.trim() &&
-    connectionStore.getCredentialFromSessionStorage(form.value.id)?.auth_value)
+    connectionStore.sessionRememberedCredentials[form.value.id]?.auth_value)
 );
 
 const authValueRequired = computed(() => {

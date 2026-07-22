@@ -434,12 +434,16 @@ function deleteGroupAction() {
   const grp = groupMenuTarget.value;
   if (connectionStore.deleteGroup(grp)) showSuccess(t('server.groupDeleted', { name: grp }));
 }
-function connectAllInGroup() {
+async function connectAllInGroup() {
   groupMenuVisible.value = false;
   const conns = connectionStore.connectionsByGroup(groupMenuTarget.value);
   if (conns.length === 0) return;
   for (const conn of conns) {
-    connectionStore.pendingConnections.push({ ...conn });
+    const cred = await connectionStore.getCredentialFromSessionStorage(conn.id);
+    const full = cred?.auth_value
+      ? { ...conn, auth_type: cred.auth_type, auth_value: cred.auth_value }
+      : { ...conn };
+    connectionStore.pendingConnections.push(full);
   }
   showSuccess(t('server.connectingAll', { count: conns.length }));
   if (router.currentRoute.value.name !== 'Terminal') router.push({ name: 'Terminal' });

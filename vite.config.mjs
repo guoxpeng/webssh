@@ -49,6 +49,16 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    proxy: {
+      '/ws/ssh': {
+        target: 'http://localhost:9627',
+        ws: true,
+      },
+      '/api': {
+        target: 'http://localhost:9627',
+        changeOrigin: true,
+      },
+    },
   },
   test: {
     globals: true,

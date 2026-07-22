@@ -310,6 +310,7 @@ const wss = new WebSocketServer({ server, path: WS_PATH });
 
 function handleSSH(ws, config) {
   const client = new Client();
+  const tag = `[SSH ${config.host}:${config.port || 22}]`;
   const cfg = {
     host: config.host, port: config.port || 22, username: config.username,
     password: config.auth_type === 'password' ? config.auth_value : undefined,
@@ -317,7 +318,6 @@ function handleSSH(ws, config) {
     readyTimeout: 15000, keepaliveInterval: 30000, keepaliveCountMax: 3,
     debug: (s) => { if (s.includes('DEBUG')) console.log(`${tag} ${s}`); },
   };
-  const tag = `[SSH ${cfg.host}:${cfg.port}]`;
   let sessionId = null;
   const log = (m) => console.log(`${tag} ${m}`);
   const cleanup = () => { if (sessionId) sessions.delete(sessionId); try { client.end(); } catch {}; try { ws.close(); } catch {}; client.removeAllListeners(); ws.removeAllListeners(); };
@@ -486,10 +486,6 @@ wss.on('connection', (ws, req) => {
       cleanup();
     }
   });
-
-  ws.on('close', cleanup);
-  ws.on('error', () => cleanup());
-  ws.on('pong', () => {});
 });
 
 function getLocalIP() {
