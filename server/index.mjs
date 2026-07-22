@@ -200,12 +200,12 @@ const server = createServer(async (req, res) => {
   }
 
   const action = req.url.slice('/api/sftp/'.length);
-  const runSftp = body.sessionId && sessions.has(body.sessionId) ? withSessionSftp : withSftp;
+  const sftpFn = body.sessionId && sessions.has(body.sessionId) ? withSessionSftp : withSftp;
 
   try {
     switch (action) {
       case 'list': {
-        const entries = await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        const entries = await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           sftp.readdir(body.path || '/', (err, list) => {
             if (err) { reject(err); return; }
             const result = list.filter(e => e.filename !== '.' && e.filename !== '..')
@@ -223,7 +223,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'stat': {
-        const stat = await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        const stat = await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           sftp.stat(body.path, (err, st) => {
             if (err) { reject(err); return; }
             resolve({ size: st.size, mode: st.mode, mtime: st.mtime ? new Date(st.mtime * 1000).toISOString() : null });
@@ -233,7 +233,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'read': {
-        const content = await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        const content = await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           const chunks = [];
           sftp.createReadStream(body.path)
             .on('data', (chunk) => chunks.push(chunk))
@@ -244,7 +244,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'write': {
-        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           const buf = Buffer.from(body.content, body.encoding === 'base64' ? 'base64' : 'utf8');
           sftp.writeFile(body.path, buf, (err) => {
             if (err) reject(err); else resolve();
@@ -254,7 +254,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'delete': {
-        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           sftp.unlink(body.path, (err) => {
             if (err) reject(err); else resolve();
           });
@@ -263,7 +263,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'rmdir': {
-        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           sftp.rmdir(body.path, (err) => {
             if (err) reject(err); else resolve();
           });
@@ -272,7 +272,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'mkdir': {
-        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           sftp.mkdir(body.path, (err) => {
             if (err) reject(err); else resolve();
           });
@@ -281,7 +281,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'rename': {
-        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           sftp.rename(body.srcPath, body.destPath, (err) => {
             if (err) reject(err); else resolve();
           });
@@ -290,7 +290,7 @@ const server = createServer(async (req, res) => {
         break;
       }
       case 'chmod': {
-        await runSftp(body, (sftp) => new Promise((resolve, reject) => {
+        await sftpFn(body, (sftp) => new Promise((resolve, reject) => {
           sftp.chmod(body.path, parseInt(body.mode, 8), (err) => {
             if (err) reject(err); else resolve();
           });
