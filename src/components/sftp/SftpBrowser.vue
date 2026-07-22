@@ -225,7 +225,7 @@ import {
   Edit3, Shield, Trash2, X,
 } from 'lucide-vue-next';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { getApiBaseUrl, SESSION_STORAGE_CRED_PREFIX } from '@/utils/constants';
+import { getApiBaseUrl } from '@/utils/constants';
 
 const { t } = useI18n();
 const connStore = useConnectionStore();
@@ -367,7 +367,7 @@ function showMessage(msg, type = 'is-info') {
   setTimeout(() => { message.value = ''; }, 3000);
 }
 
-function getAuth() {
+async function getAuth() {
   const src = props.nodeConfig || connStore.currentNodeDetails;
   const auth = {
     host: src?.host,
@@ -377,21 +377,19 @@ function getAuth() {
     auth_value: src?.auth_value || '',
   };
   if (!auth.auth_value && src?.id) {
-    const key = `${SESSION_STORAGE_CRED_PREFIX}${src.id}`;
-    const stored = sessionStorage.getItem(key);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        auth.auth_value = parsed.encrypted ? parsed.auth_value : (parsed.auth_value || stored);
-        auth.auth_type = parsed.auth_type || 'password';
-      } catch { auth.auth_value = stored; }
-    }
+    try {
+      const cred = await connStore.getCredentialFromSessionStorage(src.id);
+      if (cred?.auth_value) {
+        auth.auth_value = cred.auth_value;
+        auth.auth_type = cred.auth_type || 'password';
+      }
+    } catch {}
   }
   return auth;
 }
 
 async function api(action, data = {}) {
-  const auth = getAuth();
+  const auth = await getAuth();
   if (!auth.host) { showMessage(t('sftp.notConnected'), 'is-error'); return null; }
   const resp = await fetch(`${getApiBaseUrl()}/sftp/${action}`, {
     method: 'POST',
@@ -496,7 +494,7 @@ function triggerUpload() { uploadInputRef.value?.click(); }
 async function onUploadFiles(e) {
   const files = e.target?.files;
   if (!files?.length) return;
-  const auth = getAuth();
+  const auth = await getAuth();
   for (const file of files) {
     uploadFileName.value = file.name;
     uploadProgress.value = 0;

@@ -23,15 +23,32 @@
       <button class="search-btn" @click="closeSearch" :title="t('common.close')"><X :size="14"/></button>
     </div>
 
-    <div class="command-input-bar">
-      <span class="cmd-prefix">$</span>
-      <input ref="cmdInputRef" type="text" v-model="commandInput"
-             :placeholder="t('terminal.commandPlaceholder')"
-             class="cmd-input"
-             @keydown.enter="sendCommand" @keydown.escape="commandInput = ''; term?.focus()"/>
-      <button class="cmd-send-btn" @click="sendCommand" :disabled="!commandInput.trim()" :title="t('terminal.sendCommand')">
-        <Send :size="13"/>
-      </button>
+    <div class="command-bar-wrap">
+      <div class="command-action-btns">
+        <button class="cmd-act-btn" @click="copyFromTerminal" :title="t('common.copy')">
+          <Copy :size="12"/> {{ t('common.copy') }}
+        </button>
+        <button class="cmd-act-btn" @click="pasteToTerminal" :title="t('common.paste')">
+          <ClipboardPaste :size="12"/> {{ t('common.paste') }}
+        </button>
+        <span class="cmd-act-sep"></span>
+        <button v-for="s in quickSnippets.slice(0, 6)" :key="s.id"
+                class="cmd-act-btn cmd-snippet-btn" :title="s.command" @click="sendQuickSnippet(s)">
+          {{ s.title }}
+        </button>
+        <button v-if="quickSnippets.length > 6" class="cmd-act-btn cmd-snippet-btn" :title="t('snippets.title')" disabled>…</button>
+      </div>
+      <div class="command-input-bar">
+        <span class="cmd-prefix">$</span>
+        <textarea ref="cmdInputRef" v-model="commandInput"
+                  :placeholder="t('terminal.commandPlaceholder')"
+                  class="cmd-input" rows="3"
+                  @keydown.enter.prevent="sendCommand"
+                  @keydown.escape="commandInput = ''; term?.focus()"/>
+        <button class="cmd-send-btn" @click="sendCommand" :disabled="!commandInput.trim()" :title="t('terminal.sendCommand')">
+          <Send :size="14"/> {{ t('terminal.sendCommand') }}
+        </button>
+      </div>
     </div>
 
     <div class="mobile-keys-toolbar is-hidden-tablet">
@@ -69,7 +86,7 @@ import SshWebSocketService from '@/services/sshWebSocketService';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
-import { ChevronLeft, ChevronRight, X, Send } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
@@ -106,6 +123,26 @@ function sendCommand() {
   wsService.sendMessage(cmd + '\n');
   commandInput.value = '';
   term?.focus();
+}
+
+async function pasteToTerminal() {
+  if (!wsService) return;
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text) wsService.sendMessage(text);
+  } catch {}
+  term?.focus();
+}
+
+function copyFromTerminal() {
+  if (term?.hasSelection()) {
+    const selected = term.getSelection();
+    if (selected) { try { navigator.clipboard.writeText(selected); } catch {} }
+  }
+}
+
+function sendQuickSnippet(s) {
+  if (wsService) wsService.sendMessage(s.command + '\n');
 }
 
 function onSnippetDragStart(e, idx) { snippetDragIdx.value = idx; e.dataTransfer.effectAllowed = 'move'; }
@@ -430,22 +467,40 @@ onBeforeUnmount(() => {
   &.snippet-dragover { border-color: var(--bulma-primary); }
 }
 
-.command-input-bar {
-  display: flex; align-items: center; gap: 0.25rem;
-  padding: 0.2rem 0.35rem; background: hsl(0,0%,12%);
-  border-top: 1px solid hsl(0,0%,20%); flex-shrink: 0;
+.command-bar-wrap {
+  flex-shrink: 0; display: flex; flex-direction: column;
+  border-top: 1px solid hsl(0,0%,20%);
 }
-.cmd-prefix { color: hsl(0,0%,45%); font-family: monospace; font-size: 0.75em; }
+.command-action-btns {
+  display: flex; align-items: center; gap: 2px; padding: 2px 0.35rem;
+  background: hsl(0,0%,10%); flex-wrap: wrap;
+}
+.cmd-act-btn {
+  background: hsl(0,0%,18%); color: hsl(0,0%,75%); border: 1px solid hsl(0,0%,25%);
+  border-radius: 4px; padding: 0.15rem 0.4rem; font-size: 0.65em;
+  cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 0.2rem;
+  transition: background 0.1s; user-select: none;
+  &:hover { background: hsl(0,0%,28%); color: #fff; }
+}
+.cmd-snippet-btn { background: hsl(240,10%,16%); border-color: hsl(240,10%,22%); max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+.cmd-act-sep { width: 1px; height: 16px; background: hsl(0,0%,25%); margin: 0 2px; }
+
+.command-input-bar {
+  display: flex; align-items: flex-end; gap: 0.3rem;
+  padding: 0.3rem 0.35rem; background: hsl(0,0%,10%);
+}
+.cmd-prefix { color: hsl(0,0%,45%); font-family: monospace; font-size: 0.75em; padding-bottom: 0.1rem; }
 .cmd-input {
-  flex: 1; background: hsl(0,0%,18%); border: 1px solid hsl(0,0%,30%);
+  flex: 1; background: hsl(0,0%,16%); border: 1px solid hsl(0,0%,25%);
   border-radius: 4px; padding: 0.2rem 0.35rem; font-size: 0.75em;
-  font-family: monospace; color: #fff; outline: none;
-  &::placeholder { color: hsl(0,0%,40%); }
-  &:focus { border-color: hsl(0,0%,45%); }
+  font-family: monospace; color: #e0e0e0; outline: none; resize: none; line-height: 1.4;
+  &::placeholder { color: hsl(0,0%,35%); }
+  &:focus { border-color: hsl(0,0%,40%); }
 }
 .cmd-send-btn {
-  background: hsl(0,0%,22%); border: 1px solid hsl(0,0%,30%); border-radius: 4px;
-  padding: 0.25rem 0.4rem; cursor: pointer; color: hsl(0,0%,70%); display: flex;
+  background: hsl(0,0%,18%); border: 1px solid hsl(0,0%,30%); border-radius: 4px;
+  padding: 0.35rem 0.6rem; cursor: pointer; color: hsl(0,0%,70%); display: flex;
+  align-items: center; gap: 0.2rem; font-size: 0.7em; flex-shrink: 0;
   &:hover:not(:disabled) { background: var(--bulma-primary); color: white; border-color: var(--bulma-primary); }
   &:disabled { opacity: 0.3; cursor: default; }
 }

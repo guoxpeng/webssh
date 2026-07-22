@@ -316,6 +316,7 @@ export default {
     retry: '重试',
     remove: '删除',
     copy: '复制',
+    paste: '粘贴',
     success: '成功',
     error: '错误',
     warning: '警告',

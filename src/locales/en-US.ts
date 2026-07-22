@@ -316,6 +316,7 @@ export default {
     retry: 'Retry',
     remove: 'Remove',
     copy: 'Copy',
+    paste: 'Paste',
     success: 'Success',
     error: 'Error',
     warning: 'Warning',

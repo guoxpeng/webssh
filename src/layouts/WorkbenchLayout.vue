@@ -240,7 +240,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; border-radius: 8px;
   color: var(--bulma-text-light); text-decoration: none; transition: all 0.12s ease; cursor: pointer; white-space: nowrap;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-  &.is-active { background: var(--bulma-primary); color: white; font-weight: 500; }
+  &.is-active { background: var(--bulma-primary); color: white; }
+  &.is-active .sidebar-label { font-weight: 500; }
 }
 .sidebar-label { font-size: 0.9em; line-height: 1; }
 .sidebar-spacer { flex: 1; }

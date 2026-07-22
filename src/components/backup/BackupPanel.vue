@@ -208,7 +208,11 @@ const { showSuccess, showError } = useNotifications();
 const showCreateForm = ref(false);
 const showScheduleForm = ref(false);
 const showCloudForm = ref(false);
-const backupLabel = ref('');
+function defaultLabel() {
+  const d = new Date();
+  return `Backup ${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+const backupLabel = ref(defaultLabel());
 const importInput = ref(null);
 const restoringId = ref(null);
 const syncUploading = ref(false);
