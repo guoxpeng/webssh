@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { NodeConfig } from './connectionStore';
 import { encryptBackupData, decryptBackupData } from '@/utils/crypto';
+import { useConnectionStore } from './connectionStore';
+import { useSnippetStore } from './snippetStore';
+import { useUiStore } from './uiStore';
+import { useTerminalStore } from './terminalStore';
 
 export const BACKUP_VERSION = 2;
 
@@ -119,11 +122,6 @@ export const useBackupStore = defineStore('backup', () => {
   async function createBackup(label: string, includeCredentials = false): Promise<BackupEntry> {
     creating.value = true;
     try {
-      const { useConnectionStore } = await import('./connectionStore');
-      const { useSnippetStore } = await import('./snippetStore');
-      const { useUiStore } = await import('./uiStore');
-      const { useTerminalStore } = await import('./terminalStore');
-
       const connStore = useConnectionStore();
       const snipStore = useSnippetStore();
       const uiStore = useUiStore();
@@ -217,9 +215,6 @@ export const useBackupStore = defineStore('backup', () => {
         }
       }
 
-      const { useConnectionStore } = await import('./connectionStore');
-      const { useSnippetStore } = await import('./snippetStore');
-
       const connStore = useConnectionStore();
       const snipStore = useSnippetStore();
 
@@ -259,7 +254,6 @@ export const useBackupStore = defineStore('backup', () => {
       }
 
       if (entry.settings) {
-        const { useUiStore } = await import('./uiStore');
         const uiStore = useUiStore();
         uiStore.setThemePreset(entry.settings.themePreset);
         const termStore = useTerminalStore();
