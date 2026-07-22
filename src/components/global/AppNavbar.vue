@@ -38,6 +38,6 @@ const connectionStore = useConnectionStore();
 .navbar-title { font-size: 1.1em; font-weight: 700; }
 .navbar-badge {
   padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.7em; font-weight: 500;
-  background: hsl(155,30%,90%); color: hsl(155,50%,30%); border: none; cursor: default;
+  background: hsl(155,30%,88%); color: hsl(155,50%,25%); border: none; cursor: default;
 }
 </style>

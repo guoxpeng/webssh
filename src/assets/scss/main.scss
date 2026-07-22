@@ -109,6 +109,25 @@ html, body {
   height: 100vh; height: 100dvh; overflow: hidden;
 }
 
+/* Terminal chrome (bars around the terminal) — always dark to match terminal */
+:root {
+  --term-bg: #1a1a1a;
+  --term-bg2: #222;
+  --term-border: #333;
+  --term-text: #ccc;
+  --term-text-dim: #666;
+  --term-hover: #3a3a3a;
+  --term-primary: var(--bulma-primary);
+}
+.is-dark-mode {
+  --term-bg: #111;
+  --term-bg2: #1a1a1a;
+  --term-border: #2a2a2a;
+  --term-text: #ddd;
+  --term-text-dim: #555;
+  --term-hover: #2e2e2e;
+}
+
 /* Better touch targets on mobile */
 @media (hover: none) and (pointer: coarse) {
   .button, .navbar-item, .panel-block, a, .clickable {

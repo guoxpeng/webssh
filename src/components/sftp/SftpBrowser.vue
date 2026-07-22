@@ -846,7 +846,7 @@ watch(() => props.nodeConfig, () => {
 }
 
 .sftp-upload-progress {
-  position: absolute; inset: 0; background: rgba(0,0,0,0.4);
+  position: absolute; inset: 0; background: rgba(0,0,0,0.45);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   z-index: 300; gap: 0.5rem; color: white; font-size: 0.85em;
 }
