@@ -238,7 +238,7 @@ function exportConnections() {
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `haossh-connections-${Date.now()}.json`;
+  a.href = url; a.download = `webssh-connections-${Date.now()}.json`;
   a.click();
   URL.revokeObjectURL(url);
   showSuccess(t('server.exported', { count: connectionStore.savedConnections.length }));
@@ -286,6 +286,9 @@ function handleFormConnect(nodeConfig) {
   const saved = connectionStore.addConnection(nodeConfig);
   connectionStore.setCurrentNodeDetails({ ...nodeConfig, id: saved.id });
   showInfo(t('form.connecting', { name: saved.name }));
+  if (nodeConfig.rememberForSession && nodeConfig.auth_value && saved.id) {
+    connectionStore.saveCredentialToSessionStorage(saved.id, nodeConfig.auth_type, nodeConfig.auth_value);
+  }
   connectionStore.pendingConnections.push({ ...nodeConfig, id: saved.id });
   if (router.currentRoute.value.name !== 'Terminal') {
     router.push({ name: 'Terminal' });

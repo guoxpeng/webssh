@@ -1,3 +1,5 @@
+import { getWsBaseUrl } from '@/utils/constants';
+
 export interface Callbacks {
   onOpen?: () => void;
   onMessage?: (data: any) => void;
@@ -10,7 +12,6 @@ export interface NodeInfo {
   [key: string]: any;
 }
 
-const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:3000/ws/ssh';
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_BASE_DELAY = 1000;
 const MAX_RECONNECT_DELAY = 15000;
@@ -47,7 +48,7 @@ class SshWebSocketService {
 
   private createSocket(): void {
     try {
-      this.ws = new WebSocket(WS_BASE_URL);
+      this.ws = new WebSocket(getWsBaseUrl());
     } catch (e) {
       if (this.onErrorCallback) this.onErrorCallback(e instanceof Error ? e : new Error('Failed to create WebSocket.'));
       return;

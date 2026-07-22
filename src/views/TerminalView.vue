@@ -116,6 +116,7 @@ onActivated(() => {
 
 onBeforeUnmount(() => {
   if (progressTimer) clearTimeout(progressTimer);
+  terminalStore.clearAll();
 });
 </script>
 

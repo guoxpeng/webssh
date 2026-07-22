@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/utils/constants';
+import { getApiBaseUrl } from '@/utils/constants';
 
 export interface NodeConfig {
   name?: string;
@@ -27,7 +27,7 @@ export async function testSshConnection(
   cmds: string[] = ["echo 'Connection test OK' && date"]
 ): Promise<SshTestResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/ssh/test`, {
+    const response = await fetch(`${getApiBaseUrl()}/ssh/test`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ node: nodeConfig, cmds }),

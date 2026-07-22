@@ -18,7 +18,7 @@ NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
 
 # --- Clone or pull ---
 REPO="https://github.com/guoxpeng/webssh.git"
-DIR="haossh"
+DIR="webssh"
 
 if [ -d "$DIR" ]; then
   info "Updating existing installation in $DIR..."
@@ -51,6 +51,6 @@ echo -e "  ${CYAN}Network: http://${IP}:${PORT}${NC}"
 echo -e "  ${CYAN}Stop:    Ctrl+C${NC}"
 echo ""
 echo -e "  ${GREEN}To run in background:${NC}"
-echo -e "  cd $(pwd) && PORT=${PORT} nohup node server/index.mjs > haossh.log 2>&1 &"
+echo -e "  cd $(pwd) && PORT=${PORT} nohup node server/index.mjs > webssh.log 2>&1 &"
 echo ""
 node server/index.mjs

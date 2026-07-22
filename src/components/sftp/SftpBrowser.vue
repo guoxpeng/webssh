@@ -183,7 +183,7 @@ import {
   Edit3, Shield, Trash2, X,
 } from 'lucide-vue-next';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { API_BASE_URL } from '@/utils/constants';
+import { getApiBaseUrl } from '@/utils/constants';
 
 const { t } = useI18n();
 const connStore = useConnectionStore();
@@ -255,7 +255,7 @@ function getAuth() {
 async function api(action, data = {}) {
   const auth = getAuth();
   if (!auth.host) { showMessage(t('sftp.notConnected'), 'is-error'); return null; }
-  const resp = await fetch(`${API_BASE_URL}/sftp/${action}`, {
+  const resp = await fetch(`${getApiBaseUrl()}/sftp/${action}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...auth, ...data }),

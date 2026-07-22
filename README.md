@@ -65,8 +65,8 @@ curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | ba
 ### 方法二：Docker 部署
 
 ```bash
-docker run -d --restart=unless-stopped --name haossh -p 3000:3000 \
-  -e PORT=3000 \
+docker run -d --restart=unless-stopped --name webssh -p 9627:9627 \
+  -e PORT=9627 \
   node:20-alpine sh -c "apk add git openssh && \
   git clone --depth=1 https://github.com/guoxpeng/webssh.git /app && \
   cd /app && npm install && npm run build && node server/index.mjs"

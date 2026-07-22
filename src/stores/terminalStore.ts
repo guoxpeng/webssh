@@ -21,8 +21,8 @@ interface SessionConfig {
 }
 
 export const useTerminalStore = defineStore('terminal', () => {
-  const SESSIONS_KEY = 'haossh_saved_sessions';
-  const RECENT_CMDS_KEY = 'haossh_recent_commands';
+  const SESSIONS_KEY = 'webssh_saved_sessions';
+  const RECENT_CMDS_KEY = 'webssh_recent_commands';
   const MAX_RECENT = 20;
 
   const saved = sessionStorage.getItem(SESSIONS_KEY);
