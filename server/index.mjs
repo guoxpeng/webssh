@@ -1,6 +1,7 @@
 import { WebSocketServer } from 'ws';
 import { Client } from 'ssh2';
 import { createServer } from 'http';
+import { createConnection } from 'net';
 import { readFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
 import { fileURLToPath } from 'url';
@@ -61,6 +62,11 @@ const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
+  if (req.url === '/health') {
+    json(res, { status: 'ok', uptime: process.uptime() });
+    return;
+  }
+
   // Production: serve built frontend
   if (req.method === 'GET' && existsSync(DIST_DIR)) {
     let filePath = req.url === '/' ? '/index.html' : req.url;
@@ -74,11 +80,6 @@ const server = createServer(async (req, res) => {
     // SPA fallback
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(readFileSync(join(DIST_DIR, 'index.html')));
-    return;
-  }
-
-  if (req.url === '/health') {
-    json(res, { status: 'ok', uptime: process.uptime() });
     return;
   }
 
@@ -235,88 +236,86 @@ const server = createServer(async (req, res) => {
 
 const wss = new WebSocketServer({ server, path: WS_PATH });
 
-wss.on('connection', (ws, req) => {
-  console.log(`[SSH] Client connected from ${req.socket.remoteAddress}`);
-
-  let sshClient = new Client();
-  let sshConfig = null;
-  let initialized = false;
-
-  const cleanUp = () => {
-    try { sshClient.end(); } catch {}
-    try { ws.close(); } catch {}
-    sshClient.removeAllListeners();
-    ws.removeAllListeners();
+function handleSSH(ws, config) {
+  const client = new Client();
+  const cfg = {
+    host: config.host, port: config.port || 22, username: config.username,
+    password: config.auth_type === 'password' ? config.auth_value : undefined,
+    privateKey: config.auth_type === 'key' ? config.auth_value : undefined,
+    readyTimeout: 10000, keepaliveInterval: 10000,
   };
+  const tag = `[SSH ${cfg.host}:${cfg.port}]`;
+  const log = (m) => console.log(`${tag} ${m}`);
+  const cleanup = () => { try { client.end(); } catch {}; try { ws.close(); } catch {}; client.removeAllListeners(); ws.removeAllListeners(); };
+
+  client.on('ready', () => {
+    log('Connected');
+    ws.send(JSON.stringify({ type: 'status', message: 'connected' }));
+    client.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
+      if (err) { ws.send(JSON.stringify({ type: 'error', message: err.message })); return; }
+      const onWsMsg = (input) => { if (stream.writable) stream.write(input.toString()); };
+      ws.on('message', onWsMsg);
+      stream.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
+      stream.stderr.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
+      stream.on('close', () => { log('Shell closed'); ws.removeListener('message', onWsMsg); cleanup(); });
+    });
+  });
+  client.on('error', (err) => { log('Error: ' + err.message); try { ws.send(JSON.stringify({ type: 'error', message: err.message })); } catch {} cleanup(); });
+  client.on('close', () => { log('Disconnected'); cleanup(); });
+  client.connect(cfg);
+}
+
+function handleTelnet(ws, config) {
+  const host = config.host;
+  const port = config.port || 23;
+  const tag = `[TELNET ${host}:${port}]`;
+  const log = (m) => console.log(`${tag} ${m}`);
+  let tcp = null;
+  const cleanup = () => { try { tcp?.destroy(); } catch {}; try { ws.close(); } catch {}; };
+
+  try {
+    tcp = createConnection({ host, port }, () => {
+      log('Connected');
+      ws.send(JSON.stringify({ type: 'status', message: 'connected' }));
+    });
+    const onWsMsg = (input) => { if (tcp?.writable) tcp.write(input.toString()); };
+    ws.on('message', onWsMsg);
+    tcp.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
+    tcp.on('close', () => { log('Disconnected'); ws.removeListener('message', onWsMsg); cleanup(); });
+    tcp.on('error', (err) => { log('Error: ' + err.message); try { ws.send(JSON.stringify({ type: 'error', message: err.message })); } catch {} cleanup(); });
+    ws.on('close', () => { log('WS closed'); tcp?.destroy(); ws.removeListener('message', onWsMsg); });
+  } catch (e) {
+    log('Connection failed: ' + e.message);
+    try { ws.send(JSON.stringify({ type: 'error', message: e.message })); } catch {}
+    cleanup();
+  }
+}
+
+wss.on('connection', (ws, req) => {
+  let initialized = false;
+  const cleanup = () => { try { ws.close(); } catch {}; ws.removeAllListeners(); };
 
   ws.on('message', (data) => {
+    if (initialized) return;
     try {
-      if (!initialized) {
-        const config = JSON.parse(data.toString());
-        sshConfig = {
-          host: config.host,
-          port: config.port || 22,
-          username: config.username,
-          password: config.auth_type === 'password' ? config.auth_value : undefined,
-          privateKey: config.auth_type === 'key' ? config.auth_value : undefined,
-          readyTimeout: 10000,
-          keepaliveInterval: 10000,
-        };
-        initialized = true;
+      const config = JSON.parse(data.toString());
+      const proto = (config.protocol || 'ssh').toLowerCase();
+      initialized = true;
+      ws.removeAllListeners('message');
 
-        sshClient.on('ready', () => {
-          console.log(`[SSH] Connected to ${sshConfig.host}:${sshConfig.port}`);
-          ws.send(JSON.stringify({ type: 'status', message: 'connected' }));
-
-          sshClient.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
-            if (err) {
-              ws.send(JSON.stringify({ type: 'error', message: err.message }));
-              return;
-            }
-            stream.on('data', (chunk) => {
-              if (ws.readyState === 1) ws.send(chunk.toString());
-            });
-            stream.stderr.on('data', (chunk) => {
-              if (ws.readyState === 1) ws.send(chunk.toString());
-            });
-            ws.on('message', (input) => {
-              if (initialized) stream.write(input.toString());
-            });
-            stream.on('close', () => {
-              console.log(`[SSH] Shell closed for ${sshConfig.host}`);
-              cleanUp();
-            });
-          });
-        });
-
-        sshClient.on('error', (err) => {
-          console.error(`[SSH] Error: ${err.message}`);
-          try { ws.send(JSON.stringify({ type: 'error', message: err.message })); } catch {}
-          cleanUp();
-        });
-
-        sshClient.on('close', () => {
-          console.log(`[SSH] Connection closed for ${sshConfig?.host}`);
-          cleanUp();
-        });
-
-        sshClient.connect(sshConfig);
+      if (proto === 'telnet') {
+        handleTelnet(ws, config);
+      } else {
+        handleSSH(ws, config);
       }
     } catch (e) {
-      console.error('[SSH] Parse error:', e.message);
       try { ws.send(JSON.stringify({ type: 'error', message: 'Invalid config: ' + e.message })); } catch {}
+      cleanup();
     }
   });
 
-  ws.on('close', () => {
-    console.log('[SSH] WebSocket closed');
-    cleanUp();
-  });
-
-  ws.on('error', (e) => {
-    console.error('[SSH] WS error:', e.message);
-    cleanUp();
-  });
+  ws.on('close', cleanup);
+  ws.on('error', () => cleanup());
 });
 
 function getLocalIP() {

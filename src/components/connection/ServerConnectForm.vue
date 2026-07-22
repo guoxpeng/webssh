@@ -216,6 +216,7 @@ const willUseRememberedCredentialForSubmit = computed(() =>
 );
 
 const authValueRequired = computed(() => {
+  if (form.value.protocol === 'telnet') return false;
   if (form.value.auth_value.trim()) return false;
   if (willUseRememberedCredentialForSubmit.value) return false;
   return true;
@@ -243,7 +244,7 @@ function validate() {
   if (!HOST_RE.test(form.value.host.trim())) { showError(t('form.invalidHost')); return false; }
   if (form.value.host.split('.').some(p => { const n = Number(p); return n < 0 || n > 255; })) { showError(t('form.ipRange')); return false; }
   if (form.value.port < 1 || form.value.port > 65535) { showError(t('form.portRange')); return false; }
-  if (!form.value.username.trim()) { showError(t('form.usernameRequired')); return false; }
+  if (form.value.protocol !== 'telnet' && !form.value.username.trim()) { showError(t('form.usernameRequired')); return false; }
   if (authValueRequired.value) { showError(t('form.credentialsRequired')); return false; }
   return true;
 }

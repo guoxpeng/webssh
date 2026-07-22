@@ -297,6 +297,9 @@ export default {
     rdp: 'RDP',
     vnc: 'VNC',
     telnet: 'Telnet',
+    rdpHint: 'RDP requires a Remote Desktop client. Download the .rdp file below and open it with your RDP client.',
+    vncHint: 'VNC requires a VNC client. Copy the address below to your VNC client.',
+    downloadRdp: 'Download .rdp file',
   },
   status: {
     connected: 'Connected',

@@ -297,6 +297,9 @@ export default {
     rdp: 'RDP',
     vnc: 'VNC',
     telnet: 'Telnet',
+    rdpHint: 'RDP 需要使用远程桌面客户端连接。点击下方按钮下载 .rdp 文件，然后用远程桌面客户端打开。',
+    vncHint: 'VNC 需要使用 VNC 客户端连接。复制下方地址到 VNC 客户端。',
+    downloadRdp: '下载 .rdp 文件',
   },
   status: {
     connected: '已连接',

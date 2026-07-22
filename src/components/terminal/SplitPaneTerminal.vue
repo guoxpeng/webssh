@@ -19,6 +19,7 @@
           <TerminalDisplay :node-config="pane.config" v-if="pane.type === 'terminal'" @status-change="(s) => onPaneStatus(idx, s)"/>
           <SftpBrowser v-else-if="pane.type === 'sftp'" :node-config="pane.config" @close="closePane(idx)"/>
           <DockerPanel v-else-if="pane.type === 'docker'" :session-id="pane.id" @close="closePane(idx)"/>
+          <ProtocolInfoPanel v-else-if="pane.type === 'info'" :protocol="pane.protocol" :config="pane.config"/>
           <div v-else class="pane-empty">
             <component :is="protocolIcon(pane.protocol)" :size="32" class="pane-empty-icon"/>
             <p>{{ pane.protocol.toUpperCase() }} session: {{ pane.name }}</p>
@@ -34,6 +35,7 @@ import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import TerminalDisplay from './TerminalDisplay.vue';
 import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
+import ProtocolInfoPanel from './ProtocolInfoPanel.vue';
 import DockerPanel from '@/components/docker/DockerPanel.vue';
 import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
 import { Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
@@ -72,7 +74,17 @@ function onPaneStatus(idx, status) {
   if (panes.value[idx]) panes.value[idx].status = status;
 }
 
-defineExpose({ panes, activePane, addPane, addTerminalPane: (config) => addPane('terminal', config?.protocol || 'ssh', config), openSftpForActivePane });
+defineExpose({ panes, activePane, addPane,
+  addTerminalPane: (config) => {
+    const proto = (config?.protocol || 'ssh').toLowerCase();
+    if (proto === 'rdp' || proto === 'vnc') {
+      addPane('info', proto, config);
+    } else {
+      addPane('terminal', proto, config);
+    }
+  },
+  openSftpForActivePane,
+});
 </script>
 
 <style lang="scss" scoped>
