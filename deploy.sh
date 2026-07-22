@@ -22,7 +22,12 @@ DIR="webssh"
 
 if [ -d "$DIR" ]; then
   info "Updating existing installation in $DIR..."
-  cd "$DIR" && git pull
+  cd "$DIR"
+  # Stash any local changes (e.g. package-lock.json modified by npm) before pull
+  git stash --include-untracked 2>/dev/null || true
+  git pull
+  # Restore stashed changes (user modifications) if any
+  git stash pop 2>/dev/null || true
 else
   info "Cloning repository..."
   git clone --depth=1 "$REPO" "$DIR"
@@ -31,6 +36,7 @@ fi
 
 # --- Install dependencies ---
 info "Installing dependencies..."
+npm install --package-lock-only 2>/dev/null || true
 npm install
 
 # --- Build frontend ---
@@ -51,6 +57,9 @@ echo -e "  ${CYAN}Network: http://${IP}:${PORT}${NC}"
 echo -e "  ${CYAN}Stop:    Ctrl+C${NC}"
 echo ""
 echo -e "  ${GREEN}To run in background:${NC}"
-echo -e "  cd $(pwd) && PORT=${PORT} nohup node server/index.mjs > webssh.log 2>&1 &"
+echo -e "  cd $(pwd) && PORT=${PORT} nohup node server/index.mjs >> webssh.log 2>&1 &"
+echo -e "  ${GREEN}To stop:${NC} kill \$(cat webssh.pid)"
+echo -e ""
+echo -e "  ${GREEN}To update again later:${NC} cd $(pwd) && git pull && npm install && npm run build && node server/index.mjs"
 echo ""
 node server/index.mjs
