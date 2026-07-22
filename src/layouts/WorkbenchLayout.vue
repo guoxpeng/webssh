@@ -58,7 +58,7 @@
           </a>
         </nav>
       </aside>
-      <main class="workbench-content" role="main" aria-label="Page content">
+      <main class="workbench-content" :class="{ 'is-sidebar-collapsed': sidebarCollapsed }" role="main" aria-label="Page content">
         <router-view v-slot="{ Component }">
           <transition name="page" mode="out-in">
             <keep-alive>
@@ -228,19 +228,20 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 
 <style lang="scss" scoped>
 .workbench-layout { display: flex; flex-direction: column; min-height: 100vh; background: var(--bulma-body-background-color); }
-.workbench-body { display: flex; flex: 1; padding-top: 3.25rem; min-height: 0; }
+.workbench-body { display: flex; flex: 1; margin-top: 3.25rem; min-height: 0; }
 .workbench-sidebar {
-  width: 200px; min-width: 200px; max-width: 200px; flex-shrink: 0;
-  background: var(--bulma-scheme-main-bis);
+  position: fixed; top: 3.25rem; left: 0; bottom: 24px; z-index: 100;
+  width: 200px; background: var(--bulma-scheme-main-bis);
   border-right: 1px solid var(--bulma-border-light); padding: 1.5rem 0 0.75rem;
-  display: flex; flex-direction: column; overflow: hidden;
-  contain: layout style;
-  &.is-collapsed { width: 56px; min-width: 56px; max-width: 56px; }
+  display: flex; flex-direction: column; overflow-y: auto;
+  &.is-collapsed { width: 56px; }
 }
-.sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0.5rem; flex: 1; contain: layout style; }
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0.5rem; flex: 1; }
 .sidebar-item {
   display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.75rem; border-radius: 8px;
-  color: var(--bulma-text-light); text-decoration: none; transition: all 0.12s ease; cursor: pointer; white-space: nowrap;
+  color: var(--bulma-text-light); text-decoration: none; cursor: pointer; white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
   &.is-active { background: var(--bulma-primary); color: white; }
   &.is-active .sidebar-label { font-weight: 500; }
@@ -249,7 +250,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 .sidebar-spacer { flex: 1; }
 .collapse-icon { transition: transform 0.2s ease; &.is-rotated { transform: rotate(180deg); } }
 
-.workbench-content { flex: 1; min-width: 0; overflow-y: auto; padding: 1.5rem 2rem; }
+.workbench-content { flex: 1; min-width: 0; overflow-y: auto; padding: 1.5rem 2rem; margin-left: 200px; }
+.workbench-content.is-sidebar-collapsed { margin-left: 56px; }
 
 .workbench-statusbar {
   display: flex; align-items: center; justify-content: space-between;
