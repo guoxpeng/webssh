@@ -53,7 +53,7 @@ const props = defineProps({
   termSettings: { type: Object, default: null },
 });
 
-const emit = defineEmits(['status-change', 'error-message']);
+const emit = defineEmits(['status-change', 'error-message', 'shell-exit']);
 
 const xtermContainerRef = ref(null);
 const searchInputRef = ref(null);
@@ -197,11 +197,15 @@ const initializeTerminal = async () => {
     onMessage: (data) => {
       if (!destroyed) term?.write(typeof data === 'string' ? data : new Uint8Array(data));
     },
-    onClose: () => {
+    onClose: (event, manual) => {
       if (destroyed) return;
       emit('status-change', 'disconnected');
       terminalStore.setActiveSendFunction(null);
-      if (wsService && !destroyed && !reconnectScheduled) scheduleReconnect();
+      if (event && event.wasClean && !manual && event.code === 1000) {
+        emit('shell-exit');
+      } else if (wsService && !destroyed && !reconnectScheduled) {
+        scheduleReconnect();
+      }
     },
     onError: (errorEventOrMessage) => {
       if (destroyed) return;
@@ -241,6 +245,9 @@ const initializeTerminal = async () => {
   });
 
   window.addEventListener('resize', handleResize);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleResize);
+  }
 };
 
 const handleResize = () => {

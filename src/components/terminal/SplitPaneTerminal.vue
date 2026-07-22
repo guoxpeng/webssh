@@ -53,7 +53,8 @@
         <div v-show="idx === activePane" class="pane-content">
           <TerminalDisplay :node-config="pane.config" :term-settings="pane.termSettings" v-if="pane.type === 'terminal' && pane.status !== 'error'"
                            @status-change="(s) => onPaneStatus(idx, s)"
-                           @error-message="(m) => onPaneError(idx, m)"/>
+                           @error-message="(m) => onPaneError(idx, m)"
+                           @shell-exit="onShellExit(idx)"/>
           <ConnectionErrorPanel v-else-if="pane.type === 'terminal' && pane.status === 'error'"
                                 :config="pane.config" :message="pane.lastError"
                                 @retry="retryPane(idx)"
@@ -176,6 +177,10 @@ function editPane(idx) {
   const host = pane.config.host || '';
   const { showInfo } = useNotifications();
   showInfo(t('form.loadedForEditing', { name: pane.config.name || host }));
+}
+
+function onShellExit(idx) {
+  setTimeout(() => closePane(idx), 1500);
 }
 
 function updateTerminalSettings(opts) {
