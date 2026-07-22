@@ -149,9 +149,13 @@ function addPane(type, protocol, config) {
   activePane.value = panes.value.length - 1;
 }
 
+let sftpOpening = false;
 async function openSftpForActivePane() {
+  if (sftpOpening) return;
+  for (const p of panes.value) { if (p.type === 'sftp') return; }
   const pane = panes.value[activePane.value];
   if (!pane || !pane.config) return;
+  sftpOpening = true;
   const connStore = useConnectionStore();
   const cfg = { ...pane.config };
   if (!cfg.auth_value && cfg.id) {
@@ -164,12 +168,14 @@ async function openSftpForActivePane() {
     connStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value).catch(() => {});
   }
   addPane('sftp', pane.protocol || 'ssh', cfg);
+  sftpOpening = false;
 }
 
 function closePane(idx) {
   if (panes.value.length <= 1) return;
   panes.value.splice(idx, 1);
   if (activePane.value >= panes.value.length) activePane.value = panes.value.length - 1;
+  sftpOpening = false;
 }
 
 function onPaneStatus(idx, status) {

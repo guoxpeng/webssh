@@ -381,7 +381,7 @@ async function getAuth() {
 
   return {
     host: src?.host,
-    port: src?.port || 22,
+    port: src?.port != null ? src.port : 22,
     username: src?.username,
     auth_type: authType,
     auth_value: authValue,

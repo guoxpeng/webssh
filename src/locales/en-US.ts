@@ -434,6 +434,7 @@ export default {
     batchRun: 'Run on selected',
     batchDone: 'Completed {ok}/{total} connections.',
     connFailed: 'Connection failed',
+    noCredentials: 'No saved credentials',
     pending: 'Pending',
     running: 'Running...',
     completed: 'Completed',

@@ -451,16 +451,18 @@ function handleSerial(ws, config) {
 
 wss.on('connection', (ws, req) => {
   let initialized = false;
-  const pingInterval = setInterval(() => {
-    if (ws.readyState === 1) { try { ws.ping(); } catch {} }
-    else clearInterval(pingInterval);
-  }, 30000);
   const cleanup = () => {
     clearInterval(pingInterval);
     try { ws.close(); } catch {}
     try { ws.terminate(); } catch {}
     try { ws.removeAllListeners(); } catch {}
   };
+  ws.on('close', cleanup);
+  ws.on('error', () => cleanup());
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === 1) { try { ws.ping(); } catch {} }
+    else clearInterval(pingInterval);
+  }, 30000);
 
   ws.on('message', (data) => {
     if (initialized) return;

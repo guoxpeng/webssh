@@ -434,6 +434,7 @@ export default {
     batchRun: '在选中连接上执行',
     batchDone: '已完成 {ok}/{total} 个连接。',
     connFailed: '连接失败',
+    noCredentials: '无保存的凭据',
     pending: '等待中',
     running: '执行中...',
     completed: '已完成',

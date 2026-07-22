@@ -138,12 +138,24 @@ async function startBatch() {
 
   for (let i = 0; i < conns.length; i++) {
     const conn = conns[i];
+    let authValue = conn.auth_value || '';
+    let authType = conn.auth_type || 'password';
+    if (!authValue && conn.id) {
+      try {
+        const cred = await connStore.getCredentialFromSessionStorage(conn.id);
+        if (cred?.auth_value) { authValue = cred.auth_value; authType = cred.auth_type || 'password'; }
+      } catch {}
+    }
+    if (!conn.host || !authValue) {
+      errorLog.value.push(`${conn.name || conn.host}: ${t('macro.noCredentials')}`);
+      continue;
+    }
     try {
       const service = new SshWebSocketService();
       const nodeInfo = {
         name: conn.name || conn.host, host: conn.host, port: conn.port || 22,
-        username: conn.username, auth_type: conn.auth_type || 'password',
-        auth_value: conn.auth_value || '', protocol: conn.protocol || 'ssh',
+        username: conn.username, auth_type: authType,
+        auth_value: authValue, protocol: conn.protocol || 'ssh',
       };
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
