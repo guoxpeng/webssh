@@ -17,7 +17,7 @@
       <template v-for="(pane, idx) in panes" :key="pane.id">
         <div v-show="idx === activePane" class="pane-content">
           <TerminalDisplay :node-config="pane.config" v-if="pane.type === 'terminal'" @status-change="(s) => onPaneStatus(idx, s)"/>
-          <SftpBrowser v-else-if="pane.type === 'sftp'" @close="closePane(idx)"/>
+          <SftpBrowser v-else-if="pane.type === 'sftp'" :node-config="pane.config" @close="closePane(idx)"/>
           <DockerPanel v-else-if="pane.type === 'docker'" :session-id="pane.id" @close="closePane(idx)"/>
           <div v-else class="pane-empty">
             <component :is="protocolIcon(pane.protocol)" :size="32" class="pane-empty-icon"/>
@@ -56,6 +56,12 @@ function addPane(type, protocol, config) {
   activePane.value = panes.value.length - 1;
 }
 
+function openSftpForActivePane() {
+  const pane = panes.value[activePane.value];
+  if (!pane || !pane.config) return;
+  addPane('sftp', pane.protocol || 'ssh', pane.config);
+}
+
 function closePane(idx) {
   if (panes.value.length <= 1) return;
   panes.value.splice(idx, 1);
@@ -66,7 +72,7 @@ function onPaneStatus(idx, status) {
   if (panes.value[idx]) panes.value[idx].status = status;
 }
 
-defineExpose({ panes, activePane, addPane, addTerminalPane: (config) => addPane('terminal', config?.protocol || 'ssh', config) });
+defineExpose({ panes, activePane, addPane, addTerminalPane: (config) => addPane('terminal', config?.protocol || 'ssh', config), openSftpForActivePane });
 </script>
 
 <style lang="scss" scoped>

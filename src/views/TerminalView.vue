@@ -8,6 +8,9 @@
         </span>
       </div>
       <div class="toolbar-right" v-if="paneCount > 0">
+        <button class="toolbar-btn" @click="openSftp" :title="t('sftp.fileManager')">
+          <FolderOpen :size="14"/>
+        </button>
         <button class="toolbar-btn is-danger" @click="showDisconnectDialog = true" :title="t('terminal.disconnect')">
           <Power :size="14"/>
         </button>
@@ -54,7 +57,7 @@ import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
-import { Power, Terminal, Server } from 'lucide-vue-next';
+import { Power, Terminal, Server, FolderOpen } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const connectionStore = useConnectionStore();
@@ -99,6 +102,10 @@ function processPendingConnections() {
   setTimeout(() => {
     if (connecting.value) completeProgress();
   }, 2500);
+}
+
+function openSftp() {
+  splitPaneRef.value?.openSftpForActivePane();
 }
 
 function onDisconnectConfirmed() {

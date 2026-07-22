@@ -188,6 +188,10 @@ import { getApiBaseUrl } from '@/utils/constants';
 const { t } = useI18n();
 const connStore = useConnectionStore();
 
+const props = defineProps({
+  nodeConfig: { type: Object, default: null },
+});
+
 const emit = defineEmits(['close']);
 
 const loading = ref(false);
@@ -243,12 +247,13 @@ function showMessage(msg, type = 'is-info') {
 }
 
 function getAuth() {
+  const src = props.nodeConfig || connStore.currentNodeDetails;
   return {
-    host: connStore.currentNodeDetails?.host,
-    port: connStore.currentNodeDetails?.port,
-    username: connStore.currentNodeDetails?.username,
-    auth_type: connStore.currentNodeDetails?.auth_type,
-    auth_value: connStore.currentNodeDetails?.auth_value,
+    host: src?.host,
+    port: src?.port || 22,
+    username: src?.username,
+    auth_type: src?.auth_type,
+    auth_value: src?.auth_value,
   };
 }
 
