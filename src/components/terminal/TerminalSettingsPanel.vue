@@ -21,6 +21,13 @@
     </div>
 
     <div class="ts-row">
+      <span class="ts-label">{{ t('settings.terminalTheme') }}</span>
+      <select v-model="localTheme" class="ts-select" @change="emitChange">
+        <option v-for="th in themes" :key="th.id" :value="th.id">{{ th.label }}</option>
+      </select>
+    </div>
+
+    <div class="ts-row">
       <label class="ts-toggle-label">
         <input type="checkbox" v-model="localBlink" @change="emitChange"/>
         <span>{{ t('terminal.cursorBlink') }}</span>
@@ -39,6 +46,7 @@ const props = defineProps({
   fontSize: { type: Number, default: 13 },
   cursorStyle: { type: String, default: 'block' },
   cursorBlink: { type: Boolean, default: true },
+  themeId: { type: String, default: 'default' },
 });
 
 const emit = defineEmits(['update']);
@@ -46,10 +54,22 @@ const emit = defineEmits(['update']);
 const localSize = ref(props.fontSize);
 const localCursor = ref(props.cursorStyle);
 const localBlink = ref(props.cursorBlink);
+const localTheme = ref(props.themeId);
+
+const themes = [
+  { id: 'default', label: 'Default (Dark)' },
+  { id: 'solarized-dark', label: 'Solarized Dark' },
+  { id: 'solarized-light', label: 'Solarized Light' },
+  { id: 'dracula', label: 'Dracula' },
+  { id: 'monokai', label: 'Monokai' },
+  { id: 'nord', label: 'Nord' },
+  { id: 'one-dark', label: 'One Dark' },
+];
 
 watch(() => props.fontSize, (v) => localSize.value = v);
 watch(() => props.cursorStyle, (v) => localCursor.value = v);
 watch(() => props.cursorBlink, (v) => localBlink.value = v);
+watch(() => props.themeId, (v) => localTheme.value = v);
 
 function adjust(delta) {
   localSize.value = Math.min(28, Math.max(10, localSize.value + delta));
@@ -61,6 +81,7 @@ function emitChange() {
     fontSize: localSize.value,
     cursorStyle: localCursor.value,
     cursorBlink: localBlink.value,
+    themeId: localTheme.value,
   });
 }
 </script>

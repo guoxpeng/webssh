@@ -213,6 +213,7 @@ export default {
     animations: 'Animations',
     terminal: 'Terminal',
     cursorStyle: 'Cursor Style',
+    terminalTheme: 'Terminal Theme',
     scrollback: 'Scrollback',
     session: 'Session',
     rememberCredentials: 'Remember credentials',
