@@ -1,5 +1,5 @@
 <template>
-  <div class="batch-overlay" @click.self="$emit('close')">
+  <div class="batch-overlay">
     <div class="batch-dialog">
       <div class="batch-header">
         <h3><Play :size="16"/> {{ t('macro.batchTitle') }}</h3>
@@ -22,6 +22,10 @@
             <input type="text" v-model="connSearch" :placeholder="t('macro.searchConn')" class="conn-search-input"/>
           </div>
           <div class="conn-list">
+            <label class="conn-item select-all-item" @click.stop>
+              <input type="checkbox" :checked="allSelected" @change="toggleAll" class="conn-check"/>
+              <span class="conn-name">{{ allSelected ? t('macro.deselectAll') : t('macro.selectAll') }}</span>
+            </label>
             <label v-for="conn in filteredConnections" :key="conn.id || conn.name" class="conn-item">
               <input type="checkbox" :value="conn" v-model="selectedConnections" class="conn-check"/>
               <span class="conn-name">{{ conn.name || conn.host }}</span>
@@ -63,6 +67,9 @@
 
       <div class="batch-footer">
         <button class="btn-cancel" @click="$emit('close')">{{ t('common.cancel') }}</button>
+        <button v-if="results.length > 0 && !running" class="btn-reset" @click="results = []">
+          <RotateCcw :size="14"/> {{ t('macro.runAgain') }}
+        </button>
         <button class="btn-run" :disabled="!canRun || running" @click="startBatch">
           <Loader2 v-if="running" :size="14" class="spin"/>
           {{ running ? t('macro.running') : t('macro.batchRun') }}
@@ -78,7 +85,7 @@ import { useMacroStore } from '@/stores/macroStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
-import { Play, X, Search, Loader2 } from 'lucide-vue-next';
+import { Play, X, Search, Loader2, RotateCcw } from 'lucide-vue-next';
 import SshWebSocketService from '@/services/sshWebSocketService';
 
 const { t } = useI18n();
@@ -116,6 +123,19 @@ const selectedMacro = computed(() => {
 const canRun = computed(() => {
   return selectedMacroId.value && selectedConnections.value.length > 0;
 });
+
+const allSelected = computed(() => {
+  if (filteredConnections.value.length === 0) return false;
+  return selectedConnections.value.length === filteredConnections.value.length;
+});
+
+function toggleAll() {
+  if (allSelected.value) {
+    selectedConnections.value = [];
+  } else {
+    selectedConnections.value = [...filteredConnections.value];
+  }
+}
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -231,6 +251,7 @@ function cancelRun() {
 .conn-name { font-weight: 500; }
 .conn-meta { font-size: 0.85em; color: var(--bulma-text-light); margin-left: auto; }
 .conn-empty { padding: 1rem; text-align: center; color: var(--bulma-text-light); font-size: 0.8em; }
+.select-all-item { background: var(--bulma-scheme-main-ter); font-weight: 500; font-size: 0.75em; color: var(--bulma-primary); }
 .option-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
 .option-label { font-size: 0.75em; color: var(--bulma-text-light); }
 .option-input {
@@ -255,6 +276,12 @@ function cancelRun() {
   display: flex; align-items: center; justify-content: center; gap: 0.35rem;
 }
 .btn-cancel { background: var(--bulma-border-light); color: var(--bulma-text); }
+.btn-reset {
+  flex: 1; border: none; border-radius: 8px; padding: 0.45rem; font-size: 0.8em; cursor: pointer; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+  background: var(--bulma-scheme-main-ter); color: var(--bulma-text);
+  &:hover { background: var(--bulma-border-light); }
+}
 .btn-run { background: var(--bulma-primary); color: white; &:disabled { opacity: 0.5; cursor: not-allowed; } }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

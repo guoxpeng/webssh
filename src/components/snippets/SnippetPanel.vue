@@ -19,12 +19,6 @@
       </div>
     </div>
 
-    <div class="panel-search">
-      <Search :size="13" class="search-icon"/>
-      <input type="text" v-model="store.searchQuery" :placeholder="t('snippets.searchPlaceholder')" class="search-input"/>
-      <button v-if="store.searchQuery" class="search-clear" @click="store.searchQuery = ''">&times;</button>
-    </div>
-
     <div v-if="showAddForm" class="add-form">
       <input type="text" v-model="newTitle" :placeholder="t('snippets.titleField')" class="form-input" ref="titleInput"/>
       <textarea v-model="newCommand" :placeholder="t('snippets.commandField')" class="form-textarea" rows="2"></textarea>
@@ -35,9 +29,10 @@
       </div>
     </div>
 
-    <div class="panel-list" v-if="store.filteredSnippets.length > 0">
-      <div v-for="s in store.filteredSnippets" :key="s.id" class="snippet-item">
+    <div class="panel-list" v-if="store.snippets.length > 0">
+      <div v-for="(s, idx) in store.snippets" :key="s.id" class="snippet-item">
         <div class="snippet-top">
+          <span class="snippet-num">{{ idx + 1 }}</span>
           <div class="snippet-info" @click="s.expanded = !s.expanded">
             <span class="snippet-title">{{ s.title }}</span>
             <span class="snippet-cmd-preview">{{ s.command.substring(0, 40) }}{{ s.command.length > 40 ? '...' : '' }}</span>
@@ -47,10 +42,19 @@
               <Star :size="13" :fill="s.favorite ? 'currentColor' : 'none'"/>
             </button>
             <button class="snip-btn" @click="runSnippet(s)" :title="t('snippets.sendToTerminal')"><Play :size="13"/></button>
+            <button class="snip-btn" @click="startEdit(s)" :title="t('common.edit')"><Edit3 :size="12"/></button>
             <button class="snip-btn is-danger" @click="store.removeSnippet(s.id)" :title="t('common.delete')"><Trash2 :size="13"/></button>
           </div>
         </div>
-        <div v-if="s.expanded" class="snippet-detail">
+        <div v-if="editingId === s.id" class="edit-form" @click.stop>
+          <input type="text" v-model="editTitle" :placeholder="t('snippets.titleField')" class="form-input"/>
+          <textarea v-model="editCommand" :placeholder="t('snippets.commandField')" class="form-textarea" rows="2"></textarea>
+          <div class="edit-form-actions">
+            <button class="save-edit-btn" @click="saveEdit(s.id)">{{ t('common.save') }}</button>
+            <button class="cancel-edit-btn" @click="editingId = null">{{ t('common.cancel') }}</button>
+          </div>
+        </div>
+        <div v-else-if="s.expanded" class="snippet-detail">
           <pre class="snippet-command"><code>{{ s.command }}</code></pre>
           <div class="snippet-tags" v-if="s.tags.length">
             <span v-for="t in s.tags" :key="t" class="snippet-tag">{{ t }}</span>
@@ -59,8 +63,7 @@
       </div>
     </div>
     <div v-else class="panel-empty">
-      <p v-if="store.searchQuery">{{ t('snippets.noMatch') }}</p>
-      <p v-else>{{ t('snippets.noSnippets') }}</p>
+      <p>{{ t('snippets.noSnippets') }}</p>
     </div>
   </div>
 </template>
@@ -70,12 +73,10 @@ import { ref } from 'vue';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
-import { TerminalSquare, Plus, Download, Upload, X, Search, Star, Play, Trash2 } from 'lucide-vue-next';
+import { TerminalSquare, Plus, Download, Upload, X, Star, Play, Trash2, Edit3 } from 'lucide-vue-next';
 
 const { t } = useI18n();
-
 const emit = defineEmits(['close', 'run']);
-
 const store = useSnippetStore();
 const { showSuccess, showError } = useNotifications();
 
@@ -85,6 +86,10 @@ const newCommand = ref('');
 const newTags = ref('');
 const titleInput = ref(null);
 const importInput = ref(null);
+
+const editingId = ref(null);
+const editTitle = ref('');
+const editCommand = ref('');
 
 function addNew() {
   if (!newTitle.value.trim() || !newCommand.value.trim()) {
@@ -98,8 +103,18 @@ function addNew() {
   showSuccess(t('snippets.added'));
 }
 
-function runSnippet(s) {
-  emit('run', s);
+function runSnippet(s) { emit('run', s); }
+
+function startEdit(s) {
+  editingId.value = s.id;
+  editTitle.value = s.title;
+  editCommand.value = s.command;
+}
+
+function saveEdit(id) {
+  store.updateSnippet(id, { title: editTitle.value.trim(), command: editCommand.value.trim() });
+  editingId.value = null;
+  showSuccess(t('common.saved'));
 }
 
 function exportSnips() {
@@ -135,7 +150,6 @@ function onImportFile(e) {
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
   border-radius: 12px; overflow: hidden; width: 440px;
 }
-
 .panel-header {
   display: flex; align-items: center; padding: 0.65rem 0.75rem;
   border-bottom: 1px solid var(--bulma-border-light);
@@ -147,18 +161,6 @@ function onImportFile(e) {
   color: var(--bulma-text-light); display: flex;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
 }
-
-.panel-search {
-  display: flex; align-items: center; gap: 0.35rem;
-  padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--bulma-border-light);
-}
-.search-icon { flex-shrink: 0; color: var(--bulma-text-light); }
-.search-input {
-  flex: 1; border: none; background: none; outline: none; font-size: 0.8em; color: var(--bulma-text);
-  &::placeholder { color: var(--bulma-text-light); }
-}
-.search-clear { background: none; border: none; cursor: pointer; color: var(--bulma-text-light); font-size: 1em; padding: 0; }
-
 .add-form { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; border-bottom: 1px solid var(--bulma-border-light); }
 .form-input, .form-textarea {
   border: 1px solid var(--bulma-border); border-radius: 6px; padding: 0.3rem 0.5rem;
@@ -166,25 +168,30 @@ function onImportFile(e) {
   &:focus { border-color: var(--bulma-primary); }
 }
 .form-textarea { resize: vertical; font-family: var(--bulma-family-monospace); }
-.add-form-actions { display: flex; gap: 0.35rem; }
-.add-btn, .cancel-btn {
+.add-form-actions, .edit-form-actions { display: flex; gap: 0.35rem; }
+.add-btn, .save-edit-btn {
   flex: 1; border: none; border-radius: 6px; padding: 0.3rem; font-size: 0.75em; cursor: pointer; font-weight: 500;
+  background: var(--bulma-primary); color: white;
 }
-.add-btn { background: var(--bulma-primary); color: white; }
-.cancel-btn { background: var(--bulma-border-light); color: var(--bulma-text); }
+.cancel-btn, .cancel-edit-btn {
+  flex: 1; border: none; border-radius: 6px; padding: 0.3rem; font-size: 0.75em; cursor: pointer; font-weight: 500;
+  background: var(--bulma-border-light); color: var(--bulma-text);
+}
+.edit-form { padding: 0.4rem 0; display: flex; flex-direction: column; gap: 0.3rem; }
 
-.panel-list { max-height: 420px; overflow-y: auto; }
-
+.panel-list { max-height: 420px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
 .snippet-item {
   padding: 0.5rem 0.75rem;
   & + & { border-top: 1px solid var(--bulma-border-light); }
 }
-
 .snippet-top { display: flex; align-items: center; gap: 0.5rem; }
+.snippet-num {
+  font-size: 0.65em; color: var(--bulma-text-light); font-weight: 600;
+  min-width: 18px; text-align: center; flex-shrink: 0; font-family: monospace;
+}
 .snippet-info { flex: 1; cursor: pointer; min-width: 0; }
 .snippet-title { display: block; font-size: 0.85em; font-weight: 500; }
 .snippet-cmd-preview { display: block; font-size: 0.7em; color: var(--bulma-text-light); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
-
 .snippet-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; .snippet-item:hover & { opacity: 1; } }
 .snip-btn {
   background: none; border: none; padding: 0.3rem; border-radius: 6px; cursor: pointer;
@@ -193,7 +200,6 @@ function onImportFile(e) {
   &.is-fav.is-active { color: #f59e0b; }
   &.is-danger:hover { color: var(--bulma-danger); }
 }
-
 .snippet-detail { margin-top: 0.35rem; }
 .snippet-command {
   background: var(--bulma-scheme-main-ter); border-radius: 6px; padding: 0.5rem 0.65rem;
@@ -204,6 +210,5 @@ function onImportFile(e) {
   font-size: 0.65em; padding: 2px 7px; border-radius: 4px;
   background: var(--bulma-primary); color: white; opacity: 0.85;
 }
-
 .panel-empty { padding: 1.5rem; text-align: center; font-size: 0.85em; color: var(--bulma-text-light); }
 </style>
