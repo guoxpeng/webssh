@@ -16,23 +16,39 @@ const MIME = { '.html':'text/html','.js':'application/javascript','.css':'text/c
 const PORT = parseInt(process.env.PORT || '9627', 10);
 const WS_PATH = process.env.WS_PATH || '/ws/ssh';
 
+// Prevent process crash on unhandled errors
+process.on('uncaughtException', (err) => {
+  console.error('❗ Uncaught Exception:', err.message);
+  console.error(err.stack);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('❗ Unhandled Rejection:', reason?.message || reason);
+});
+
 async function withSftp(body, fn) {
+  if (!body?.host) throw new Error('Host is required');
   const conn = new Client();
   return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      try { conn.end(); } catch {}
+      reject(new Error('SFTP connection timeout'));
+    }, 15000);
     conn.on('ready', () => {
+      clearTimeout(timeout);
       conn.sftp((err, sftp) => {
-        if (err) { conn.end(); reject(err); return; }
-        fn(sftp, conn).then(resolve).catch(reject).finally(() => conn.end());
+        if (err) { clearTimeout(timeout); conn.end(); reject(err); return; }
+        fn(sftp, conn).then(resolve).catch(reject).finally(() => { clearTimeout(timeout); try { conn.end(); } catch {} });
       });
     });
-    conn.on('error', (err) => reject(err));
+    conn.on('error', (err) => { clearTimeout(timeout); reject(err); });
+    conn.on('close', () => { clearTimeout(timeout); });
     const cfg = {
-      host: body.host, port: body.port || 22, username: body.username,
+      host: body.host, port: body.port || 22, username: body.username || 'root',
       readyTimeout: 8000, keepaliveInterval: 10000,
     };
     if (body.auth_type === 'key') cfg.privateKey = body.auth_value;
     else cfg.password = body.auth_value;
-    conn.connect(cfg);
+    try { conn.connect(cfg); } catch (e) { clearTimeout(timeout); reject(e); }
   });
 }
 
@@ -69,17 +85,26 @@ const server = createServer(async (req, res) => {
 
   // Production: serve built frontend
   if (req.method === 'GET' && existsSync(DIST_DIR)) {
-    let filePath = req.url === '/' ? '/index.html' : req.url;
-    const fullPath = join(DIST_DIR, filePath);
-    if (existsSync(fullPath)) {
-      const ext = extname(fullPath);
-      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
-      res.end(readFileSync(fullPath));
-      return;
+    try {
+      let filePath = req.url === '/' ? '/index.html' : req.url;
+      const fullPath = join(DIST_DIR, filePath);
+      if (existsSync(fullPath)) {
+        const ext = extname(fullPath);
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+        res.end(readFileSync(fullPath));
+        return;
+      }
+      // SPA fallback
+      const indexPath = join(DIST_DIR, 'index.html');
+      if (existsSync(indexPath)) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(readFileSync(indexPath));
+        return;
+      }
+    } catch (e) {
+      console.error('Static file error:', e.message);
     }
-    // SPA fallback
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(readFileSync(join(DIST_DIR, 'index.html')));
+    res.writeHead(404); res.end('Not found');
     return;
   }
 
@@ -320,12 +345,23 @@ function handleTelnet(ws, config) {
 
 wss.on('connection', (ws, req) => {
   let initialized = false;
-  const cleanup = () => { try { ws.close(); } catch {}; ws.removeAllListeners(); };
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === 1) { try { ws.ping(); } catch {} }
+    else clearInterval(pingInterval);
+  }, 30000);
+  const cleanup = () => {
+    clearInterval(pingInterval);
+    try { ws.close(); } catch {}
+    try { ws.terminate(); } catch {}
+    try { ws.removeAllListeners(); } catch {}
+  };
 
   ws.on('message', (data) => {
     if (initialized) return;
     try {
-      const config = JSON.parse(data.toString());
+      let config;
+      try { config = JSON.parse(data.toString()); } catch { throw new Error('Invalid JSON'); }
+      if (!config || !config.host) throw new Error('Host is required');
       const proto = (config.protocol || 'ssh').toLowerCase();
       initialized = true;
       ws.removeAllListeners('message');
@@ -336,13 +372,14 @@ wss.on('connection', (ws, req) => {
         handleSSH(ws, config);
       }
     } catch (e) {
-      try { ws.send(JSON.stringify({ type: 'error', message: 'Invalid config: ' + e.message })); } catch {}
+      try { ws.send(JSON.stringify({ type: 'error', message: e.message })); } catch {}
       cleanup();
     }
   });
 
   ws.on('close', cleanup);
   ws.on('error', () => cleanup());
+  ws.on('pong', () => {});
 });
 
 function getLocalIP() {
