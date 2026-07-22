@@ -23,6 +23,7 @@ interface SessionConfig {
 export const useTerminalStore = defineStore('terminal', () => {
   const SESSIONS_KEY = 'webssh_saved_sessions';
   const RECENT_CMDS_KEY = 'webssh_recent_commands';
+  const LAYOUT_KEY = 'webssh_terminal_layout';
   const MAX_RECENT = 20;
 
   const saved = sessionStorage.getItem(SESSIONS_KEY);
@@ -117,10 +118,27 @@ export const useTerminalStore = defineStore('terminal', () => {
     activeSendFunction.value = fn;
   }
 
+  function saveLayout(panes) {
+    const configs = panes.map(p => ({ type: p.type, protocol: p.protocol, config: p.config }));
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(configs));
+  }
+
+  function restoreLayout() {
+    try {
+      const raw = localStorage.getItem(LAYOUT_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+
+  function clearLayout() {
+    localStorage.removeItem(LAYOUT_KEY);
+  }
+
   return {
     sessions, activeSessionId, activeSession, sessionCount, recentCommands,
     activeSendFunction, setActiveSendFunction,
     createSession, closeSession, setActiveSession, updateSessionStatus, restoreActiveSession,
     addRecentCommand, clearRecentCommands, clearAll,
+    saveLayout, restoreLayout, clearLayout,
   };
 });

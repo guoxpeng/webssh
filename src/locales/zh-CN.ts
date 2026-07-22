@@ -96,6 +96,9 @@ export default {
     reconnecting: '{sec}秒后重连（第{attempt}次）...',
     terminalSettings: '终端设置',
     cursorBlink: '光标闪烁',
+    searchPlaceholder: '查找...',
+    searchPrev: '上一个',
+    searchNext: '下一个',
     maxReconnects: '已达到最大重连次数。',
     sessionInitiated: 'SSH 会话已建立。',
     closeSession: '关闭会话',
@@ -410,6 +413,10 @@ export default {
     nextRun: '下次执行',
     noSchedules: '还没有计划任务。',
     noResults: '没有结果。',
+  },
+  pwa: {
+    installPrompt: '安装 WebSSH 以获得最佳体验',
+    install: '安装',
   },
   status: {
     connected: '已连接',

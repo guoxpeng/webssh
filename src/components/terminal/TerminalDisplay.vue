@@ -1,6 +1,14 @@
 <template>
   <div class="terminal-wrapper">
     <div ref="xtermContainerRef" class="xterm-container-parent"></div>
+    <div v-if="showSearch" class="search-overlay" @mousedown.stop>
+      <input ref="searchInputRef" type="text" v-model="searchQuery" :placeholder="t('terminal.searchPlaceholder')"
+             class="search-input" @keydown.enter="findNext" @keydown.escape="closeSearch"/>
+      <span class="search-meta">{{ searchResultIndex }}/{{ searchResultCount }}</span>
+      <button class="search-btn" @click="findPrev" :title="t('terminal.searchPrev')" :disabled="searchResultCount === 0"><ChevronLeft :size="14"/></button>
+      <button class="search-btn" @click="findNext" :title="t('terminal.searchNext')" :disabled="searchResultCount === 0"><ChevronRight :size="14"/></button>
+      <button class="search-btn" @click="closeSearch" :title="t('common.close')"><X :size="14"/></button>
+    </div>
     <div class="mobile-keys-toolbar is-hidden-tablet">
       <div class="mobile-keys-row">
         <button class="mkey" @mousedown.prevent="sendKey('ESC')" title="Escape">ESC</button>
@@ -31,9 +39,13 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SearchAddon } from '@xterm/addon-search';
 import SshWebSocketService from '@/services/sshWebSocketService';
 import { useTerminalStore } from '@/stores/terminalStore';
+import { useI18n } from 'vue-i18n';
+import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next';
 
+const { t } = useI18n();
 const terminalStore = useTerminalStore();
 
 const props = defineProps({
@@ -44,8 +56,14 @@ const props = defineProps({
 const emit = defineEmits(['status-change', 'error-message']);
 
 const xtermContainerRef = ref(null);
+const searchInputRef = ref(null);
+const showSearch = ref(false);
+const searchQuery = ref('');
+const searchResultIndex = ref(0);
+const searchResultCount = ref(0);
 let term = null;
 let fitAddon = null;
+let searchAddon = null;
 let wsService = null;
 let destroyed = false;
 
@@ -83,6 +101,12 @@ const initializeTerminal = async () => {
   fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
   term.loadAddon(new WebLinksAddon());
+  searchAddon = new SearchAddon();
+  searchAddon.onDidChangeResults((results) => {
+    searchResultCount.value = results.resultCount;
+    searchResultIndex.value = Math.min(results.resultIndex + 1, results.resultCount);
+  });
+  term.loadAddon(searchAddon);
   term.open(xtermContainerRef.value);
 
   try { fitAddon.fit(); } catch (e) {
@@ -148,6 +172,14 @@ const initializeTerminal = async () => {
     wsService?.sendMessage(data);
   });
 
+  term.attachCustomKeyEventHandler((e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f' && e.type === 'keydown') {
+      openSearch();
+      return false;
+    }
+    return true;
+  });
+
   window.addEventListener('resize', handleResize);
 };
 
@@ -165,6 +197,31 @@ const handleResize = () => {
     }
   }
 };
+
+function openSearch() {
+  showSearch.value = true;
+  searchQuery.value = '';
+  searchResultIndex.value = 0;
+  searchResultCount.value = 0;
+  nextTick(() => searchInputRef.value?.focus());
+}
+
+function closeSearch() {
+  showSearch.value = false;
+  searchQuery.value = '';
+  searchAddon?.clearActiveSearch();
+  term?.focus();
+}
+
+function findNext() {
+  if (!searchQuery.value || !searchAddon) return;
+  searchAddon.findNext(searchQuery.value, { caseSensitive: false, wholeWord: false, regex: false });
+}
+
+function findPrev() {
+  if (!searchQuery.value || !searchAddon) return;
+  searchAddon.findPrevious(searchQuery.value, { caseSensitive: false, wholeWord: false, regex: false });
+}
 
 const sendKey = (keyType) => {
   if (!term || !wsService) return;
@@ -227,4 +284,26 @@ onBeforeUnmount(() => {
   &:active { background-color: hsl(0,0%,20%); transform: scale(0.95); }
 }
 .mkey-arrow { background-color: hsl(240,8%,22%); min-width: 2.5rem; }
+
+.search-overlay {
+  position: absolute; top: 0; right: 0; z-index: 10;
+  display: flex; align-items: center; gap: 0.25rem;
+  padding: 0.3rem 0.4rem; background: rgba(30,30,30,0.95);
+  border-bottom-left-radius: 8px; border: 1px solid hsl(0,0%,25%);
+  border-top: none; border-right: none;
+}
+.search-overlay .search-input {
+  width: 160px; padding: 0.2rem 0.4rem; border: 1px solid hsl(0,0%,30%);
+  border-radius: 4px; font-size: 0.75em; background: hsl(0,0%,15%);
+  color: #fff; outline: none;
+  &::placeholder { color: hsl(0,0%,45%); }
+  &:focus { border-color: hsl(235,50%,58%); }
+}
+.search-meta { font-size: 0.65em; color: hsl(0,0%,50%); min-width: 30px; text-align: center; }
+.search-btn {
+  background: none; border: 1px solid hsl(0,0%,30%); border-radius: 4px;
+  padding: 0.2rem; cursor: pointer; color: hsl(0,0%,70%); display: flex;
+  &:hover { background: hsl(0,0%,25%); color: #fff; }
+  &:disabled { opacity: 0.3; cursor: default; }
+}
 </style>

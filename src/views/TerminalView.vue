@@ -135,8 +135,10 @@ function stopRecording() {
   if (!name) return;
   macroStore.addMacro({
     name,
-    commands: recordingSteps.value.map(s => s.text),
-    delays: recordingSteps.value.map(s => s.delay),
+    description: '',
+    steps: recordingSteps.value.map(s => ({ command: s.text, delay: s.delay })),
+    tags: [],
+    favorite: false,
   });
   recordingSteps.value = [];
 }
@@ -211,8 +213,23 @@ function onTermSettingsUpdate(opts) {
 
 function onDocClick() { showToolMenu.value = false; showTermSettings.value = false; }
 
+function restoreSavedLayout() {
+  const saved = terminalStore.restoreLayout();
+  if (saved.length === 0) return;
+  for (const item of saved) {
+    if (item.config) {
+      splitPaneRef.value?.addTerminalPane(item.config);
+    }
+  }
+  if (saved.length > 0) {
+    startProgress();
+    setTimeout(() => { if (connecting.value) completeProgress(); }, 2500);
+  }
+}
+
 onMounted(() => {
   processPendingConnections();
+  if (connectionStore.pendingConnections.length === 0) restoreSavedLayout();
   document.addEventListener('click', onDocClick);
 });
 onActivated(() => {
@@ -220,6 +237,9 @@ onActivated(() => {
 });
 
 onBeforeUnmount(() => {
+  if (splitPaneRef.value?.panes?.length > 0) {
+    terminalStore.saveLayout(splitPaneRef.value.panes);
+  }
   document.removeEventListener('click', onDocClick);
   if (progressTimer) clearTimeout(progressTimer);
   terminalStore.clearAll();

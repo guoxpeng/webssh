@@ -96,6 +96,9 @@ export default {
     reconnecting: 'Reconnecting in {sec}s (attempt {attempt})...',
     terminalSettings: 'Terminal Settings',
     cursorBlink: 'Cursor Blink',
+    searchPlaceholder: 'Find...',
+    searchPrev: 'Previous',
+    searchNext: 'Next',
     maxReconnects: 'Max reconnection attempts reached.',
     sessionInitiated: 'SSH session initiated.',
     closeSession: 'Close session',
@@ -410,6 +413,10 @@ export default {
     nextRun: 'Next run',
     noSchedules: 'No scheduled tasks.',
     noResults: 'No results.',
+  },
+  pwa: {
+    installPrompt: 'Install WebSSH for the best experience',
+    install: 'Install',
   },
   status: {
     connected: 'Connected',
