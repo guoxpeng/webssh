@@ -37,9 +37,20 @@ npm install
 info "Building frontend..."
 npm run build
 
+# --- Detect IP ---
+IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
+[ -z "$IP" ] && IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+[ -z "$IP" ] && IP="localhost"
+
 # --- Start server ---
-PORT="${PORT:-3000}"
-info "Starting HaoSSH server on port $PORT..."
-echo -e "\n  ${GREEN}✅ HaoSSH is running!${NC}"
-echo -e "  ${CYAN}Local:   http://localhost:$PORT${NC}\n"
-exec node server/index.mjs
+PORT="${PORT:-9627}"
+echo ""
+echo -e "  ${GREEN}✅ HaoSSH is running!${NC}"
+echo -e "  ${CYAN}Local:   http://localhost:${PORT}${NC}"
+echo -e "  ${CYAN}Network: http://${IP}:${PORT}${NC}"
+echo -e "  ${CYAN}Stop:    Ctrl+C${NC}"
+echo ""
+echo -e "  ${GREEN}To run in background:${NC}"
+echo -e "  cd $(pwd) && PORT=${PORT} nohup node server/index.mjs > haossh.log 2>&1 &"
+echo ""
+node server/index.mjs

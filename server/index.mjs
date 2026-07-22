@@ -4,12 +4,13 @@ import { createServer } from 'http';
 import { readFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
 import { fileURLToPath } from 'url';
+import { networkInterfaces } from 'os';
 
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 const DIST_DIR = join(__dirname, '..', 'dist');
 const MIME = { '.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.json':'application/json' };
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '9627', 10);
 const WS_PATH = process.env.WS_PATH || '/ws/ssh';
 
 async function withSftp(body, fn) {
@@ -316,12 +317,24 @@ wss.on('connection', (ws, req) => {
   });
 });
 
+function getLocalIP() {
+  const ifaces = networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return 'localhost';
+}
+
 server.listen(PORT, () => {
+  const ip = getLocalIP();
   console.log(`\n  🚀 HaoSSH Server ready`);
   console.log(`  ───────────────────────`);
   console.log(`  Local:   http://localhost:${PORT}`);
-  console.log(`  WS:      ws://localhost:${PORT}${WS_PATH}`);
-  console.log(`  Health:  http://localhost:${PORT}/health`);
+  console.log(`  Network: http://${ip}:${PORT}`);
+  console.log(`  WS:      ws://${ip}:${PORT}${WS_PATH}`);
+  console.log(`  Health:  http://${ip}:${PORT}/health`);
   if (existsSync(DIST_DIR)) console.log(`  Mode:    production (serving built frontend)`);
   else console.log(`  Mode:    development (frontend on :5173)`);
   console.log();
