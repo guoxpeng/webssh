@@ -31,12 +31,6 @@
       </div>
     </div>
 
-    <div class="panel-search">
-      <Search :size="13" class="search-icon"/>
-      <input type="text" v-model="store.searchQuery" :placeholder="t('macro.searchPlaceholder')" class="search-input"/>
-      <button v-if="store.searchQuery" class="search-clear" @click="store.searchQuery = ''">&times;</button>
-    </div>
-
     <div v-if="isRecording" class="recording-banner">
       <span class="rec-dot"></span>
       <span>{{ t('macro.recording') }}</span>
@@ -121,8 +115,8 @@
     </div>
 
     <template v-else>
-      <div class="panel-list" v-if="store.filteredMacros.length > 0">
-        <div v-for="m in store.filteredMacros" :key="m.id" class="macro-item">
+      <div class="panel-list" v-if="store.macros.length > 0">
+        <div v-for="m in store.macros" :key="m.id" class="macro-item">
           <div class="macro-top">
             <div class="macro-info" @click="m.expanded = !m.expanded">
               <span class="macro-name">{{ m.name }}</span>
@@ -154,8 +148,7 @@
         </div>
       </div>
         <div v-else class="panel-empty">
-        <p v-if="store.searchQuery">{{ t('macro.noMatch') }}</p>
-        <p v-else>{{ t('macro.noMacros') }}</p>
+        <p>{{ t('macro.noMacros') }}</p>
       </div>
     </template>
 
@@ -169,7 +162,7 @@ import { useMacroStore } from '@/stores/macroStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
 import {
-  PlayCircle, Plus, Download, Upload, X, Search, Star, Play, Copy, Trash2,
+  PlayCircle, Plus, Download, Upload, X, Star, Play, Copy, Trash2,
   Layers, Circle, Square, Clock, Pause,
 } from 'lucide-vue-next';
 import BatchExecutionDialog from './BatchExecutionDialog.vue';

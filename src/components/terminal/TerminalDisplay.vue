@@ -1,5 +1,18 @@
 <template>
   <div class="terminal-wrapper">
+    <div v-if="quickSnippets.length > 0" class="quick-snippets-bar">
+      <button v-for="(s, si) in quickSnippets" :key="s.id"
+              class="quick-snippet-btn"
+              :draggable="true"
+              @dragstart="onSnippetDragStart($event, si)"
+              @dragover.prevent="onSnippetDragOver($event, si)"
+              @drop.prevent="onSnippetDrop(si)"
+              @dragend="snippetDragIdx = null"
+              :class="{ 'snippet-dragging': snippetDragIdx === si, 'snippet-dragover': snippetDragOverIdx === si }"
+              :title="s.command">
+        {{ s.title }}
+      </button>
+    </div>
     <div ref="xtermContainerRef" class="xterm-container-parent" @contextmenu.prevent="onTerminalContextMenu"></div>
     <div v-if="showSearch" class="search-overlay" @mousedown.stop>
       <input ref="searchInputRef" type="text" v-model="searchQuery" :placeholder="t('terminal.searchPlaceholder')"
@@ -9,6 +22,18 @@
       <button class="search-btn" @click="findNext" :title="t('terminal.searchNext')" :disabled="searchResultCount === 0"><ChevronRight :size="14"/></button>
       <button class="search-btn" @click="closeSearch" :title="t('common.close')"><X :size="14"/></button>
     </div>
+
+    <div class="command-input-bar">
+      <span class="cmd-prefix">$</span>
+      <input ref="cmdInputRef" type="text" v-model="commandInput"
+             :placeholder="t('terminal.commandPlaceholder')"
+             class="cmd-input"
+             @keydown.enter="sendCommand" @keydown.escape="commandInput = ''; term?.focus()"/>
+      <button class="cmd-send-btn" @click="sendCommand" :disabled="!commandInput.trim()" :title="t('terminal.sendCommand')">
+        <Send :size="13"/>
+      </button>
+    </div>
+
     <div class="mobile-keys-toolbar is-hidden-tablet">
       <div class="mobile-keys-row">
         <button class="mkey" @mousedown.prevent="sendKey('ESC')" title="Escape">ESC</button>
@@ -34,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
@@ -43,10 +68,12 @@ import { SearchAddon } from '@xterm/addon-search';
 import SshWebSocketService from '@/services/sshWebSocketService';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useI18n } from 'vue-i18n';
-import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next';
+import { useSnippetStore } from '@/stores/snippetStore';
+import { ChevronLeft, ChevronRight, X, Send } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
+const snippetStore = useSnippetStore();
 
 const props = defineProps({
   nodeConfig: { type: Object, required: true },
@@ -57,15 +84,42 @@ const emit = defineEmits(['status-change', 'error-message', 'shell-exit']);
 
 const xtermContainerRef = ref(null);
 const searchInputRef = ref(null);
+const cmdInputRef = ref(null);
 const showSearch = ref(false);
 const searchQuery = ref('');
 const searchResultIndex = ref(0);
 const searchResultCount = ref(0);
+const commandInput = ref('');
+const snippetDragIdx = ref(null);
+const snippetDragOverIdx = ref(null);
 let term = null;
 let fitAddon = null;
 let searchAddon = null;
 let wsService = null;
 let destroyed = false;
+
+const quickSnippets = computed(() => snippetStore.snippets.filter(s => s.favorite).slice(0, 12));
+
+function sendCommand() {
+  const cmd = commandInput.value.trim();
+  if (!cmd || !wsService) return;
+  wsService.sendMessage(cmd + '\n');
+  commandInput.value = '';
+  term?.focus();
+}
+
+function onSnippetDragStart(e, idx) { snippetDragIdx.value = idx; e.dataTransfer.effectAllowed = 'move'; }
+function onSnippetDragOver(e, idx) { e.preventDefault(); snippetDragOverIdx.value = idx; }
+function onSnippetDrop(idx) {
+  if (snippetDragIdx.value === null || snippetDragIdx.value === idx) return;
+  const favs = snippetStore.snippets.filter(s => s.favorite);
+  const src = favs[snippetDragIdx.value];
+  const dst = favs[idx];
+  if (!src || !dst) return;
+  snippetStore.reorderFavorites(src.id, dst.id);
+  snippetDragIdx.value = null;
+  snippetDragOverIdx.value = null;
+}
 
 const fixedTerminalTheme = {
   background: '#000000',
@@ -360,6 +414,41 @@ onBeforeUnmount(() => {
   &:active { background-color: hsl(0,0%,20%); transform: scale(0.95); }
 }
 .mkey-arrow { background-color: hsl(240,8%,22%); min-width: 2.5rem; }
+
+.quick-snippets-bar {
+  display: flex; align-items: center; gap: 3px; padding: 2px 0.35rem;
+  background: hsl(0,0%,12%); border-bottom: 1px solid hsl(0,0%,20%);
+  flex-shrink: 0; overflow-x: auto; flex-wrap: wrap;
+  scrollbar-width: none; &::-webkit-scrollbar { display: none; }
+}
+.quick-snippet-btn {
+  background: hsl(0,0%,22%); color: hsl(0,0%,80%); border: 1px solid hsl(0,0%,30%);
+  border-radius: 4px; padding: 0.15rem 0.4rem; font-size: 0.65em;
+  cursor: pointer; white-space: nowrap; transition: background 0.1s; user-select: none;
+  &:hover { background: hsl(0,0%,32%); color: #fff; }
+  &.snippet-dragging { opacity: 0.3; }
+  &.snippet-dragover { border-color: var(--bulma-primary); }
+}
+
+.command-input-bar {
+  display: flex; align-items: center; gap: 0.25rem;
+  padding: 0.2rem 0.35rem; background: hsl(0,0%,12%);
+  border-top: 1px solid hsl(0,0%,20%); flex-shrink: 0;
+}
+.cmd-prefix { color: hsl(0,0%,45%); font-family: monospace; font-size: 0.75em; }
+.cmd-input {
+  flex: 1; background: hsl(0,0%,18%); border: 1px solid hsl(0,0%,30%);
+  border-radius: 4px; padding: 0.2rem 0.35rem; font-size: 0.75em;
+  font-family: monospace; color: #fff; outline: none;
+  &::placeholder { color: hsl(0,0%,40%); }
+  &:focus { border-color: hsl(0,0%,45%); }
+}
+.cmd-send-btn {
+  background: hsl(0,0%,22%); border: 1px solid hsl(0,0%,30%); border-radius: 4px;
+  padding: 0.25rem 0.4rem; cursor: pointer; color: hsl(0,0%,70%); display: flex;
+  &:hover:not(:disabled) { background: var(--bulma-primary); color: white; border-color: var(--bulma-primary); }
+  &:disabled { opacity: 0.3; cursor: default; }
+}
 
 .search-overlay {
   position: absolute; top: 0; right: 0; z-index: 10;

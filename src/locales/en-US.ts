@@ -118,6 +118,8 @@ export default {
     tabShortcut: 'Ctrl+Tab to switch / Drag to reorder tabs',
     tabColor: 'Tab Color',
     renameTab: 'Rename',
+    commandPlaceholder: 'Type command and press Enter...',
+    sendCommand: 'Send to terminal',
   },
   tunnel: {
     title: 'Tunnels',

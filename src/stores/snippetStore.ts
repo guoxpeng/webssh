@@ -86,8 +86,18 @@ export const useSnippetStore = defineStore('snippets', () => {
     return JSON.stringify(snippets.value, null, 2);
   }
 
+  function reorderFavorites(srcId, dstId) {
+    const srcIdx = snippets.value.findIndex(s => s.id === srcId);
+    const dstIdx = snippets.value.findIndex(s => s.id === dstId);
+    if (srcIdx === -1 || dstIdx === -1) return;
+    const [item] = snippets.value.splice(srcIdx, 1);
+    snippets.value.splice(dstIdx, 0, item);
+    saveSnippets(snippets.value);
+  }
+
   return {
     snippets, searchQuery, filteredSnippets, favorites,
     addSnippet, updateSnippet, toggleFavorite, removeSnippet, importSnippets, exportSnippets,
+    reorderFavorites,
   };
 });

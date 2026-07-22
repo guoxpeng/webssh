@@ -118,6 +118,8 @@ export default {
     tabShortcut: 'Ctrl+Tab 切换标签 / 拖拽排序',
     tabColor: '标签颜色',
     renameTab: '重命名',
+    commandPlaceholder: '输入命令，按回车发送...',
+    sendCommand: '发送到终端',
   },
   tunnel: {
     title: '隧道管理',
