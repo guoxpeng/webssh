@@ -329,7 +329,7 @@ function getLocalIP() {
 
 server.listen(PORT, () => {
   const ip = getLocalIP();
-  console.log(`\n  🚀 HaoSSH Server ready`);
+  console.log(`\n  🚀 WebSSH Server ready`);
   console.log(`  ───────────────────────`);
   console.log(`  Local:   http://localhost:${PORT}`);
   console.log(`  Network: http://${ip}:${PORT}`);

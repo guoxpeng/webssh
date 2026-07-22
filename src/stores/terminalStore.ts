@@ -29,6 +29,7 @@ export const useTerminalStore = defineStore('terminal', () => {
   const sessions = ref<TerminalSession[]>(saved ? JSON.parse(saved) : []);
   const activeSessionId = ref<string | null>(null);
   const recentCommands = ref<string[]>(loadRecentCommands());
+  const activeSendFunction = ref<((data: string) => void) | null>(null);
 
   function loadRecentCommands(): string[] {
     try {
@@ -108,11 +109,17 @@ export const useTerminalStore = defineStore('terminal', () => {
   function clearAll(): void {
     sessions.value = [];
     activeSessionId.value = null;
+    activeSendFunction.value = null;
     sessionStorage.removeItem(SESSIONS_KEY);
+  }
+
+  function setActiveSendFunction(fn: ((data: string) => void) | null): void {
+    activeSendFunction.value = fn;
   }
 
   return {
     sessions, activeSessionId, activeSession, sessionCount, recentCommands,
+    activeSendFunction, setActiveSendFunction,
     createSession, closeSession, setActiveSession, updateSessionStatus, restoreActiveSession,
     addRecentCommand, clearRecentCommands, clearAll,
   };

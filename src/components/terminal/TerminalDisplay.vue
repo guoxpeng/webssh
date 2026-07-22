@@ -22,6 +22,9 @@ import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import SshWebSocketService from '@/services/sshWebSocketService';
+import { useTerminalStore } from '@/stores/terminalStore';
+
+const terminalStore = useTerminalStore();
 
 const props = defineProps({
   nodeConfig: { type: Object, required: true },
@@ -93,6 +96,7 @@ const initializeTerminal = async () => {
       emit('status-change', 'connected');
       term?.writeln('\r\n\x1b[32m✅ Session initiated\x1b[0m');
       term?.focus();
+      terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
     },
     onMessage: (data) => {
       if (!destroyed) term?.write(typeof data === 'string' ? data : new Uint8Array(data));
@@ -100,6 +104,7 @@ const initializeTerminal = async () => {
     onClose: () => {
       if (destroyed) return;
       emit('status-change', 'disconnected');
+      terminalStore.setActiveSendFunction(null);
       if (wsService && !destroyed) scheduleReconnect();
     },
     onError: (errorEventOrMessage) => {
@@ -107,6 +112,7 @@ const initializeTerminal = async () => {
       const errorMessage = typeof errorEventOrMessage === 'string' ? errorEventOrMessage
         : (errorEventOrMessage.message || 'Unknown WebSocket error');
       emit('status-change', 'error');
+      terminalStore.setActiveSendFunction(null);
       term?.writeln(`\r\n\x1b[31m❌ ${errorMessage}\x1b[0m`);
       scheduleReconnect();
     }
@@ -153,6 +159,7 @@ onMounted(initializeTerminal);
 onBeforeUnmount(() => {
   destroyed = true;
   window.removeEventListener('resize', handleResize);
+  terminalStore.setActiveSendFunction(null);
   if (wsService) { wsService.disconnect(); wsService = null; }
   if (term) { term.dispose(); term = null; }
 });

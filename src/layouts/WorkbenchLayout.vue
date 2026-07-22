@@ -144,9 +144,8 @@ function onGlobalKeydown(e) {
 
 function onRunSnippet(snippet) {
   showSnippets.value = false;
-  const ws = connectionStore;
-  if (ws.isConnected && snippet.command) {
-    ws.sendShellData(snippet.command + '\n');
+  if (terminalStore.activeSendFunction && snippet.command) {
+    terminalStore.activeSendFunction(snippet.command + '\n');
     terminalStore.addRecentCommand(snippet.command);
   } else {
     const { showWarning } = useNotifications();

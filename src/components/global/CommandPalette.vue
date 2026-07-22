@@ -36,7 +36,6 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { useTerminalStore } from '@/stores/terminalStore';
 import { useUiStore } from '@/stores/uiStore';
 import { Search, Server, Terminal, Sun, Moon, Plus, X } from 'lucide-vue-next';
 
@@ -50,7 +49,6 @@ const emit = defineEmits(['close']);
 
 const router = useRouter();
 const connectionStore = useConnectionStore();
-const terminalStore = useTerminalStore();
 const uiStore = useUiStore();
 
 const query = ref('');
@@ -82,11 +80,14 @@ const serverItems = computed(() =>
     desc: `${c.username}@${c.host}:${c.port}`,
     icon: Server,
     badge: t('server.title'),
-    action: () => {
-      connectionStore.loadConnectionForEditing(c.id);
-      const sid = terminalStore.createSession(connectionStore.currentNodeDetails);
-      terminalStore.updateSessionStatus(sid, 'connecting');
-      router.push('/terminal');
+    action: async () => {
+      const remembered = await connectionStore.getCredentialFromSessionStorage(c.id);
+      if (remembered?.auth_value) {
+        connectionStore.pendingConnections.push({
+          ...c, ...remembered, id: c.id, rememberForSession: true,
+        });
+        router.push('/terminal');
+      }
     },
   }))
 );
