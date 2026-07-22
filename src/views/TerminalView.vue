@@ -233,14 +233,13 @@ function restoreSavedLayout() {
   }
 }
 
-let layoutRestored = false;
 onMounted(() => {
   processPendingConnections();
-  if (connectionStore.pendingConnections.length === 0) { restoreSavedLayout(); layoutRestored = true; }
+  if (connectionStore.pendingConnections.length === 0) restoreSavedLayout();
   document.addEventListener('click', onDocClick);
 });
 onActivated(() => {
-  if (!layoutRestored) { processPendingConnections(); restoreSavedLayout(); layoutRestored = true; }
+  if (connectionStore.pendingConnections.length > 0) processPendingConnections();
 });
 
 onBeforeUnmount(() => {
