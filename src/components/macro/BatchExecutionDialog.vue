@@ -119,15 +119,15 @@ const canRun = computed(() => {
 });
 
 const allSelected = computed(() => {
-  if (filteredConnections.value.length === 0) return false;
-  return selectedConnections.value.length === filteredConnections.value.length;
+  if (connections.value.length === 0) return false;
+  return selectedConnections.value.length === connections.value.length;
 });
 
 function toggleAll() {
   if (allSelected.value) {
     selectedConnections.value = [];
   } else {
-    selectedConnections.value = [...filteredConnections.value];
+    selectedConnections.value = [...connections.value];
   }
 }
 

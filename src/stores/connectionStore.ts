@@ -335,7 +335,7 @@ export const useConnectionStore = defineStore('connection', () => {
       wsService.connect(finalNodeConfig, {
         onOpen: () => {
           setConnectionStatus(ConnectionStatus.CONNECTED);
-          if (finalNodeConfig.rememberForSession && finalNodeConfig.id && finalNodeConfig.auth_value) {
+          if (finalNodeConfig.id && finalNodeConfig.auth_value) {
             saveCredentialToSessionStorage(finalNodeConfig.id, finalNodeConfig.auth_type, finalNodeConfig.auth_value);
           }
           if (terminalCallbacks.onOpen) terminalCallbacks.onOpen();
