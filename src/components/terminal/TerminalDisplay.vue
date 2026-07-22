@@ -82,6 +82,7 @@ import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
+import { WebglAddon } from '@xterm/addon-webgl';
 import SshWebSocketService from '@/services/sshWebSocketService';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -251,6 +252,7 @@ const initializeTerminal = async () => {
     searchResultIndex.value = Math.min(results.resultIndex + 1, results.resultCount);
   });
   term.loadAddon(searchAddon);
+  try { term.loadAddon(new WebglAddon()); } catch {}
   term.open(xtermContainerRef.value);
 
   try { fitAddon.fit(); } catch (e) {
@@ -342,19 +344,22 @@ const initializeTerminal = async () => {
   }
 };
 
+let resizeTimer = null;
 const handleResize = () => {
-  if (fitAddon && term && xtermContainerRef.value && xtermContainerRef.value.offsetWidth > 0) {
-    try { fitAddon.fit(); } catch {}
-  }
-  // Adjust font size on mobile for better readability
-  const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  if (isMobile && term && xtermContainerRef.value) {
-    const newSize = Math.max(11, Math.floor(xtermContainerRef.value.offsetWidth / 28));
-    if (Math.abs(newSize - term.options.fontSize) > 1) {
-      term.options.fontSize = newSize;
-      try { fitAddon?.fit(); } catch {}
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (fitAddon && term && xtermContainerRef.value && xtermContainerRef.value.offsetWidth > 0) {
+      try { fitAddon.fit(); } catch {}
     }
-  }
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (isMobile && term && xtermContainerRef.value) {
+      const newSize = Math.max(11, Math.floor(xtermContainerRef.value.offsetWidth / 28));
+      if (Math.abs(newSize - term.options.fontSize) > 1) {
+        term.options.fontSize = newSize;
+        try { fitAddon?.fit(); } catch {}
+      }
+    }
+  }, 100);
 };
 
 function openSearch() {
