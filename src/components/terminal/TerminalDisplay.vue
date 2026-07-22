@@ -89,17 +89,21 @@ const initializeTerminal = async () => {
   const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];
   let reconnectAttempt = 0;
   let reconnectTimer = null;
+  let reconnectScheduled = false;
 
   const scheduleReconnect = () => {
-    if (destroyed || reconnectAttempt >= RECONNECT_DELAYS.length) return;
+    if (destroyed || reconnectScheduled || reconnectAttempt >= RECONNECT_DELAYS.length) return;
+    reconnectScheduled = true;
     const delay = RECONNECT_DELAYS[reconnectAttempt++];
     reconnectTimer = setTimeout(() => {
+      reconnectScheduled = false;
       if (!destroyed) wsService?.connect(props.nodeConfig, callbacks);
     }, delay);
   };
 
   const clearReconnect = () => {
     reconnectAttempt = 0;
+    reconnectScheduled = false;
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   };
 
@@ -119,7 +123,7 @@ const initializeTerminal = async () => {
       if (destroyed) return;
       emit('status-change', 'disconnected');
       terminalStore.setActiveSendFunction(null);
-      if (wsService && !destroyed) scheduleReconnect();
+      if (wsService && !destroyed && !reconnectScheduled) scheduleReconnect();
     },
     onError: (errorEventOrMessage) => {
       if (destroyed) return;
@@ -128,7 +132,7 @@ const initializeTerminal = async () => {
       emit('status-change', 'error');
       terminalStore.setActiveSendFunction(null);
       term?.writeln(`\r\n\x1b[31m❌ ${errorMessage}\x1b[0m`);
-      scheduleReconnect();
+      if (!reconnectScheduled) scheduleReconnect();
     }
   };
 

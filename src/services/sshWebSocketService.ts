@@ -72,9 +72,7 @@ class SshWebSocketService {
     this.ws.onclose = (event) => {
       if (this.onCloseCallback) this.onCloseCallback(event, this.manualDisconnect);
       this.ws = null;
-      if (!this.manualDisconnect && this.nodeInfo) {
-        this.scheduleReconnect();
-      }
+      // Reconnection is handled by the consumer (TerminalDisplay)
     };
 
     this.ws.onerror = () => {
