@@ -226,6 +226,8 @@ export default {
     terminal: '终端',
     cursorStyle: '光标样式',
     terminalTheme: '终端主题',
+    bgColor: '背景色',
+    fgColor: '前景色',
     scrollback: '回滚行数',
     session: '会话',
     rememberCredentials: '记住凭据',

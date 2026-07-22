@@ -42,7 +42,7 @@
         <span class="cmd-prefix">$</span>
         <textarea ref="cmdInputRef" v-model="commandInput"
                   :placeholder="t('terminal.commandPlaceholder')"
-                  class="cmd-input" rows="3"
+                  class="cmd-input" rows="4"
                   @keydown.enter.prevent="sendCommand"
                   @keydown.escape="commandInput = ''; term?.focus()"/>
         <button class="cmd-send-btn" @click="sendCommand" :disabled="!commandInput.trim()" :title="t('terminal.sendCommand')">
@@ -220,8 +220,29 @@ const terminalThemes = {
   },
 };
 
-function getTerminalTheme(themeId) {
-  return terminalThemes[themeId] || fixedTerminalTheme;
+function getTerminalTheme(ts) {
+  if (ts.themeId === 'custom' && ts.bgColor) {
+    const bg = ts.bgColor;
+    const fg = ts.fgColor || '#FFFFFF';
+    return {
+      background: bg, foreground: fg, cursor: fg, cursorAccent: bg,
+      selectionBackground: adjustColor(bg, 30),
+      black: adjustColor(bg, -20), red: '#cc0000', green: '#4e9a06', yellow: '#c4a000',
+      blue: '#3465a4', magenta: '#75507b', cyan: '#06989a', white: adjustColor(fg, -40),
+      brightBlack: adjustColor(bg, 20), brightRed: '#ef2929', brightGreen: '#8ae234',
+      brightYellow: '#fce94f', brightBlue: '#729fcf', brightMagenta: '#ad7fa8',
+      brightCyan: '#34e2e2', brightWhite: fg,
+    };
+  }
+  return terminalThemes[ts.themeId] || fixedTerminalTheme;
+}
+
+function adjustColor(hex, amount) {
+  if (!hex || hex.length < 7) return hex;
+  const r = Math.min(255, Math.max(0, parseInt(hex.slice(1, 3), 16) + amount));
+  const g = Math.min(255, Math.max(0, parseInt(hex.slice(3, 5), 16) + amount));
+  const b = Math.min(255, Math.max(0, parseInt(hex.slice(5, 7), 16) + amount));
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
 const initializeTerminal = async () => {
@@ -232,7 +253,7 @@ const initializeTerminal = async () => {
   const fitWidth = xtermContainerRef.value?.offsetWidth || 800;
 
   const ts = props.termSettings || {};
-  const theme = getTerminalTheme(ts.themeId);
+  const theme = getTerminalTheme(ts);
   term = new Terminal({
     cursorBlink: ts.cursorBlink !== undefined ? ts.cursorBlink : true,
     cursorStyle: ts.cursorStyle || 'block',

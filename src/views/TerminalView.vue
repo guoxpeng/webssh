@@ -22,7 +22,7 @@
           </button>
           <TerminalSettingsPanel v-if="showTermSettings"
             :font-size="termFontSize" :cursor-style="termCursorStyle" :cursor-blink="termCursorBlink"
-            :theme-id="termThemeId"
+            :theme-id="termThemeId" :bg-color="termBgColor" :fg-color="termFgColor"
             @update="onTermSettingsUpdate"/>
         </div>
         <div class="dropdown-wrap" @click.stop>
@@ -231,11 +231,15 @@ const termFontSize = ref(13);
 const termCursorStyle = ref('block');
 const termCursorBlink = ref(true);
 const termThemeId = ref('default');
+const termBgColor = ref('#000000');
+const termFgColor = ref('#FFFFFF');
 function onTermSettingsUpdate(opts) {
   termFontSize.value = opts.fontSize;
   termCursorStyle.value = opts.cursorStyle;
   termCursorBlink.value = opts.cursorBlink;
   termThemeId.value = opts.themeId || 'default';
+  termBgColor.value = opts.bgColor || '#000000';
+  termFgColor.value = opts.fgColor || '#FFFFFF';
   splitPaneRef.value?.updateTerminalSettings?.(opts);
 }
 

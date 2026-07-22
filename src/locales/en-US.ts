@@ -226,6 +226,8 @@ export default {
     terminal: 'Terminal',
     cursorStyle: 'Cursor Style',
     terminalTheme: 'Terminal Theme',
+    bgColor: 'Background',
+    fgColor: 'Foreground',
     scrollback: 'Scrollback',
     session: 'Session',
     rememberCredentials: 'Remember credentials',
