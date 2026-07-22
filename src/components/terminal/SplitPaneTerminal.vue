@@ -16,7 +16,7 @@
     <div class="pane-body">
       <template v-for="(pane, idx) in panes" :key="pane.id">
         <div v-show="idx === activePane" class="pane-content">
-          <TerminalDisplay :node-config="pane.config" v-if="pane.type === 'terminal' && pane.status !== 'error'"
+          <TerminalDisplay :node-config="pane.config" :term-settings="pane.termSettings" v-if="pane.type === 'terminal' && pane.status !== 'error'"
                            @status-change="(s) => onPaneStatus(idx, s)"
                            @error-message="(m) => onPaneError(idx, m)"/>
           <ConnectionErrorPanel v-else-if="pane.type === 'terminal' && pane.status === 'error'"
@@ -101,6 +101,13 @@ function editPane(idx) {
   showInfo(t('form.loadedForEditing', { name: pane.config.name || host }));
 }
 
+function updateTerminalSettings(opts) {
+  const pane = panes.value[activePane.value];
+  if (!pane || pane.type !== 'terminal') return;
+  pane.termSettings = { ...(pane.termSettings || {}), ...opts };
+  panes.value = [...panes.value];
+}
+
 defineExpose({ panes, activePane, addPane,
   addTerminalPane: (config) => {
     const proto = (config?.protocol || 'ssh').toLowerCase();
@@ -111,6 +118,7 @@ defineExpose({ panes, activePane, addPane,
     }
   },
   getPaneTypes: () => panes.value.map(p => p.type),
+  updateTerminalSettings,
   openSftpForActivePane,
 });
 </script>

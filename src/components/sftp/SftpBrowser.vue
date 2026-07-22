@@ -73,6 +73,9 @@
           <button class="item-action-btn" @click.stop="downloadFile(entry)" :title="t('sftp.download')" v-if="entry.type === 'file'">
             <Download :size="13"/>
           </button>
+          <button class="item-action-btn is-edit" @click.stop="editFile(entry)" :title="t('sftp.edit')" v-if="entry.type === 'file' && (isTextFile(entry.name) || isCodeFile(entry.name))">
+            <Edit3 :size="13"/>
+          </button>
           <button class="item-action-btn" @click.stop="renameFile(entry)" :title="t('sftp.rename')">
             <Edit3 :size="13"/>
           </button>
@@ -89,6 +92,9 @@
     <div v-if="contextEntry" class="sftp-context-menu" :style="contextStyle">
       <div class="ctx-item" @click="downloadFile(contextEntry); contextEntry = null" v-if="contextEntry.type === 'file'">
         <Download :size="13"/> {{ t('sftp.download') }}
+      </div>
+      <div class="ctx-item" @click="editFile(contextEntry); contextEntry = null" v-if="contextEntry.type === 'file' && (isTextFile(contextEntry.name) || isCodeFile(contextEntry.name))">
+        <Edit3 :size="13"/> {{ t('sftp.edit') }}
       </div>
       <div class="ctx-item" @click="renameFile(contextEntry); contextEntry = null">
         <Edit3 :size="13"/> {{ t('sftp.rename') }}
@@ -177,12 +183,41 @@
       <span>{{ uploadFileName }} — {{ uploadProgress }}%</span>
     </div>
 
+    <div v-if="showEditor" class="sftp-editor-overlay" @click.self="closeEditor">
+      <div class="sftp-editor" @keydown="onEditorKeydown">
+        <div class="editor-header">
+          <div class="editor-file-info">
+            <FileCode :size="15"/>
+            <span class="editor-filename">{{ editFileName }}</span>
+            <span class="editor-path">{{ editFilePath }}</span>
+            <span class="editor-status" v-if="editorDirty">{{ t('sftp.unsaved') }}</span>
+            <span class="editor-status is-saved" v-else-if="editorJustSaved">{{ t('sftp.saved') }}</span>
+          </div>
+          <div class="editor-actions">
+            <button class="editor-btn is-primary" @click="saveEditor" :disabled="!editorDirty || saving">
+              <Upload :size="14"/> {{ saving ? t('sftp.saving') + '...' : t('sftp.saveEdit') }}
+            </button>
+            <span class="editor-shortcut">Ctrl+S</span>
+            <button class="editor-btn" @click="closeEditor"><X :size="14"/></button>
+          </div>
+        </div>
+        <div class="editor-body">
+          <div class="editor-lines">
+            <div v-for="n in lineCount" :key="n" class="editor-line-no">{{ n }}</div>
+          </div>
+          <textarea ref="editorTextareaRef" v-model="editContent"
+                    class="editor-textarea" spellcheck="false"
+                    :placeholder="t('sftp.editPlaceholder')"></textarea>
+        </div>
+      </div>
+    </div>
+
     <div v-if="message" class="sftp-toast" :class="messageType">{{ message }}</div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   Folder, FolderPlus, FileText, FileCode, FileImage,
@@ -231,6 +266,84 @@ const deleteTarget = ref(null);
 
 const contextEntry = ref(null);
 const contextStyle = ref({});
+
+const showEditor = ref(false);
+const editFilePath = ref('');
+const editFileName = ref('');
+const editContent = ref('');
+const editOriginal = ref('');
+const editorDirty = ref(false);
+const editorJustSaved = ref(false);
+const saving = ref(false);
+const editorTextareaRef = ref(null);
+
+const lineCount = computed(() => (editContent.value.match(/\n/g) || []).length + 1);
+
+watch(editContent, () => {
+  editorDirty.value = editContent.value !== editOriginal.value;
+  if (editorJustSaved.value) editorJustSaved.value = false;
+});
+
+function openEditor(path, name) {
+  editFilePath.value = path;
+  editFileName.value = name;
+  editContent.value = '';
+  editOriginal.value = '';
+  editorDirty.value = false;
+  editorJustSaved.value = false;
+  showEditor.value = true;
+  loadEditorContent();
+}
+
+async function loadEditorContent() {
+  try {
+    const data = await api('read', { path: editFilePath.value });
+    if (!data?.content) return;
+    const decoded = atob(data.content);
+    editContent.value = decoded;
+    editOriginal.value = decoded;
+    editorDirty.value = false;
+    nextTick(() => {
+      editorTextareaRef.value?.focus();
+    });
+  } catch (err) {
+    showMessage(t('sftp.loadFailed', { name: editFileName.value, error: err.message }), 'is-error');
+  }
+}
+
+async function saveEditor() {
+  saving.value = true;
+  try {
+    await api('write', { path: editFilePath.value, content: btoa(editContent.value), encoding: 'base64' });
+    editOriginal.value = editContent.value;
+    editorDirty.value = false;
+    editorJustSaved.value = true;
+    showMessage(t('sftp.savedFile', { name: editFileName.value }), 'is-success');
+  } catch (err) {
+    showMessage(t('sftp.saveFailed', { name: editFileName.value, error: err.message }), 'is-error');
+  } finally {
+    saving.value = false;
+  }
+}
+
+function onEditorKeydown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (editorDirty.value) saveEditor();
+  }
+  if (e.key === 'Escape') {
+    if (editorDirty.value && !confirm(t('sftp.discardConfirm'))) return;
+    closeEditor();
+  }
+}
+
+function closeEditor() {
+  if (editorDirty.value && !confirm(t('sftp.discardConfirm'))) return;
+  showEditor.value = false;
+  editContent.value = '';
+}
+
+onBeforeUnmount(() => { if (showEditor.value) closeEditor(); });
 
 const pathSegments = computed(() => currentPath.value.split('/').filter(Boolean));
 const displayPath = computed(() => currentPath.value || '/');
@@ -310,7 +423,12 @@ function navigateTo(path) {
 }
 
 function enterDir(entry) {
-  if (entry.type !== 'dir') return;
+  if (entry.type !== 'dir') {
+    if (entry.type === 'file' && (isTextFile(entry.name) || isCodeFile(entry.name))) {
+      openEditor(fullPath(entry.name), entry.name);
+    }
+    return;
+  }
   const path = (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + entry.name;
   navigateTo(path);
 }
@@ -423,6 +541,9 @@ function fullPath(name) {
   return (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + name;
 }
 
+function editFile(entry) {
+  if (entry.type === 'file') openEditor(fullPath(entry.name), entry.name);
+}
 function openNewFolder() { showNewFolder.value = true; newFolderName.value = ''; }
 async function createFolder() {
   if (!newFolderName.value.trim()) return;
@@ -630,6 +751,7 @@ onMounted(() => { refresh(); });
   transition: all 0.1s;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
   &.is-danger:hover { background: hsl(0, 60%, 92%); color: hsl(0, 60%, 40%); }
+  &.is-edit:hover { background: hsl(155, 40%, 92%); color: hsl(155, 55%, 35%); }
 }
 
 .sftp-context-menu {
@@ -724,4 +846,63 @@ onMounted(() => { refresh(); });
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 .is-spinning { animation: spin 1s linear infinite; }
+
+.sftp-editor-overlay {
+  position: absolute; inset: 0; z-index: 400;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.35);
+  animation: editorIn 0.15s ease-out;
+}
+@keyframes editorIn { from { opacity: 0; } to { opacity: 1; } }
+
+.sftp-editor {
+  width: 85%; height: 80%; max-width: 900px;
+  background: var(--bulma-scheme-main);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column;
+  animation: editorSlideIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes editorSlideIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+.editor-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--bulma-border-light);
+  background: var(--bulma-scheme-main-ter);
+}
+.editor-file-info {
+  display: flex; align-items: center; gap: 0.4rem; font-size: 0.8em; min-width: 0;
+}
+.editor-filename { font-weight: 600; }
+.editor-path { color: var(--bulma-text-light); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-status { font-size: 0.85em; font-weight: 500; color: var(--bulma-warning); margin-left: 0.3rem; &.is-saved { color: var(--bulma-success); } }
+.editor-actions { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
+.editor-btn {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border: none; background: transparent; cursor: pointer; padding: 0.3rem 0.5rem;
+  border-radius: 6px; color: var(--bulma-text-light); font-size: 0.75em;
+  transition: all 0.1s;
+  &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); }
+  &.is-primary { background: var(--bulma-primary); color: white; &:hover { opacity: 0.9; } &:disabled { opacity: 0.5; cursor: default; } }
+}
+.editor-shortcut { font-size: 0.6em; color: var(--bulma-text-light); font-family: monospace; opacity: 0.6; }
+.editor-body { flex: 1; display: flex; overflow: hidden; }
+.editor-lines {
+  padding: 0.5rem 0; text-align: right; user-select: none;
+  min-width: 36px; background: var(--bulma-scheme-main-ter);
+  border-right: 1px solid var(--bulma-border-light);
+  overflow: hidden;
+}
+.editor-line-no {
+  padding: 0 0.5rem; font-size: 0.75em; line-height: 1.5;
+  font-family: var(--bulma-family-monospace); color: var(--bulma-text-light);
+}
+.editor-textarea {
+  flex: 1; border: none; outline: none; resize: none;
+  padding: 0.5rem 0.65rem; font-size: 0.85em; line-height: 1.5;
+  font-family: var(--bulma-family-monospace); tab-size: 2;
+  background: var(--bulma-scheme-main); color: var(--bulma-text);
+  &::placeholder { color: var(--bulma-text-light); opacity: 0.5; }
+}
 </style>

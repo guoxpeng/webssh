@@ -38,6 +38,7 @@ const terminalStore = useTerminalStore();
 
 const props = defineProps({
   nodeConfig: { type: Object, required: true },
+  termSettings: { type: Object, default: null },
 });
 
 const emit = defineEmits(['status-change', 'error-message']);
@@ -68,10 +69,12 @@ const initializeTerminal = async () => {
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
   const fitWidth = xtermContainerRef.value?.offsetWidth || 800;
 
+  const ts = props.termSettings || {};
   term = new Terminal({
-    cursorBlink: true,
+    cursorBlink: ts.cursorBlink !== undefined ? ts.cursorBlink : true,
+    cursorStyle: ts.cursorStyle || 'block',
     fontFamily: '"Fira Code", Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace',
-    fontSize: isMobile ? Math.max(11, Math.floor(fitWidth / 28)) : 13,
+    fontSize: ts.fontSize || (isMobile ? Math.max(11, Math.floor(fitWidth / 28)) : 13),
     letterSpacing: 0.5, lineHeight: 1.25, rows: 24,
     allowProposedApi: true, scrollback: 2000, convertEol: true,
     theme: fixedTerminalTheme,

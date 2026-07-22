@@ -16,6 +16,14 @@
         <button v-else class="toolbar-btn" @click="toggleRecording" :title="t('macro.record')">
           <Circle :size="14"/>
         </button>
+        <div class="settings-wrap" @click.stop>
+          <button class="toolbar-btn" @click="showTermSettings = !showTermSettings" :title="t('terminal.terminalSettings')">
+            <Settings2 :size="14"/>
+          </button>
+          <TerminalSettingsPanel v-if="showTermSettings"
+            :font-size="termFontSize" :cursor-style="termCursorStyle" :cursor-blink="termCursorBlink"
+            @update="onTermSettingsUpdate"/>
+        </div>
         <div class="dropdown-wrap" @click.stop>
           <button class="toolbar-btn dropdown-trigger" @click="showToolMenu = !showToolMenu">
             <FolderOpen :size="14"/>
@@ -72,11 +80,12 @@ import { ref, computed, onActivated, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
+import TerminalSettingsPanel from '@/components/terminal/TerminalSettingsPanel.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useMacroStore } from '@/stores/macroStore';
-import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square } from 'lucide-vue-next';
+import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square, Settings2 } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const connectionStore = useConnectionStore();
@@ -87,6 +96,7 @@ const router = useRouter();
 const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
 const showToolMenu = ref(false);
+const showTermSettings = ref(false);
 const connecting = ref(false);
 const progressPct = ref(0);
 let progressTimer = null;
@@ -189,7 +199,17 @@ function onDisconnectConfirmed() {
   router.push({ name: 'ConnectionHome' });
 }
 
-function onDocClick() { showToolMenu.value = false; }
+const termFontSize = ref(13);
+const termCursorStyle = ref('block');
+const termCursorBlink = ref(true);
+function onTermSettingsUpdate(opts) {
+  termFontSize.value = opts.fontSize;
+  termCursorStyle.value = opts.cursorStyle;
+  termCursorBlink.value = opts.cursorBlink;
+  splitPaneRef.value?.updateTerminalSettings?.(opts);
+}
+
+function onDocClick() { showToolMenu.value = false; showTermSettings.value = false; }
 
 onMounted(() => {
   processPendingConnections();
@@ -242,6 +262,7 @@ onBeforeUnmount(() => {
 .terminal-body { flex: 1; overflow: hidden; position: relative; }
 
 .dropdown-wrap { position: relative; }
+.settings-wrap { position: relative; }
 .dropdown-trigger { gap: 0.3rem; }
 .dropdown-menu {
   position: absolute; right: 0; top: 100%; margin-top: 4px; z-index: 50;
