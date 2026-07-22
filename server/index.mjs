@@ -67,11 +67,8 @@ async function withSftp(body, fn) {
 }
 
 async function withSessionSftp(body, fn) {
-  let conn, ownsClient = false;
-  if (body.sessionId && sessions.has(body.sessionId)) {
-    conn = sessions.get(body.sessionId).client;
-    if (conn._sock && conn._sock.destroyed) { sessions.delete(body.sessionId); conn = null; }
-  }
+  let conn = findSession(body.host, body.port, body.username);
+  let ownsClient = false;
   if (!conn) {
     conn = new Client();
     ownsClient = true;
