@@ -22,7 +22,7 @@
           <ProtocolInfoPanel v-else-if="pane.type === 'info'" :protocol="pane.protocol" :config="pane.config"/>
           <div v-else class="pane-empty">
             <component :is="protocolIcon(pane.protocol)" :size="32" class="pane-empty-icon"/>
-            <p>{{ pane.protocol.toUpperCase() }} session: {{ pane.name }}</p>
+            <p>{{ t('terminal.paneSession', { protocol: pane.protocol.toUpperCase(), name: pane.name }) }}</p>
           </div>
         </div>
       </template>

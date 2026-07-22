@@ -351,7 +351,7 @@ function onRemoveConfirmed() {
 .count-label { font-size: 0.6em; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8; }
 
 .conn-layout {
-  display: grid; grid-template-columns: 1fr 320px; gap: 1.5rem; align-items: start;
+  display: grid; grid-template-columns: 1fr minmax(300px, 420px); gap: 1.5rem; align-items: start;
 }
 
 .conn-main { min-width: 0; }

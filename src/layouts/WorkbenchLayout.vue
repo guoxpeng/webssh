@@ -200,7 +200,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 .workbench-body { display: flex; flex: 1; padding-top: 3.25rem; min-height: 0; }
 .workbench-sidebar {
   width: 200px; flex-shrink: 0; background: var(--bulma-scheme-main-bis);
-  border-right: 1px solid var(--bulma-border-light); padding: 0.75rem 0;
+  border-right: 1px solid var(--bulma-border-light); padding: 1.5rem 0 0.75rem;
   display: flex; flex-direction: column; transition: width 0.2s ease;
   &.is-collapsed { width: 56px; }
 }

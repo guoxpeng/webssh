@@ -179,6 +179,7 @@ import { ref, computed } from 'vue';
 import { useBackupStore } from '@/stores/backupStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
+import { encryptBackupData, decryptBackupData } from '@/utils/crypto';
 import { Database, Plus, Upload, Download, X, ChevronRight, Archive, RotateCcw, Trash2, Lock, ShieldCheck, Server, Code, KeyRound, AlertTriangle } from 'lucide-vue-next';
 
 const { t } = useI18n();
@@ -244,13 +245,23 @@ async function doRestore(bak) {
   }
 }
 
-function doExport(bak) {
+async function doExport(bak) {
   const json = store.exportBackup(bak.id);
   if (!json) return;
-  const blob = new Blob([json], { type: 'application/json' });
+  let content = json;
+  let ext = 'json';
+  const masterPwd = sessionStorage.getItem('haossh_master');
+  if (masterPwd) {
+    try {
+      const encrypted = await encryptBackupData(JSON.parse(json), masterPwd);
+      content = encrypted;
+      ext = 'enc';
+    } catch {}
+  }
+  const blob = new Blob([content], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `haossh-backup-${bak.id}.json`;
+  a.href = url; a.download = `webssh-backup-${bak.id}.${ext}`;
   a.click();
   URL.revokeObjectURL(url);
   showSuccess(t('backup.exported'));
@@ -258,19 +269,30 @@ function doExport(bak) {
 
 function triggerImport() { importInput.value?.click(); }
 
-function onImportFile(e) {
+async function onImportFile(e) {
   const file = e.target.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    if (store.importBackup(ev.target?.result || '')) {
-      showSuccess(t('backup.imported'));
-    } else {
-      showError(t('backup.importFailed'));
-    }
-  };
-  reader.readAsText(file);
+  const text = await file.text();
   e.target.value = '';
+
+  // Try plain JSON first (backward compatible)
+  if (store.importBackup(text)) {
+    showSuccess(t('backup.imported'));
+    return;
+  }
+
+  // Try decryption with master password
+  const masterPwd = sessionStorage.getItem('haossh_master');
+  if (masterPwd) {
+    try {
+      const decrypted = await decryptBackupData(text.trim(), masterPwd);
+      if (decrypted && store.importBackup(JSON.stringify(decrypted.data))) {
+        showSuccess(t('backup.imported'));
+        return;
+      }
+    } catch {}
+  }
+  showError(t('backup.importFailed'));
 }
 
 function updateSched() {
