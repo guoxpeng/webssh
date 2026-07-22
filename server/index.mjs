@@ -319,12 +319,17 @@ wss.on('connection', (ws, req) => {
 
 function getLocalIP() {
   const ifaces = networkInterfaces();
-  for (const name of Object.keys(ifaces)) {
-    for (const iface of ifaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+  let fallback = 'localhost';
+  for (const [name, addrs] of Object.entries(ifaces)) {
+    if (name.startsWith('docker') || name.startsWith('veth') || name.startsWith('br-')) continue;
+    for (const iface of addrs) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        if (name.startsWith('eth') || name.startsWith('en')) return iface.address;
+        fallback = iface.address;
+      }
     }
   }
-  return 'localhost';
+  return fallback;
 }
 
 server.listen(PORT, () => {
