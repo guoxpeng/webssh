@@ -120,6 +120,10 @@ let wsService = null;
 let destroyed = false;
 let handshakeTimer = null;
 
+function clearHandshakeTimer() {
+  if (handshakeTimer) { clearTimeout(handshakeTimer); handshakeTimer = null; }
+}
+
 const quickSnippets = computed(() => snippetStore.snippets.filter(s => s.favorite).slice(0, 12));
 
 function sendCommand() {
@@ -279,10 +283,6 @@ const initializeTerminal = async () => {
     reconnectAttempt = 0;
     reconnectScheduled = false;
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  };
-
-  const clearHandshakeTimer = () => {
-    if (handshakeTimer) { clearTimeout(handshakeTimer); handshakeTimer = null; }
   };
 
   const callbacks = {
