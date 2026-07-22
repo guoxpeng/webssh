@@ -255,7 +255,7 @@ function startDrag(e) {
     const bodyWidth = document.querySelector('.terminal-body')?.offsetWidth || 1200;
     const x = ev.clientX;
     const panelRight = bodyWidth;
-      const newWidth = Math.max(200, Math.min(600, panelRight - x));
+      const newWidth = Math.max(0, Math.min(panelRight - 40, panelRight - x));
       sftpWidth.value = newWidth;
       window.dispatchEvent(new Event('resize'));
   };
