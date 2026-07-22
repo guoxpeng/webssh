@@ -66,7 +66,7 @@ IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v
 [ -z "$IP" ] && IP="localhost"
 
 # Start in background
-nohup node server/index.mjs > webssh.log 2>&1 &
+nohup env PORT="$PORT" node server/index.mjs > webssh.log 2>&1 &
 echo $! > "$PID_FILE"
 sleep 2
 
@@ -74,17 +74,24 @@ sleep 2
 if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   echo -e "  ${GREEN}[██████████] 100%${NC} Done!"
   echo ""
-  echo -e "  ${BOLD}${GREEN}  ✓ WebSSH is running${NC}"
-  echo -e "  ─────────────────────"
-  echo -e "  Local:   ${CYAN}http://localhost:${PORT}${NC}"
-  if [ "$IP" != "localhost" ]; then
-    echo -e "  Network: ${CYAN}http://${IP}:${PORT}${NC}"
+  echo -e "  ${BOLD}${GREEN}  ✓ WebSSH 已启动${NC}"
+  echo -e "  ═══════════════════════════════════"
+  echo -e ""
+  echo -e "  ${BOLD}🔗 打开浏览器访问：${NC}"
+  echo -e ""
+  echo -e "      ${GREEN}${BOLD}http://${IP}:${PORT}${NC}"
+  echo -e ""
+  if [ "$IP" != "localhost" ] && [ -n "$IP" ]; then
+    echo -e "  ${BOLD}📱 局域网内其他设备也可以访问：${NC}"
+    echo -e "      ${CYAN}http://${IP}:${PORT}${NC}"
+    echo -e ""
   fi
-  echo -e "  Log:     ${CYAN}$(pwd)/webssh.log${NC}"
-  echo ""
-  echo -e "  ${YELLOW}Commands:${NC}"
-  echo -e "  stop:    kill \$(cat $(pwd)/webssh.pid)"
-  echo -e "  update:  cd $(pwd) && curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash"
+  echo -e "  ═══════════════════════════════════"
+  echo -e "  📝 日志文件: $(pwd)/webssh.log"
+  echo -e ""
+  echo -e "  ${YELLOW}管理命令:${NC}"
+  echo -e "  停止:  kill \$(cat $(pwd)/webssh.pid)"
+  echo -e "  更新:  cd $(pwd) && curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash"
   echo ""
 else
   err "Server failed to start. Check webssh.log"

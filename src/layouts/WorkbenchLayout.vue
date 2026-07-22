@@ -215,7 +215,7 @@ function toggleTheme() { uiStore.toggleTheme(); sidebarCollapsed.value = false; 
 
 onMounted(() => {
   document.addEventListener('keydown', onGlobalKeydown);
-  connectionStore.loadCredentialsFromSessionStorage();
+  connectionStore.loadCredentialsFromSessionStorage?.()?.catch(() => {});
   // Auto-backup check
   const bakStore = useBackupStore();
   if (bakStore.shouldAutoBackup()) {

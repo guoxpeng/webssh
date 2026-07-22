@@ -385,7 +385,7 @@ export const useConnectionStore = defineStore('connection', () => {
     setCurrentNodeDetails, setConnectionStatus, testConnection,
     connectToShell, sendShellData, setOnCommandSentCallback, disconnectShell,
     addConnection, removeConnection, loadConnectionForEditing,
-    getCredentialFromSessionStorage, saveCredentialToSessionStorage, clearAllSessionCredentials,
+    getCredentialFromSessionStorage, saveCredentialToSessionStorage, loadCredentialsFromSessionStorage, clearAllSessionCredentials,
     getConnectionsWithCredentials,
     createGroup, renameGroup, deleteGroup, moveConnectionToGroup,
     toggleGroupCollapsed, isGroupCollapsed, togglePinConnection,
