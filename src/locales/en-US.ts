@@ -114,6 +114,7 @@ export default {
     maxReconnects: 'Max reconnection attempts reached.',
     sessionInitiated: 'SSH session initiated.',
     closeSession: 'Close session',
+    tabShortcut: 'Ctrl+Tab to switch / Drag to reorder tabs',
   },
   tunnel: {
     title: 'Tunnels',

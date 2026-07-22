@@ -114,6 +114,7 @@ export default {
     maxReconnects: '已达到最大重连次数。',
     sessionInitiated: 'SSH 会话已建立。',
     closeSession: '关闭会话',
+    tabShortcut: 'Ctrl+Tab 切换标签 / 拖拽排序',
   },
   tunnel: {
     title: '隧道管理',

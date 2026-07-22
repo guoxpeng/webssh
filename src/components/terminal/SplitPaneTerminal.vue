@@ -4,12 +4,25 @@
       <div class="pane-tabs">
         <button v-for="(pane, idx) in panes" :key="pane.id"
                 class="pane-tab"
-                :class="{ 'is-active': idx === activePane }"
-                @click="activePane = idx">
+                :class="{ 'is-active': idx === activePane, 'is-dragging': dragPaneIndex === idx, 'is-dragover': dragOverPaneIndex === idx }"
+                @click="activePane = idx"
+                draggable="true"
+                @dragstart="onTabDragStart($event, idx)"
+                @dragover.prevent="onTabDragOver($event, idx)"
+                @dragleave="onTabDragLeave"
+                @drop.prevent="onTabDrop(idx)"
+                @dragend="onTabDragEnd">
+          <GripVertical :size="10" class="pane-tab-grip"/>
           <ProtocolBadge :protocol="pane.protocol" class="mr-1"/>
           <span class="pane-tab-label">{{ pane.name }}</span>
           <span class="pane-tab-status" :class="`is-${pane.status}`"></span>
           <button class="pane-tab-close" @click.stop="closePane(idx)" v-if="panes.length > 1">&times;</button>
+        </button>
+        <span v-if="dragOverPaneIndex !== null" class="pane-tab-drop-indicator" :style="{ left: `${dragOverLeft}px` }"/>
+      </div>
+      <div class="pane-toolbar-actions">
+        <button class="pane-hint-btn" :title="t('terminal.tabShortcut')" @click="showTabHint = !showTabHint">
+          <GripHorizontal :size="13"/>
         </button>
       </div>
     </div>
@@ -38,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
@@ -48,12 +61,19 @@ import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
 import ProtocolInfoPanel from './ProtocolInfoPanel.vue';
 import DockerPanel from '@/components/docker/DockerPanel.vue';
 import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
-import { Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
+import { Terminal, Monitor, Video, Wifi, GripVertical, GripHorizontal } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const router = useRouter();
 const panes = ref([]);
 const activePane = ref(0);
+const showTabHint = ref(false);
+
+const dragPaneIndex = ref(null);
+const dragOverPaneIndex = ref(null);
+const dragOverLeft = ref(0);
+let pinchBaseFontSize = 13;
+let pinchInitialDistance = 0;
 
 function protocolIcon(p) {
   const m = { ssh: Terminal, rdp: Monitor, vnc: Video, telnet: Wifi };
@@ -108,6 +128,82 @@ function updateTerminalSettings(opts) {
   panes.value = [...panes.value];
 }
 
+function onTabDragStart(e, idx) { dragPaneIndex.value = idx; e.dataTransfer.effectAllowed = 'move'; }
+function onTabDragOver(e, idx) {
+  e.preventDefault();
+  if (dragPaneIndex.value === null || dragPaneIndex.value === idx) return;
+  dragOverPaneIndex.value = idx;
+  const el = e.currentTarget;
+  const rect = el.getBoundingClientRect();
+  dragOverLeft.value = e.clientX < rect.left + rect.width / 2 ? rect.left : rect.right;
+}
+function onTabDragLeave() { dragOverPaneIndex.value = null; }
+function onTabDrop(idx) {
+  if (dragPaneIndex.value === null || dragPaneIndex.value === idx) return;
+  const [pane] = panes.value.splice(dragPaneIndex.value, 1);
+  panes.value.splice(idx, 0, pane);
+  if (activePane.value === dragPaneIndex.value) activePane.value = idx;
+  else if (activePane.value > dragPaneIndex.value && activePane.value <= idx) activePane.value--;
+  else if (activePane.value < dragPaneIndex.value && activePane.value >= idx) activePane.value++;
+  dragPaneIndex.value = null;
+  dragOverPaneIndex.value = null;
+}
+function onTabDragEnd() { dragPaneIndex.value = null; dragOverPaneIndex.value = null; }
+
+function switchToNext() {
+  if (panes.value.length < 2) return;
+  activePane.value = (activePane.value + 1) % panes.value.length;
+}
+function switchToPrev() {
+  if (panes.value.length < 2) return;
+  activePane.value = activePane.value === 0 ? panes.value.length - 1 : activePane.value - 1;
+}
+function switchToDirection(delta) {
+  if (panes.value.length < 2) return;
+  activePane.value = ((activePane.value + delta) % panes.value.length + panes.value.length) % panes.value.length;
+}
+
+let keyHandler = null;
+function onKeyDown(e) {
+  if (e.ctrlKey && e.key === 'Tab') {
+    e.preventDefault();
+    e.shiftKey ? switchToPrev() : switchToNext();
+  }
+  if (e.ctrlKey && (e.key === 'PageUp' || e.key === 'PageDown')) {
+    e.preventDefault();
+    switchToDirection(e.key === 'PageDown' ? 1 : -1);
+  }
+}
+function setupKeyboard() {
+  document.addEventListener('keydown', onKeyDown);
+  keyHandler = onKeyDown;
+}
+
+let touchHandler = null;
+function setupPinchZoom() {
+  touchHandler = (e) => {
+    if (e.touches.length !== 2) return;
+    const a = e.touches[0]; const b = e.touches[1];
+    const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+    if (!pinchInitialDistance) { pinchInitialDistance = dist; pinchBaseFontSize = 13; return; }
+    const scale = dist / pinchInitialDistance;
+    let newSize = Math.max(9, Math.min(22, Math.round(pinchBaseFontSize * scale)));
+    const pane = panes.value[activePane.value];
+    if (pane && pane.type === 'terminal') {
+      pane.termSettings = { ...(pane.termSettings || {}), fontSize: newSize };
+      panes.value = [...panes.value];
+    }
+  };
+  document.addEventListener('touchmove', touchHandler, { passive: true });
+  document.addEventListener('touchend', () => { pinchInitialDistance = 0; pinchBaseFontSize = 13; });
+}
+function cleanupTouch() {
+  if (touchHandler) { document.removeEventListener('touchmove', touchHandler); touchHandler = null; }
+}
+
+onMounted(() => { setupKeyboard(); setupPinchZoom(); });
+onBeforeUnmount(() => { if (keyHandler) document.removeEventListener('keydown', keyHandler); cleanupTouch(); });
+
 defineExpose({ panes, activePane, addPane,
   addTerminalPane: (config) => {
     const proto = (config?.protocol || 'ssh').toLowerCase();
@@ -120,6 +216,7 @@ defineExpose({ panes, activePane, addPane,
   getPaneTypes: () => panes.value.map(p => p.type),
   updateTerminalSettings,
   openSftpForActivePane,
+  switchToNext, switchToPrev,
 });
 </script>
 
@@ -133,6 +230,16 @@ defineExpose({ panes, activePane, addPane,
   border-bottom: 1px solid var(--bulma-border-light);
   min-height: 34px; flex-shrink: 0;
 }
+.pane-toolbar-actions { display: flex; align-items: center; padding-right: 0.25rem; }
+.pane-hint-btn {
+  background: none; border: none; padding: 0.3rem; border-radius: 4px; cursor: pointer;
+  color: var(--bulma-text-light); display: flex; opacity: 0.3; transition: opacity 0.1s;
+  &:hover { opacity: 0.7; background: var(--bulma-scheme-main-bis); }
+}
+.pane-tab-drop-indicator {
+  position: absolute; bottom: 2px; width: 2px; height: calc(100% - 4px);
+  background: var(--bulma-primary); z-index: 5; border-radius: 1px; pointer-events: none;
+}
 .pane-tabs {
   display: flex; align-items: stretch; flex: 1; overflow-x: auto;
   gap: 1px; padding: 0 0.25rem;
@@ -144,10 +251,17 @@ defineExpose({ panes, activePane, addPane,
   border: none; background: transparent; color: var(--bulma-text-light);
   cursor: pointer; white-space: nowrap;
   border-bottom: 2px solid transparent; transition: all 0.1s;
+  position: relative;
   &:hover { color: var(--bulma-text); background: var(--bulma-scheme-main-bis); }
   &.is-active { color: var(--bulma-text-strong); border-bottom-color: var(--bulma-primary); font-weight: 500; }
+  &.is-dragging { opacity: 0.35; }
+  &.is-dragover { border-left: 2px solid var(--bulma-primary); }
 }
 .pane-tab-label { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.pane-tab-grip {
+  opacity: 0; color: var(--bulma-text-light); cursor: grab;
+  .pane-tab:hover & { opacity: 0.5; }
+}
 .pane-tab-status {
   width: 6px; height: 6px; border-radius: 50%;
   &.is-connected { background: var(--bulma-success); }
