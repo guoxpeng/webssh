@@ -15,6 +15,7 @@ export default {
     connecting: 'Connecting',
     quickSearch: 'Quick search (Ctrl+P)',
     toggleTheme: 'Toggle theme',
+    menu: 'Menu',
   },
   server: {
     title: 'Servers',
@@ -276,7 +277,8 @@ export default {
     off: 'off',
     on: 'on',
     skipToContent: 'Skip to content',
-    menu: 'menu',
+    menu: 'Menu',
+    collapse: 'Collapse',
     areYouSure: 'Are you sure?',
     encrypted: 'Encrypted',
     integrityVerified: 'Integrity verified',

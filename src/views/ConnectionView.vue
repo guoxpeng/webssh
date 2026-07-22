@@ -475,5 +475,21 @@ function onRemoveConfirmed() {
 @media (max-width: 768px) {
   .conn-layout { grid-template-columns: 1fr; }
   .saved-item-actions { opacity: 1; }
+  .conn-header { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+  .conn-header .title { font-size: 1.25rem; }
+  .sidebar-card { border-left: none; padding-left: 0; margin-left: 0; }
+  .sidebar-list { max-height: none; }
+}
+
+@media (max-width: 480px) {
+  .conn-view { padding: 0.5rem; }
+  .conn-header { margin-bottom: 0.75rem; }
+  .conn-main .card { padding: 0.75rem; }
+  .saved-item { padding: 0.5rem 0.6rem; }
+  .saved-item-main { gap: 0.5rem; }
+  .saved-item-icon { width: 28px; height: 28px; font-size: 0.75rem; }
+  .saved-item-info { gap: 0; }
+  .saved-item-name { font-size: 0.8rem; }
+  .saved-item-desc { font-size: 0.65rem; }
 }
 </style>

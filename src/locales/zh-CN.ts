@@ -15,6 +15,7 @@ export default {
     connecting: '连接中',
     quickSearch: '快速搜索 (Ctrl+P)',
     toggleTheme: '切换主题',
+    menu: '菜单',
   },
   server: {
     title: '服务器',
@@ -277,6 +278,7 @@ export default {
     on: '开',
     skipToContent: '跳过导航',
     menu: '菜单',
+    collapse: '收起',
     areYouSure: '你确定吗？',
     encrypted: '已加密',
     integrityVerified: '完整性已验证',

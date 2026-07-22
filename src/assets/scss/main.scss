@@ -93,3 +93,41 @@ body::before {
 :root.is-dark-mode ::-webkit-scrollbar-thumb:hover { background: hsl(240, 8%, 50%); }
 
 .lucide { display: inline-block; }
+
+/* ── Mobile / Responsive Overrides ── */
+
+/* Safe area insets for notched mobile devices */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+html, body {
+  /* use dynamic viewport height on mobile to avoid browser chrome issues */
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Better touch targets on mobile */
+@media (hover: none) and (pointer: coarse) {
+  .button, .navbar-item, .panel-block, a, .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  input, select, textarea {
+    font-size: 16px !important; /* prevent iOS zoom on focus */
+  }
+}
+
+/* Responsive padding tweaks */
+@media screen and (max-width: 480px) {
+  .container { padding-left: 0.75rem; padding-right: 0.75rem; }
+}
+
+/* Prevent text selection on long-press in terminal */
+.xterm-viewport { user-select: none; -webkit-user-select: none; }
+
+/* Let xterm handle its own tap events without browser interference */
+.xterm-helper-textarea { position: absolute !important; }

@@ -130,7 +130,9 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .terminal-view {
   display: flex; flex-direction: column;
-  height: calc(100vh - 3.25rem); overflow: hidden;
+  height: calc(100vh - 3.25rem);
+  height: calc(100dvh - 3.25rem);
+  overflow: hidden;
 }
 .terminal-toolbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -187,5 +189,15 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%));
   color: white; text-decoration: none; transition: all 0.15s;
   &:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.3); transform: translateY(-1px); color: white; }
+}
+
+@media (max-width: 768px) {
+  .terminal-view {
+    height: calc(100dvh - 3.25rem - 2.5rem - var(--sab, 0px));
+  }
+  .terminal-toolbar { padding: 0.25rem 0.5rem; }
+  .toolbar-title { font-size: 0.8em; }
+  :deep(.split-pane-container) { flex-direction: column; }
+  :deep(.pane-tab) { font-size: 0.75rem; }
 }
 </style>

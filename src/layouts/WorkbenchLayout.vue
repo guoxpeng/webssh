@@ -4,47 +4,52 @@
     <AppNavbar />
     <AppNotification />
     <div id="main-content" class="workbench-body" role="main" aria-label="Main content">
-      <aside class="workbench-sidebar" :class="{ 'is-collapsed': sidebarCollapsed }"
+      <aside class="workbench-sidebar" :class="{ 'is-collapsed': sidebarCollapsed, 'is-mobile-open': mobileMenuOpen }"
              role="navigation" aria-label="Sidebar navigation">
-        <nav class="sidebar-nav">
+        <div class="sidebar-header">
+          <span class="sidebar-title" v-show="!sidebarCollapsed">{{ t('nav.menu') }}</span>
+          <button class="sidebar-close" @click="mobileMenuOpen = false" aria-label="Close menu">&times;</button>
+        </div>
+        <nav class="sidebar-nav" @click="onSidebarNavClick">
 <router-link to="/" class="sidebar-item" :class="{ 'is-active': $route.name === 'ConnectionHome' }"
-                        @click="sidebarCollapsed = false" :title="t('nav.servers')" aria-current="page">
+                        @click="closeMobileMenu" :title="t('nav.servers')" aria-current="page">
             <Server :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.servers') }}</span>
           </router-link>
           <router-link to="/terminal" class="sidebar-item" :class="{ 'is-active': $route.name === 'Terminal' }"
-                        @click="sidebarCollapsed = false" :title="t('nav.terminal')">
+                        @click="closeMobileMenu" :title="t('nav.terminal')">
             <Terminal :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.terminal') }}</span>
           </router-link>
           <div class="sidebar-spacer"></div>
-          <a class="sidebar-item" @click="showSnippets = !showSnippets" :title="t('nav.snippets')" role="button" tabindex="0">
+          <a class="sidebar-item" @click="showSnippets = !showSnippets; closeMobileMenu()" :title="t('nav.snippets')" role="button" tabindex="0">
             <TerminalSquare :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
           </a>
-          <a class="sidebar-item" @click="showPalette = true" :title="t('nav.quickSearch')" role="button" tabindex="0">
+          <a class="sidebar-item" @click="showPalette = true; closeMobileMenu()" :title="t('nav.quickSearch')" role="button" tabindex="0">
             <Search :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.search') }}</span>
           </a>
-          <a class="sidebar-item" @click="showBackup = true" :title="t('nav.backup')" role="button" tabindex="0">
+          <a class="sidebar-item" @click="showBackup = true; closeMobileMenu()" :title="t('nav.backup')" role="button" tabindex="0">
             <Database :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.backup') }}</span>
           </a>
-          <a class="sidebar-item" @click="showSettings = true" :title="t('nav.settings')" role="button" tabindex="0">
+          <a class="sidebar-item" @click="showSettings = true; closeMobileMenu()" :title="t('nav.settings')" role="button" tabindex="0">
             <Settings :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.settings') }}</span>
           </a>
-          <a class="sidebar-item" @click="toggleTheme" :title="t('nav.toggleTheme')" role="button" tabindex="0">
+          <a class="sidebar-item" @click="toggleTheme(); closeMobileMenu()" :title="t('nav.toggleTheme')" role="button" tabindex="0">
             <Sun v-if="uiStore.currentTheme === 'light'" :size="22" stroke-width="1.5"/>
             <Moon v-else :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">
               {{ uiStore.currentTheme === 'light' ? t('settings.light') : t('settings.dark') }}
             </span>
           </a>
-          <a class="sidebar-item" @click="sidebarCollapsed = !sidebarCollapsed" :title="t('common.close')"
+          <a class="sidebar-item is-collapse-toggle" @click="sidebarCollapsed = !sidebarCollapsed" :title="t('common.close')"
              role="button" tabindex="0" :aria-expanded="!sidebarCollapsed">
             <ChevronsLeft :size="22" stroke-width="1.5" class="collapse-icon"
                :class="{ 'is-rotated': sidebarCollapsed }"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('common.collapse') }}</span>
           </a>
         </nav>
       </aside>
@@ -58,6 +63,21 @@
         </router-view>
       </main>
     </div>
+    <!-- Mobile bottom nav bar -->
+    <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+      <router-link to="/" class="mobile-nav-item" :class="{ 'is-active': $route.name === 'ConnectionHome' }" @click="closeMobileMenu">
+        <Server :size="20" stroke-width="1.5"/>
+        <span class="mobile-nav-label">{{ t('nav.servers') }}</span>
+      </router-link>
+      <router-link to="/terminal" class="mobile-nav-item" :class="{ 'is-active': $route.name === 'Terminal' }" @click="closeMobileMenu">
+        <Terminal :size="20" stroke-width="1.5"/>
+        <span class="mobile-nav-label">{{ t('nav.terminal') }}</span>
+      </router-link>
+      <button class="mobile-nav-item mobile-nav-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen" aria-label="Menu">
+        <Search :size="20" stroke-width="1.5"/>
+        <span class="mobile-nav-label">{{ t('nav.menu') }}</span>
+      </button>
+    </nav>
     <footer class="workbench-statusbar" role="contentinfo" aria-label="Status bar">
       <div class="statusbar-left">
         <span class="statusbar-item" aria-live="polite" aria-atomic="true">
@@ -113,10 +133,17 @@ const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
 const sidebarCollapsed = ref(false);
+const mobileMenuOpen = ref(false);
 const showPalette = ref(false);
 const showSettings = ref(false);
 const showSnippets = ref(false);
 const showBackup = ref(false);
+
+function closeMobileMenu() { mobileMenuOpen.value = false; }
+function onSidebarNavClick(e) {
+  // Don't close on collapse toggle click
+  if (e.target.closest('.is-collapse-toggle')) return;
+}
 
 const connectionIcon = computed(() => {
   switch (connectionStore.connectionStatus) {
@@ -215,8 +242,58 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   position: relative; z-index: 1; max-height: 80vh;
 }
 
+/* Mobile bottom nav */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  padding: 0; padding-bottom: var(--sab, 0px);
+  background: var(--bulma-scheme-main-bis);
+  border-top: 1px solid var(--bulma-border-light);
+  justify-content: space-around;
+  backdrop-filter: blur(12px);
+}
+.mobile-nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0; flex: 1; cursor: pointer; user-select: none;
+  color: var(--bulma-text-light); text-decoration: none; transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  &.is-active, &:active { color: var(--bulma-primary); }
+}
+.mobile-nav-label { font-size: 0.6rem; line-height: 1; }
+.mobile-nav-menu-btn { background: none; border: none; font-family: inherit; }
+
+/* Mobile sidebar drawer */
+.sidebar-header { display: none; }
+
 @media screen and (max-width: 768px) {
-  .workbench-sidebar { width: 56px; &.is-collapsed { width: 0; overflow: hidden; padding: 0; } }
-  .workbench-content { padding: 1rem; }
+  .workbench-sidebar {
+    width: 56px;
+    &.is-collapsed { width: 0; overflow: hidden; padding: 0; }
+  }
+  .workbench-content { padding: 1rem; padding-bottom: calc(3rem + var(--sab, 0px)); }
+  .mobile-bottom-nav { display: flex; }
+  .workbench-statusbar { display: none; }
+
+  /* Sidebar becomes a drawer on small mobile */
+  .workbench-sidebar {
+    position: fixed; top: 3.25rem; left: 0; bottom: 0; z-index: 90;
+    transform: translateX(-100%); transition: transform 0.25s ease;
+    width: 240px !important;
+    &.is-mobile-open { transform: translateX(0); }
+    &.is-collapsed { width: 240px !important; transform: translateX(-100%); }
+  }
+  .sidebar-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--bulma-border-light);
+  }
+  .sidebar-title { font-weight: 600; font-size: 0.9rem; color: var(--bulma-text-strong); }
+  .sidebar-close {
+    background: none; border: none; font-size: 1.5rem; cursor: pointer;
+    color: var(--bulma-text-light); padding: 0 4px;
+  }
+  .sidebar-nav { padding: 0.5rem; }
+  .sidebar-item { padding: 0.7rem 0.75rem; }
+  .sidebar-label { display: inline !important; }
+  .collapse-icon { display: none; }
 }
 </style>

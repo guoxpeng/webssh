@@ -1,16 +1,26 @@
 <template>
   <div class="terminal-wrapper">
     <div ref="xtermContainerRef" class="xterm-container-parent"></div>
-    <div class="mobile-keys-toolbar is-hidden-tablet buttons are-small">
-      <button class="button" @mousedown.prevent="sendKey('ESC')" title="Escape (ESC)">ESC</button>
-      <button class="button" @mousedown.prevent="sendKey('TAB')" title="Tab">TAB</button>
-      <button class="button" @mousedown.prevent="sendKey('CTRL_C')" title="Ctrl+C">Ctrl+C</button>
-      <button class="button" @mousedown.prevent="sendKey('CTRL_D')" title="Ctrl+D (EOF)">Ctrl+D</button>
-      <button class="button" @mousedown.prevent="sendKey('CTRL_L')" title="Ctrl+L (Clear)">Ctrl+L</button>
-      <button class="button" @mousedown.prevent="sendKey('UP')" title="Arrow Up">↑</button>
-      <button class="button" @mousedown.prevent="sendKey('DOWN')" title="Arrow Down">↓</button>
-      <button class="button" @mousedown.prevent="sendKey('LEFT')" title="Arrow Left">←</button>
-      <button class="button" @mousedown.prevent="sendKey('RIGHT')" title="Arrow Right">→</button>
+    <div class="mobile-keys-toolbar is-hidden-tablet">
+      <div class="mobile-keys-row">
+        <button class="mkey" @mousedown.prevent="sendKey('ESC')" title="Escape">ESC</button>
+        <button class="mkey" @mousedown.prevent="sendKey('TAB')" title="Tab">TAB</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_C')" title="Ctrl+C">^C</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_D')" title="Ctrl+D">^D</button>
+      </div>
+      <div class="mobile-keys-row">
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_A')" title="Ctrl+A (Home)">^A</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_E')" title="Ctrl+E (End)">^E</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_L')" title="Ctrl+L (Clear)">^L</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_U')" title="Ctrl+U (Kill)">^U</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_W')" title="Ctrl+W (Word)">^W</button>
+      </div>
+      <div class="mobile-keys-row">
+        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('LEFT')" title="Left">◀</button>
+        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('DOWN')" title="Down">▼</button>
+        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('UP')" title="Up">▲</button>
+        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('RIGHT')" title="Right">▶</button>
+      </div>
     </div>
   </div>
 </template>
@@ -55,10 +65,14 @@ const initializeTerminal = async () => {
   if (!xtermContainerRef.value || !props.nodeConfig || destroyed) return;
   await nextTick();
 
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  const fitWidth = xtermContainerRef.value?.offsetWidth || 800;
+
   term = new Terminal({
     cursorBlink: true,
     fontFamily: '"Fira Code", Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace',
-    fontSize: 13, letterSpacing: 0.5, lineHeight: 1.25, rows: 24,
+    fontSize: isMobile ? Math.max(11, Math.floor(fitWidth / 28)) : 13,
+    letterSpacing: 0.5, lineHeight: 1.25, rows: 24,
     allowProposedApi: true, scrollback: 2000, convertEol: true,
     theme: fixedTerminalTheme,
   });
@@ -133,6 +147,15 @@ const handleResize = () => {
   if (fitAddon && term && xtermContainerRef.value && xtermContainerRef.value.offsetWidth > 0) {
     try { fitAddon.fit(); } catch {}
   }
+  // Adjust font size on mobile for better readability
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  if (isMobile && term && xtermContainerRef.value) {
+    const newSize = Math.max(11, Math.floor(xtermContainerRef.value.offsetWidth / 28));
+    if (Math.abs(newSize - term.options.fontSize) > 1) {
+      term.options.fontSize = newSize;
+      try { fitAddon?.fit(); } catch {}
+    }
+  }
 };
 
 const sendKey = (keyType) => {
@@ -144,10 +167,14 @@ const sendKey = (keyType) => {
     case 'CTRL_C': sequence = '\x03'; break;
     case 'CTRL_D': sequence = '\x04'; break;
     case 'CTRL_L': sequence = '\x0C'; break;
+    case 'CTRL_A': sequence = '\x01'; break;
+    case 'CTRL_E': sequence = '\x05'; break;
+    case 'CTRL_U': sequence = '\x15'; break;
+    case 'CTRL_W': sequence = '\x17'; break;
     case 'UP': sequence = '\x1B[A'; break;
     case 'DOWN': sequence = '\x1B[B'; break;
-    case 'LEFT': sequence = '\x1B[C'; break;
-    case 'RIGHT': sequence = '\x1B[D'; break;
+    case 'LEFT': sequence = '\x1B[D'; break;
+    case 'RIGHT': sequence = '\x1B[C'; break;
     default: return;
   }
   wsService.sendMessage(sequence);
@@ -176,14 +203,20 @@ onBeforeUnmount(() => {
   :deep(.xterm-viewport) { overflow-y: hidden !important; }
 }
 .mobile-keys-toolbar {
-  flex-shrink: 0; padding: 0.5rem; display: none; flex-wrap: wrap; gap: 0.3rem;
+  flex-shrink: 0; padding: 0.35rem; display: none; flex-direction: column; gap: 0.25rem;
   justify-content: center; background-color: hsl(0,0%,12%); border-top: 1px solid hsl(0,0%,20%);
   @media screen and (max-width: 768px) { display: flex; }
-  .button {
-    background-color: hsl(0,0%,25%); color: hsl(0,0%,90%); border: 1px solid hsl(0,0%,35%);
-    margin: 0.2rem;
-    &:hover { background-color: hsl(0,0%,35%); border-color: hsl(0,0%,45%); }
-    &:active { background-color: hsl(0,0%,20%); }
-  }
 }
+.mobile-keys-row {
+  display: flex; justify-content: center; gap: 0.3rem;
+}
+.mkey {
+  background-color: hsl(0,0%,25%); color: hsl(0,0%,90%); border: 1px solid hsl(0,0%,35%);
+  border-radius: 6px; padding: 0.35rem 0.5rem; min-width: 2.2rem;
+  font-size: 0.7rem; font-family: inherit; cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  &:hover { background-color: hsl(0,0%,35%); border-color: hsl(0,0%,45%); }
+  &:active { background-color: hsl(0,0%,20%); transform: scale(0.95); }
+}
+.mkey-arrow { background-color: hsl(240,8%,22%); min-width: 2.5rem; }
 </style>

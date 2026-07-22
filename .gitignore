@@ -24,6 +24,14 @@ dist-ssr
 *.sln
 *.sw?
 
+# Capacitor native platform builds
+android/
+ios/
+electron/
+
+# Icon generation helper
+scripts/
+
 # SSH test artifacts
 host_key
 host_key.pub
