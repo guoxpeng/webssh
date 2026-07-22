@@ -1,5 +1,5 @@
 <template>
-  <div class="terminal-view">
+  <div class="terminal-view app-page">
     <div class="terminal-toolbar">
       <div class="toolbar-left">
         <span class="toolbar-title">{{ t('terminal.title') }}</span>
@@ -8,6 +8,14 @@
         </span>
       </div>
       <div class="toolbar-right" v-if="paneCount > 0">
+        <button v-if="isRecording" class="toolbar-btn recording-indicator" @click="toggleRecording">
+          <Circle :size="14" class="record-dot"/>
+          <span>{{ formatElapsed(recordingElapsed) }}</span>
+          <Square :size="12"/>
+        </button>
+        <button v-else class="toolbar-btn" @click="toggleRecording" :title="t('macro.record')">
+          <Circle :size="14"/>
+        </button>
         <div class="dropdown-wrap" @click.stop>
           <button class="toolbar-btn dropdown-trigger" @click="showToolMenu = !showToolMenu">
             <FolderOpen :size="14"/>
@@ -67,11 +75,13 @@ import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
-import { Power, Terminal, Server, FolderOpen, ChevronDown } from 'lucide-vue-next';
+import { useMacroStore } from '@/stores/macroStore';
+import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
+const macroStore = useMacroStore();
 const router = useRouter();
 
 const splitPaneRef = ref(null);
@@ -80,6 +90,60 @@ const showToolMenu = ref(false);
 const connecting = ref(false);
 const progressPct = ref(0);
 let progressTimer = null;
+
+const isRecording = ref(false);
+const recordingSteps = ref([]);
+const recordingStartTime = ref(0);
+const recordingElapsed = ref(0);
+let recordingTimer = null;
+
+function toggleRecording() {
+  if (isRecording.value) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+function startRecording() {
+  recordingSteps.value = [];
+  recordingStartTime.value = Date.now();
+  recordingElapsed.value = 0;
+  isRecording.value = true;
+  connectionStore.setOnCommandSentCallback(onCommandSent);
+  recordingTimer = setInterval(() => {
+    recordingElapsed.value = Date.now() - recordingStartTime.value;
+  }, 200);
+}
+
+function stopRecording() {
+  isRecording.value = false;
+  connectionStore.setOnCommandSentCallback(null);
+  if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+  if (recordingSteps.value.length === 0) return;
+  const name = prompt(t('macro.recordName') || 'Name your macro', 'Macro ' + (macroStore.macros.length + 1));
+  if (!name) return;
+  macroStore.addMacro({
+    name,
+    commands: recordingSteps.value.map(s => s.text),
+    delays: recordingSteps.value.map(s => s.delay),
+  });
+  recordingSteps.value = [];
+}
+
+function onCommandSent(text) {
+  if (!isRecording.value) return;
+  const now = Date.now();
+  const delay = recordingSteps.value.length === 0 ? 0 : now - recordingStartTime.value;
+  recordingSteps.value.push({ text, delay });
+}
+
+function formatElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m > 0 ? `${m}m${sec}s` : `${sec}s`;
+}
 
 const paneCount = computed(() => splitPaneRef.value?.panes?.length || 0);
 
@@ -166,6 +230,14 @@ onBeforeUnmount(() => {
   &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); }
   &.is-danger:hover { color: var(--bulma-danger); border-color: var(--bulma-danger); }
 }
+.recording-indicator {
+  gap: 0.3rem; color: var(--bulma-danger); border-color: var(--bulma-danger);
+  animation: recPulse 1.5s ease-in-out infinite;
+  &:hover { background: hsl(350, 30%, 95%); }
+}
+.record-dot { animation: recBlink 1s step-end infinite; }
+@keyframes recBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes recPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 56, 96, 0.3); } 50% { box-shadow: 0 0 0 4px rgba(255, 56, 96, 0); } }
 
 .terminal-body { flex: 1; overflow: hidden; position: relative; }
 

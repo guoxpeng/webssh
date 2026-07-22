@@ -9,6 +9,12 @@ import { networkInterfaces } from 'os';
 import { get as httpGet } from 'http';
 import { get as httpsGet } from 'https';
 
+let SerialPort;
+try {
+  const mod = await import('serialport');
+  SerialPort = mod.SerialPort;
+} catch {} // Optional serialport support
+
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 const DIST_DIR = join(__dirname, '..', 'dist');
 const MIME = { '.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.json':'application/json' };
@@ -343,6 +349,59 @@ function handleTelnet(ws, config) {
   }
 }
 
+function handleSerial(ws, config) {
+  const port = config.serial_port || 'COM1';
+  const baud = config.serial_baud || 115200;
+  const dataBits = config.serial_dataBits || 8;
+  const stopBits = config.serial_stopBits || 1;
+  const parity = config.serial_parity || 'none';
+  const tag = `[SERIAL ${port}]`;
+  const log = (m) => console.log(`${tag} ${m}`);
+  const cleanup = () => { try { ws.close(); } catch {} };
+
+  if (!SerialPort) {
+    log('SerialPort module not available');
+    ws.send(JSON.stringify({ type: 'error', message: 'Serial port support is not available. Install the "serialport" package or use a different protocol.' }));
+    cleanup();
+    return;
+  }
+
+  let sp = null;
+  try {
+    sp = new SerialPort({ path: port, baudRate: baud, dataBits, stopBits, parity }, (err) => {
+      if (err) {
+        log('Open error: ' + err.message);
+        try { ws.send(JSON.stringify({ type: 'error', message: err.message })); } catch {}
+        cleanup();
+        return;
+      }
+      log('Opened ' + port + ' @ ' + baud + ' baud');
+      ws.send(JSON.stringify({ type: 'status', message: 'connected' }));
+    });
+    const onWsMsg = (input) => { if (sp?.writable) sp.write(input.toString()); };
+    ws.on('message', onWsMsg);
+    sp.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
+    sp.on('error', (err) => {
+      log('Error: ' + err.message);
+      try { ws.send(JSON.stringify({ type: 'error', message: err.message })); } catch {}
+    });
+    sp.on('close', () => {
+      log('Port closed');
+      ws.removeListener('message', onWsMsg);
+      cleanup();
+    });
+    ws.on('close', () => {
+      log('WS closed');
+      try { sp?.close(); } catch {}
+      ws.removeListener('message', onWsMsg);
+    });
+  } catch (e) {
+    log('Failed: ' + e.message);
+    try { ws.send(JSON.stringify({ type: 'error', message: e.message })); } catch {}
+    cleanup();
+  }
+}
+
 wss.on('connection', (ws, req) => {
   let initialized = false;
   const pingInterval = setInterval(() => {
@@ -361,13 +420,15 @@ wss.on('connection', (ws, req) => {
     try {
       let config;
       try { config = JSON.parse(data.toString()); } catch { throw new Error('Invalid JSON'); }
-      if (!config || !config.host) throw new Error('Host is required');
       const proto = (config.protocol || 'ssh').toLowerCase();
+      if (proto !== 'serial' && !config.host) throw new Error('Host is required');
       initialized = true;
       ws.removeAllListeners('message');
 
       if (proto === 'telnet') {
         handleTelnet(ws, config);
+      } else if (proto === 'serial') {
+        handleSerial(ws, config);
       } else {
         handleSSH(ws, config);
       }

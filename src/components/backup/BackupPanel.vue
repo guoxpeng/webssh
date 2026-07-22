@@ -113,6 +113,21 @@
                  @change="updateCloudCfg"/>
           <input type="password" v-model="cloudToken" :placeholder="t('backup.authToken')" class="form-input"
                  @change="updateCloudCfg"/>
+          <label class="toggle-label">
+            <input type="checkbox" v-model="cloudAutoSync" @change="updateCloudCfg"/>
+            <span>{{ t('backup.autoSync') }}</span>
+          </label>
+          <div v-if="cloudAutoSync" class="field-row">
+            <label class="field-label">{{ t('backup.syncEvery') }}</label>
+            <select v-model.number="cloudSyncInterval" @change="updateCloudCfg" class="form-select">
+              <option :value="15">15 min</option>
+              <option :value="30">30 min</option>
+              <option :value="60">1 hr</option>
+              <option :value="180">3 hr</option>
+              <option :value="360">6 hr</option>
+              <option :value="720">12 hr</option>
+            </select>
+          </div>
           <div class="cloud-actions">
             <button class="cloud-btn" @click="syncToCloud" :disabled="syncUploading">
               <Upload :size="12"/> {{ syncUploading ? t('backup.creating').replace('...','') + '...' : t('backup.uploadLatest') }}
@@ -121,8 +136,9 @@
               <Download :size="12"/> {{ syncDownloading ? t('backup.creating').replace('...','') + '...' : t('backup.downloadFromCloud') }}
             </button>
           </div>
-          <p class="info-text" v-if="store.cloud.lastSyncAt">
-            {{ t('backup.lastSync', { time: formatTime(store.cloud.lastSyncAt) }) }}
+          <p class="info-text" v-if="store.cloud.lastSyncAt" :class="store.cloud.lastSyncOk ? 'is-ok' : 'is-err'">
+            <span class="sync-indicator" :class="store.cloud.lastSyncOk ? 'is-ok' : 'is-err'"></span>
+            {{ store.cloud.lastSyncOk ? t('backup.lastSyncOk', { time: formatTime(store.cloud.lastSyncAt) }) : t('backup.lastSyncFail', { time: formatTime(store.cloud.lastSyncAt) }) }}
           </p>
         </div>
       </div>
@@ -207,6 +223,8 @@ const scheduleMax = ref(store.scheduler.maxBackups);
 const cloudEnabled = ref(store.cloud.enabled);
 const cloudUrl = ref(store.cloud.url);
 const cloudToken = ref(store.cloud.token);
+const cloudAutoSync = ref(store.cloud.autoSync);
+const cloudSyncInterval = ref(store.cloud.syncInterval);
 
 const inv = computed(() => store.inventory);
 
@@ -341,6 +359,8 @@ function updateCloudCfg() {
     enabled: cloudEnabled.value,
     url: cloudUrl.value,
     token: cloudToken.value,
+    autoSync: cloudAutoSync.value,
+    syncInterval: cloudSyncInterval.value,
   });
 }
 </script>
@@ -447,7 +467,8 @@ function updateCloudCfg() {
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
-.info-text { font-size: 0.6em; color: var(--bulma-text-light); margin: 0; }
+.info-text { font-size: 0.6em; color: var(--bulma-text-light); margin: 0; display: flex; align-items: center; gap: 0.3rem; &.is-ok { color: var(--bulma-success); } &.is-err { color: var(--bulma-danger); } }
+.sync-indicator { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; &.is-ok { background: var(--bulma-success); } &.is-err { background: var(--bulma-danger); } }
 
 .backups-section { border-bottom: none; }
 

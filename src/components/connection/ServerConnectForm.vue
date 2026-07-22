@@ -59,13 +59,51 @@
         </div>
       </div>
 
-      <div class="form-field span-2">
+      <div class="form-field span-2" v-if="form.protocol !== 'serial'">
         <label for="scf-user">{{ t('form.username') }}</label>
         <div class="input-wrap">
           <User :size="15"/>
-          <input id="scf-user" v-model.trim="form.username" :placeholder="t('form.username')" required/>
+          <input id="scf-user" v-model.trim="form.username" :placeholder="t('form.username')" :required="form.protocol !== 'serial'"/>
         </div>
       </div>
+
+      <template v-if="form.protocol === 'serial'">
+        <div class="form-field">
+          <label>{{ t('protocol.serialPort') }}</label>
+          <div class="input-wrap">
+            <Cable :size="15"/>
+            <input v-model="form.serial_port" placeholder="COM1 (e.g. COM1, /dev/ttyUSB0)" required class="serial-port-input"/>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>{{ t('protocol.serialBaud') }}</label>
+          <select v-model.number="form.serial_baud" class="input-sm">
+            <option v-for="b in [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]" :key="b" :value="b">{{ b }}</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>{{ t('protocol.serialDataBits') }}</label>
+          <select v-model.number="form.serial_dataBits" class="input-sm">
+            <option v-for="b in [5, 6, 7, 8]" :key="b" :value="b">{{ b }}</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>{{ t('protocol.serialStopBits') }}</label>
+          <select v-model.number="form.serial_stopBits" class="input-sm">
+            <option v-for="b in [1, 2]" :key="b" :value="b">{{ b }}</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>{{ t('protocol.serialParity') }}</label>
+          <select v-model="form.serial_parity" class="input-sm">
+            <option value="none">None</option>
+            <option value="even">Even</option>
+            <option value="odd">Odd</option>
+            <option value="mark">Mark</option>
+            <option value="space">Space</option>
+          </select>
+        </div>
+      </template>
 
       <div class="form-field span-2">
         <label for="scf-auth">{{ t('form.authType') }}</label>
@@ -121,7 +159,7 @@ import { ref, computed, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { ConnectionStatus } from '@/utils/constants';
-import { FileText, Folder, Network, Server as ServerIcon, User, KeyRound, TerminalSquare, ShieldCheck, RotateCcw, CheckCircle, Upload, Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
+import { FileText, Folder, Network, Server as ServerIcon, User, KeyRound, TerminalSquare, ShieldCheck, RotateCcw, CheckCircle, Upload, Terminal, Monitor, Video, Wifi, Cable } from 'lucide-vue-next';
 import { useNotifications } from '@/composables/useNotifications';
 
 const { t } = useI18n();
@@ -195,6 +233,7 @@ const protocols = [
   { id: 'rdp', label: 'RDP', icon: Monitor },
   { id: 'vnc', label: 'VNC', icon: Video },
   { id: 'telnet', label: 'Telnet', icon: Wifi },
+  { id: 'serial', label: 'Serial', icon: Cable },
 ];
 
 const existingGroups = computed(() => connectionStore.groups.filter(g => g !== 'Ungrouped'));
@@ -203,6 +242,7 @@ const defaultForm = () => ({
   id: null, name: t('form.defaultName', { n: Date.now() % 10000 }),
   host: '', port: 22, username: '', protocol: 'ssh', group: '',
   auth_type: 'password', auth_value: '',
+  serial_port: '', serial_baud: 115200, serial_dataBits: 8, serial_stopBits: 1, serial_parity: 'none',
 });
 
 const form = ref(defaultForm());
@@ -240,6 +280,10 @@ const HOST_RE = /^(\d{1,3}\.){3}\d{1,3}$|^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0
 
 function validate() {
   if (!form.value.name.trim()) { showError(t('form.nameRequired')); return false; }
+  if (form.value.protocol === 'serial') {
+    if (!form.value.serial_port.trim()) { showError(t('form.hostRequired')); return false; }
+    return true;
+  }
   if (!form.value.host.trim()) { showError(t('form.hostRequired')); return false; }
   if (!HOST_RE.test(form.value.host.trim())) { showError(t('form.invalidHost')); return false; }
   if (form.value.host.split('.').some(p => { const n = Number(p); return n < 0 || n > 255; })) { showError(t('form.ipRange')); return false; }

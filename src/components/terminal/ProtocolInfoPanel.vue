@@ -73,6 +73,32 @@
           </button>
         </div>
       </template>
+
+      <template v-else-if="protocol === 'serial'">
+        <p class="proto-hint">{{ t('protocol.serialHint') }}</p>
+        <div class="serial-details">
+          <div class="serial-detail-row">
+            <span class="serial-detail-label">{{ t('protocol.serialPort') }}</span>
+            <span class="serial-detail-value">{{ config?.serial_port || '—' }}</span>
+          </div>
+          <div class="serial-detail-row">
+            <span class="serial-detail-label">{{ t('protocol.serialBaud') }}</span>
+            <span class="serial-detail-value">{{ config?.serial_baud || 115200 }}</span>
+          </div>
+          <div class="serial-detail-row">
+            <span class="serial-detail-label">{{ t('protocol.serialDataBits') }}</span>
+            <span class="serial-detail-value">{{ config?.serial_dataBits || 8 }}</span>
+          </div>
+          <div class="serial-detail-row">
+            <span class="serial-detail-label">{{ t('protocol.serialStopBits') }}</span>
+            <span class="serial-detail-value">{{ config?.serial_stopBits || 1 }}</span>
+          </div>
+          <div class="serial-detail-row">
+            <span class="serial-detail-label">{{ t('protocol.serialParity') }}</span>
+            <span class="serial-detail-value">{{ config?.serial_parity || 'none' }}</span>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -80,7 +106,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Monitor, Video, Terminal, Wifi, Download, Copy } from 'lucide-vue-next';
+import { Monitor, Video, Terminal, Wifi, Cable, Download, Copy } from 'lucide-vue-next';
 
 const { t } = useI18n();
 
@@ -97,6 +123,7 @@ const iconComponent = computed(() => {
     case 'rdp': return Monitor;
     case 'vnc': return Video;
     case 'telnet': return Wifi;
+    case 'serial': return Cable;
     default: return Terminal;
   }
 });
@@ -229,6 +256,17 @@ function downloadRdp() {
   font-size: 0.75em; color: var(--bulma-text-light);
   code { font-family: var(--bulma-family-monospace); }
 }
+.serial-details {
+  width: 100%; display: flex; flex-direction: column; gap: 0.4rem;
+}
+.serial-detail-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.35rem 0.5rem; font-size: 0.85em;
+  background: var(--bulma-scheme-main-ter); border-radius: 6px;
+}
+.serial-detail-label { color: var(--bulma-text-light); font-size: 0.9em; }
+.serial-detail-value { font-weight: 600; font-family: var(--bulma-family-monospace); }
+
 .btn {
   display: inline-flex; align-items: center; gap: 0.35rem;
   padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85em; font-weight: 500;

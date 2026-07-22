@@ -1,5 +1,5 @@
 <template>
-  <div class="conn-view">
+  <div class="conn-view app-page">
     <div class="conn-header">
       <div>
         <h1 class="conn-title"><Server :size="26"/> {{ t('server.title') }}</h1>

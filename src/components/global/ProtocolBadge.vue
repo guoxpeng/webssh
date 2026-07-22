@@ -8,7 +8,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Terminal, Monitor, Video, Wifi } from 'lucide-vue-next';
+import { Terminal, Monitor, Video, Wifi, Cable } from 'lucide-vue-next';
 
 const { t } = useI18n();
 
@@ -16,7 +16,7 @@ const props = defineProps({
   protocol: { type: String, default: 'ssh' },
 });
 
-const iconMap = { ssh: Terminal, rdp: Monitor, vnc: Video, telnet: Wifi };
+const iconMap = { ssh: Terminal, rdp: Monitor, vnc: Video, telnet: Wifi, serial: Cable };
 
 const icon = computed(() => iconMap[props.protocol]);
 const protocolLabel = computed(() => t('protocol.' + props.protocol, props.protocol.toUpperCase()));
@@ -39,5 +39,6 @@ const protocolLabel = computed(() => t('protocol.' + props.protocol, props.proto
   &.is-rdp { background: hsl(210, 30%, 92%); color: hsl(210, 55%, 30%); }
   &.is-vnc { background: hsl(270, 30%, 92%); color: hsl(270, 55%, 40%); }
   &.is-telnet { background: hsl(40, 30%, 92%); color: hsl(40, 55%, 30%); }
+  &.is-serial { background: hsl(190, 30%, 92%); color: hsl(190, 55%, 30%); }
 }
 </style>

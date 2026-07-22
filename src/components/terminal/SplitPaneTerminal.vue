@@ -110,6 +110,7 @@ defineExpose({ panes, activePane, addPane,
       addPane('terminal', proto, config);
     }
   },
+  getPaneTypes: () => panes.value.map(p => p.type),
   openSftpForActivePane,
 });
 </script>

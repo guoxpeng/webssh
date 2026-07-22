@@ -276,7 +276,7 @@ export const useConnectionStore = defineStore('connection', () => {
         }
       }
 
-      if (!finalNodeConfig.auth_value) {
+      if (finalNodeConfig.protocol !== 'serial' && !finalNodeConfig.auth_value) {
         const msg = "连接 Shell 需要密码或私钥。";
         setConnectionStatus(ConnectionStatus.ERROR);
         if (terminalCallbacks.onError) terminalCallbacks.onError(new Error(msg));
@@ -315,7 +315,14 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   function sendShellData(data: string): void {
-    if (isConnected.value) wsService.sendMessage(data);
+    if (isConnected.value) {
+      if (onCommandSentCallback) onCommandSentCallback(data);
+      wsService.sendMessage(data);
+    }
+  }
+
+  function setOnCommandSentCallback(cb) {
+    onCommandSentCallback = cb;
   }
 
   function disconnectShell(): void {
@@ -335,6 +342,7 @@ export const useConnectionStore = defineStore('connection', () => {
     testConnection,
     connectToShell,
     sendShellData,
+    setOnCommandSentCallback,
     disconnectShell,
     addConnection,
     removeConnection,

@@ -43,7 +43,10 @@ export interface CloudTarget {
   url: string;
   token: string;
   enabled: boolean;
+  autoSync: boolean;
+  syncInterval: number; // minutes, 0 = manual only
   lastSyncAt: number;
+  lastSyncOk: boolean;
 }
 
 const STORAGE_KEY = 'haossh_backups';
@@ -173,6 +176,17 @@ export const useBackupStore = defineStore('backup', () => {
       persist();
       scheduler.value.lastBackupAt = Date.now();
       persistScheduler();
+
+      // Auto-sync to cloud if enabled
+      if (cloud.value.enabled && cloud.value.autoSync && cloud.value.url) {
+        uploadToCloud(entry.id).then(ok => {
+          if (ok) {
+            cloud.value.lastSyncAt = Date.now();
+            cloud.value.lastSyncOk = true;
+            persistCloud();
+          }
+        }).catch(() => {});
+      }
 
       return entry;
     } finally {
@@ -381,6 +395,6 @@ function loadScheduler(): SchedulerConfig {
 function loadCloudTarget(): CloudTarget {
   try {
     const raw = localStorage.getItem(CLOUD_KEY);
-    return raw ? JSON.parse(raw) : { url: '', token: '', enabled: false, lastSyncAt: 0 };
-  } catch { return { url: '', token: '', enabled: false, lastSyncAt: 0 }; }
+    return raw ? { url: '', token: '', enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true, ...JSON.parse(raw) } : { url: '', token: '', enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true };
+  } catch { return { url: '', token: '', enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true }; }
 }
