@@ -457,10 +457,11 @@ onBeforeUnmount(() => {
   display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden;
 }
 .xterm-container-parent {
-  flex-grow: 1; width: 100%; box-sizing: border-box;
+  flex-grow: 1; width: 100%; min-height: 0; box-sizing: border-box;
   background-color: #0a0a0a;
   :deep(.terminal), :deep(.xterm-viewport), :deep(.xterm-screen) { width: 100%; height: 100%; }
-  :deep(.xterm-viewport) { overflow-y: hidden !important; }
+  :deep(.xterm-viewport) { overflow-y: auto !important; scrollbar-width: thin; }
+  :deep(.xterm-rows) { will-change: transform; }
 }
 .mobile-keys-toolbar {
   flex-shrink: 0; padding: 0.35rem; display: none; flex-direction: column; gap: 0.25rem;

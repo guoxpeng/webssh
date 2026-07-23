@@ -253,7 +253,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 .sidebar-spacer { flex: 1; }
 .collapse-icon { transition: transform 0.2s ease; &.is-rotated { transform: rotate(180deg); } }
 
-.workbench-content { flex: 1; min-width: 0; overflow-y: auto; padding: 1.5rem 2rem; margin-left: 200px; }
+.workbench-content { flex: 1; min-width: 0; overflow: hidden; padding: 1.5rem 2rem; margin-left: 200px; }
 .workbench-content.is-sidebar-collapsed { margin-left: 56px; }
 
 .workbench-statusbar {
@@ -338,7 +338,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   }
   .workbench-content {
     margin-left: 0 !important; padding: 0.6rem; padding-bottom: calc(3.5rem + var(--sab, 0px));
-    overflow-y: auto;
+    overflow: hidden;
   }
   .sidebar-header {
     display: flex; align-items: center; justify-content: space-between;

@@ -307,8 +307,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .terminal-view {
   display: flex; flex-direction: column;
-  height: calc(100vh - 3.25rem);
-  height: calc(100dvh - 3.25rem);
+  height: 100%;
   overflow: hidden;
 }
 .terminal-toolbar {
@@ -408,7 +407,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 768px) {
   .terminal-view {
-    height: calc(100dvh - 3.25rem - 2.5rem - var(--sab, 0px));
+    height: 100%;
   }
   .terminal-toolbar { padding: 0.25rem 0.5rem; }
   .toolbar-title { font-size: 0.8em; }

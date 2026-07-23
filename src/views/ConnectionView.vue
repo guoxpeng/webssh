@@ -479,7 +479,7 @@ function onDrop(e, conn, targetGroup) {
 </script>
 
 <style lang="scss" scoped>
-.conn-view { max-width: 1200px; margin: 0 auto; }
+.conn-view { max-width: 1200px; margin: 0 auto; overflow-y: auto; height: 100%; }
 .conn-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
 .conn-title { font-size: 1.4em; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; margin: 0; }
 .conn-subtitle { font-size: 0.8em; color: var(--bulma-text-light); margin: 0; }
@@ -608,6 +608,7 @@ function onDrop(e, conn, targetGroup) {
   .conn-header { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
   .sidebar-card { border-left: none; padding-left: 0; margin-left: 0; }
   .sidebar-list { max-height: none; }
+  .conn-view { overflow-y: auto; height: 100%; }
 }
 @media (max-width: 480px) {
   .conn-view { padding: 0.5rem; }
