@@ -83,21 +83,37 @@
 
 ## 🚀 安装部署
 
-### 方法一：一键脚本（推荐）
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash
-```
-
-一键完成：下载 → 安装 → 构建 → 启动。然后在浏览器打开 `http://你的IP:9627`
-
-### 方法二：Docker（推荐）
+### 方法一：Docker（最快，无需安装 Node.js）
 
 ```bash
 docker run -d --restart=unless-stopped --name webssh -p 9627:9627 nameguoguo/webssh
 ```
 
-### 方法三：手动安装（一步步来）
+或用 docker-compose：
+
+```yaml
+services:
+  webssh:
+    image: nameguoguo/webssh
+    container_name: webssh
+    restart: unless-stopped
+    ports:
+      - "9627:9627"
+```
+
+```bash
+docker compose up -d
+```
+
+### 方法二：一键脚本
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash
+```
+
+下载 → 安装 → 构建 → 启动一条龙。浏览器打开 `http://你的IP:9627`
+
+### 方法三：手动安装
 
 ```bash
 git clone https://github.com/guoxpeng/webssh.git
@@ -109,17 +125,26 @@ node server/index.mjs
 
 打开 `http://localhost:9627`
 
-### 方法四：开发模式（改代码用）
+### 方法四：开发模式
 
 ```bash
-# 终端1：启动后端
+# 终端1：后端
 node server/index.mjs
 
-# 终端2：启动前端
+# 终端2：前端热更新
 npm run dev
 ```
 
 前端 `http://localhost:5173`，后端 `http://localhost:9627`
+
+### 卸载
+
+```bash
+# 停止服务、删除文件
+cd webssh && ./uninstall.sh
+
+# 浏览器数据需手动清理：F12 → 应用程序 → 清除站点数据
+```
 
 ---
 
