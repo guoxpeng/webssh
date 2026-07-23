@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-# WebSSH - One-click Deploy
+# WebSSH - One-click Deploy (v2.2.5)
 # Usage: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'; BOLD='\033[1m'
@@ -28,56 +28,53 @@ progress() {
   printf "\r  ${YELLOW}[${GREEN}${s:0:fill}${NC}${s:fill:empty}${YELLOW}]${NC} %3d%%  %s" "$pct" "$msg"
 }
 
-# --- Phase 1: Check environment (5%) ---
+# ─── Phase 1: Check environment ───
 progress 5 "Checking environment..."
 command -v node >/dev/null 2>&1 || err "Node.js is required (https://nodejs.org)"
 command -v npm  >/dev/null 2>&1 || err "npm is required."
+command -v git  >/dev/null 2>&1 || err "git is required."
 NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
 [ "$NODE_VER" -ge 18 ] || err "Node.js >= 18 required (current: $(node -v))"
 progress 8 "Environment OK"
 
-# --- Phase 2: Stop old instance (8% → 15%) ---
+# ─── Absolute paths (root cause fix: no relative-path bugs) ───
+ORIG_DIR="$(pwd)"
 REPO="https://github.com/guoxpeng/webssh.git"
-DIR="webssh"
+APP_DIR="${ORIG_DIR}/webssh"
 PORT="${PORT:-9627}"
+PID_FILE="${APP_DIR}/webssh.pid"
+LOG_FILE="${APP_DIR}/webssh.log"
 
 progress 10 "Stopping old instance..."
-if [ -d "$DIR" ]; then
-  cd "$DIR"
-  PID_FILE="webssh.pid"
-  if [ -f "$PID_FILE" ]; then
-    OLD_PID=$(cat "$PID_FILE" 2>/dev/null || true)
-    kill "$OLD_PID" 2>/dev/null || true
-    sleep 1
-    kill -9 "$OLD_PID" 2>/dev/null || true
-    rm -f "$PID_FILE"
-  fi
-  # Kill any process on the target port
-  PORT_PID=$(lsof -ti :"$PORT" 2>/dev/null || true)
+# Kill ANY process on target port (regardless of directory)
+if command -v lsof >/dev/null 2>&1; then
+  PORT_PID=$(lsof -ti :"${PORT}" 2>/dev/null || true)
   if [ -n "$PORT_PID" ]; then
     kill -9 $PORT_PID 2>/dev/null || true
-    sleep 1
+    info "Killed process on port ${PORT} (PID $PORT_PID)"
   fi
-  # Kill any lingering node processes for this app
-  pkill -f "node server/index.mjs" 2>/dev/null || true
-  sleep 1
 fi
+# Kill by PID file if exists
+if [ -f "$PID_FILE" ]; then
+  OLD_PID=$(cat "$PID_FILE" 2>/dev/null || true)
+  kill "$OLD_PID" 2>/dev/null || true
+  sleep 1
+  kill -9 "$OLD_PID" 2>/dev/null || true
+  rm -f "$PID_FILE"
+fi
+# Kill any webssh node processes
+pkill -f "node.*server/index.mjs" 2>/dev/null || true
+sleep 2
 progress 15 "Old instance stopped"
 
-# --- Phase 3: Clone / Fetch (15% → 30%) ---
+# ─── Phase 2: Clone or update ───
 progress 18 "Fetching source..."
-if [ -d "$DIR" ]; then
-  cd "$DIR"
-  # Verify git remote exists
-  if ! git remote get-url origin >/dev/null 2>&1; then
-    err "Git remote 'origin' not found. Remove '$DIR' directory and re-run."
-  fi
-  # Unshallow if previously cloned with --depth=1
+if [ -d "${APP_DIR}/.git" ]; then
+  cd "$APP_DIR"
   git fetch --unshallow origin 2>/dev/null || true
-  # Fetch latest — fail loudly if it doesn't work
   info "Fetching latest commits..."
   if ! git fetch origin main 2>/dev/null; then
-    err "Failed to fetch from GitHub. Check network and try again."
+    err "Failed to fetch from GitHub. Check network."
   fi
   OLD_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
   git reset --hard origin/main
@@ -89,82 +86,71 @@ if [ -d "$DIR" ]; then
     info "Already at latest: ${NEW_HASH:0:7}"
   fi
 else
-  git clone --depth=1 "$REPO" "$DIR" >/dev/null 2>&1
-  cd "$DIR"
+  info "First install — cloning repository..."
+  rm -rf "$APP_DIR"
+  git clone --depth=1 "$REPO" "$APP_DIR"
+  cd "$APP_DIR"
+  NEW_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+  ok "Cloned: ${NEW_HASH:0:7}"
 fi
-# Verify we got the right version
-GIT_VER=$(git log -1 --format='%h %s' 2>/dev/null || echo "unknown")
-progress 25 "Source: ${GIT_VER:0:40}"
-progress 30 "Source ready"
+progress 30 "Source ready (${NEW_HASH:0:7})"
 
-# --- Phase 4: Clear caches + npm install (30% → 60%) ---
-progress 32 "Clearing build caches..."
-rm -rf node_modules/.cache node_modules/.vite dist .nuxt .output 2>/dev/null || true
+# ─── Phase 3: npm install ───
+progress 35 "Clearing caches..."
+rm -rf node_modules/.cache node_modules/.vite dist 2>/dev/null || true
 npm cache clean --force 2>/dev/null || true
-progress 35 "Installing dependencies..."
-npm install --no-audit --no-fund --prefer-offline 2>&1 | while IFS= read -r line; do
-  if [[ "$line" =~ added|removed|changed ]]; then
-    pkgs=$(echo "$line" | grep -oP '\d+')
-    progress 45 "Packages: $pkgs"
-  fi
-done
+progress 40 "Installing dependencies..."
+npm install --no-audit --no-fund 2>&1 | tail -3
 progress 60 "Dependencies installed"
 
-# --- Phase 5: Build frontend (60% → 85%) ---
-progress 62 "Building frontend (no cache)..."
+# ─── Phase 4: Build ───
+progress 65 "Building frontend..."
 BUILD_OUT=$(npm run build 2>&1) || { echo -e "\n$BUILD_OUT" | tail -20; err "Build failed."; }
-progress 85 "Build complete"
+# Verify version in built output
+VERSION_IN_BUILD=$(grep -oP 'APP_VERSION.*?"\K[^"]+' dist/assets/*.js 2>/dev/null | head -1 || echo "unknown")
+progress 85 "Build complete (v${VERSION_IN_BUILD})"
 
-# --- Phase 6: Start server (85% → 100%) ---
-progress 88 "Starting server..."
-
-# Detect IP
+# ─── Phase 5: Start server ───
+progress 90 "Starting server..."
 IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
 [ -z "$IP" ] && IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 [ -z "$IP" ] && IP="localhost"
 
-# Detect public IP
-PUBLIC_IP=""
 PUBLIC_IP=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || true)
 [ -z "$PUBLIC_IP" ] && PUBLIC_IP=$(curl -s --max-time 3 https://checkip.amazonaws.com 2>/dev/null || true)
-[ -z "$PUBLIC_IP" ] && PUBLIC_IP=$(curl -s --max-time 3 https://ifconfig.me/ip 2>/dev/null || true)
 
-# Start in background
-nohup env PORT="$PORT" node server/index.mjs > webssh.log 2>&1 &
-echo $! > webssh.pid
+nohup env PORT="$PORT" node server/index.mjs > "$LOG_FILE" 2>&1 &
+echo $! > "$PID_FILE"
 sleep 3
 
-# Verify it's running
-HEALTH=$(curl -s --max-time 3 http://localhost:${PORT}/health 2>/dev/null || echo "")
+# Verify startup
+HEALTH=$(curl -s --max-time 3 "http://localhost:${PORT}/health" 2>/dev/null || echo "")
 if [ -n "$HEALTH" ]; then
   progress 100 "Done!"; echo ""
   echo ""
   echo -e "  ${BOLD}${GREEN}  ✓ WebSSH 已启动${NC}"
   echo -e "  ═══════════════════════════════════"
   echo -e ""
-  echo -e "  ${BOLD}🔗 本地访问：${NC}"
-  echo -e "      ${GREEN}${BOLD}http://localhost:${PORT}${NC}"
+  echo -e "  📌 ${BOLD}版本: v${VERSION_IN_BUILD}${NC} (${NEW_HASH:0:7})"
+  echo -e "  📝 日志: ${LOG_FILE}"
   echo -e ""
-  if [ "$IP" != "localhost" ] && [ -n "$IP" ]; then
-    echo -e "  ${BOLD}📱 局域网访问：${NC}"
-    echo -e "      ${CYAN}http://${IP}:${PORT}${NC}"
-    echo -e ""
-  fi
-  if [ -n "$PUBLIC_IP" ]; then
-    echo -e "  ${BOLD}🌍 公网访问：${NC}"
-    echo -e "      ${YELLOW}http://${PUBLIC_IP}:${PORT}${NC}"
-    echo -e ""
-  fi
-  echo -e "  ═══════════════════════════════════"
-  echo -e "  📝 日志文件: $(pwd)/webssh.log"
-  echo -e "  📌 更新版本: ${GIT_VER}"
-  echo -e ""
+  echo -e "  ${BOLD}🔗 本地:${NC}  ${GREEN}http://localhost:${PORT}${NC}"
+  [ "$IP" != "localhost" ] && [ -n "$IP" ] && echo -e "  ${BOLD}📱 局域网:${NC} ${CYAN}http://${IP}:${PORT}${NC}"
+  [ -n "$PUBLIC_IP" ] && echo -e "  ${BOLD}🌍 公网:${NC}   ${YELLOW}http://${PUBLIC_IP}:${PORT}${NC}"
+  echo ""
   echo -e "  ${YELLOW}管理命令:${NC}"
-  echo -e "  停止:  kill \$(cat $(pwd)/webssh.pid)"
-  echo -e "  更新:  cd $(pwd) && curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash"
+  echo -e "  停止: kill \$(cat ${PID_FILE})"
+  echo -e "  更新: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash"
   echo -e ""
-  echo -e "  ${RED}⚠ 如页面显示旧版，请 Ctrl+Shift+R 清除浏览器缓存${NC}"
+  if [ "$VERSION_IN_BUILD" = "unknown" ]; then
+    echo -e "  ${RED}⚠ 无法验证构建版本，请 Ctrl+Shift+R 清除浏览器缓存${NC}"
+  fi
   echo ""
 else
-  err "Server failed to start. Check webssh.log"
+  echo ""
+  echo -e "  ${RED}✗ Server failed to start${NC}"
+  echo -e "  Check log: cat ${LOG_FILE}"
+  echo ""
+  tail -20 "$LOG_FILE"
+  exit 1
 fi
