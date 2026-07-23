@@ -26,42 +26,43 @@
     </div>
 
     <div class="terminal-body">
-      <div class="terminal-main-area">
-        <div class="terminal-pane">
+      <div class="terminal-main-area" :class="{ 'has-sftp': showSftpPanel }">
+        <div class="terminal-pane" :style="showSftpPanel ? { width: `calc(100% - ${sftpWidth}px)` } : {}">
           <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }"/>
         </div>
-        <div v-if="showSftpPanel" class="sftp-overlay" @click.self="showSftpPanel = false">
-          <div class="sftp-overlay-panel">
-            <div class="sftp-panel-header">
-              <FolderOpen :size="14"/>
-              <span>{{ sftpPanelConfig ? sftpPanelConfig.host : t('sftp.noConnection') }}</span>
-              <button class="sftp-panel-close" @click="showSftpPanel = false">&times;</button>
+        <div v-if="showSftpPanel" class="sftp-divider" @mousedown="startDrag">
+          <GripVertical :size="12"/>
+        </div>
+        <div v-if="showSftpPanel" class="sftp-panel" :style="{ width: sftpWidth + 'px' }">
+          <div class="sftp-panel-header">
+            <FolderOpen :size="14"/>
+            <span>{{ sftpPanelConfig ? sftpPanelConfig.host : t('sftp.noConnection') }}</span>
+            <button class="sftp-panel-close" @click="showSftpPanel = false">&times;</button>
+          </div>
+          <SftpBrowser v-if="sftpPanelConfig" :node-config="sftpPanelConfig" @close="showSftpPanel = false"/>
+          <div v-else class="sftp-panel-empty">
+            <div class="empty-header">
+              <FolderOpen :size="32" class="empty-icon"/>
+              <h3>{{ t('sftp.noConnection') }}</h3>
             </div>
-            <SftpBrowser v-if="sftpPanelConfig" :node-config="sftpPanelConfig" @close="showSftpPanel = false"/>
-            <div v-else class="sftp-panel-empty">
-              <div class="empty-header">
-                <FolderOpen :size="32" class="empty-icon"/>
-                <h3>{{ t('sftp.noConnection') }}</h3>
-              </div>
-              <div v-if="savedConns.length > 0" class="history-list">
-                <div class="history-title"><History :size="14"/><span>{{ t('terminal.recentConnections') }}</span></div>
-                <div v-for="conn in savedConns" :key="conn.id" class="history-item" @click="quickConnect(conn)">
-                  <div class="history-icon" :class="`proto-${conn.protocol || 'ssh'}`">
-                    <Terminal :size="14"/>
-                  </div>
-                  <div class="history-info">
-                    <span class="history-name">{{ conn.name || conn.host }}</span>
-                    <span class="history-meta">{{ conn.username }}@{{ conn.host }}:{{ conn.port }}</span>
-                  </div>
-                  <button class="history-go" :title="t('terminal.connect')">
-                    <ChevronDown :size="14" class="go-arrow"/>
-                  </button>
+            <div v-if="savedConns.length > 0" class="history-list">
+              <div class="history-title"><History :size="14"/><span>{{ t('terminal.recentConnections') }}</span></div>
+              <div v-for="conn in savedConns" :key="conn.id" class="history-item" @click="quickConnect(conn)">
+                <div class="history-icon" :class="`proto-${conn.protocol || 'ssh'}`">
+                  <Terminal :size="14"/>
                 </div>
+                <div class="history-info">
+                  <span class="history-name">{{ conn.name || conn.host }}</span>
+                  <span class="history-meta">{{ conn.username }}@{{ conn.host }}:{{ conn.port }}</span>
+                </div>
+                <button class="history-go" :title="t('terminal.connect')">
+                  <ChevronDown :size="14" class="go-arrow"/>
+                </button>
               </div>
-              <router-link to="/" class="btn btn-primary" v-if="savedConns.length === 0">
-                <Server :size="16"/> {{ t('sftp.selectConnection') }}
-              </router-link>
             </div>
+            <router-link to="/" class="btn btn-primary" v-if="savedConns.length === 0">
+              <Server :size="16"/> {{ t('sftp.selectConnection') }}
+            </router-link>
           </div>
         </div>
       </div>
@@ -122,7 +123,7 @@ import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useMacroStore } from '@/stores/macroStore';
-import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square, History } from 'lucide-vue-next';
+import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square, History, GripVertical } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const connectionStore = useConnectionStore();
@@ -133,6 +134,8 @@ const router = useRouter();
 const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
 const showSftpPanel = ref(false);
+const sftpWidth = ref(380);
+const dragging = ref(false);
 const connecting = ref(false);
 const progressPct = ref(0);
 let progressTimer = null;
@@ -265,6 +268,22 @@ function onDisconnectConfirmed() {
   router.push({ name: 'ConnectionHome' });
 }
 
+function startDrag(e) {
+  dragging.value = true;
+  const startX = e.clientX;
+  const startW = sftpWidth.value;
+  function onMove(ev) {
+    const diff = startX - ev.clientX;
+    sftpWidth.value = Math.max(250, Math.min(600, startW + diff));
+  }
+  function onUp() {
+    dragging.value = false;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
 
 onMounted(() => {
   processPendingConnections();
@@ -315,10 +334,16 @@ onBeforeUnmount(() => {
 .terminal-body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
 .terminal-main-area {
-  display: flex; height: 100%; min-height: 0; position: relative;
+  display: flex; height: 100%; min-height: 0;
 }
+.terminal-main-area.has-sftp .terminal-pane { flex: none; }
 .terminal-pane { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 
+.sftp-panel {
+  display: flex; flex-direction: column; background: var(--bulma-scheme-main);
+  border-left: 1px solid var(--bulma-border);
+  flex-shrink: 0; overflow: hidden;
+}
 .sftp-panel-header {
   display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.65rem;
   font-size: 0.78em; font-weight: 500; border-bottom: 1px solid var(--bulma-border-light);
@@ -329,29 +354,18 @@ onBeforeUnmount(() => {
   cursor: pointer; color: var(--bulma-text-light); padding: 0; line-height: 1;
   &:hover { color: var(--bulma-danger); }
 }
+.sftp-divider {
+  width: 4px; cursor: col-resize; flex-shrink: 0; background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--bulma-text-light); z-index: 1;
+  &:hover { background: var(--bulma-border); color: var(--bulma-text); }
+}
 .sftp-panel :deep(.sftp-browser) { flex: 1; overflow: hidden; border-radius: 0; border: none; }
 .sftp-panel-empty {
   flex: 1; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 1rem; padding: 2rem; overflow-y: auto;
   & .history-list { width: 100%; max-width: 320px; }
 }
-
-.sftp-overlay {
-  position: absolute; inset: 0; z-index: 30;
-  display: flex; justify-content: flex-end;
-  background: rgba(0,0,0,0.2);
-  animation: overlayFadeIn 0.15s ease-out;
-}
-.sftp-overlay-panel {
-  width: 400px; max-width: 90vw; height: 100%;
-  display: flex; flex-direction: column;
-  background: var(--bulma-scheme-main);
-  border-left: 1px solid var(--bulma-border);
-  box-shadow: -8px 0 24px rgba(0,0,0,0.12);
-  animation: panelSlideIn 0.2s ease-out;
-}
-@keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes panelSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 
 .connecting-overlay {
   position: absolute; inset: 0; z-index: 20;

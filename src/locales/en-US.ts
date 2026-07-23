@@ -287,6 +287,7 @@ export default {
     newFolder: 'New Folder',
     upload: 'Upload',
     download: 'Download',
+    selectDownload: 'Select files/folders to download first',
     rename: 'Rename',
     permissions: 'Permissions',
     owner: 'Owner',

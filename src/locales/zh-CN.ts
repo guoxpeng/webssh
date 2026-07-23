@@ -287,6 +287,7 @@ export default {
     newFolder: '新建文件夹',
     upload: '上传',
     download: '下载',
+    selectDownload: '请先选择要下载的文件或文件夹',
     rename: '重命名',
     permissions: '权限',
     owner: '所有者',

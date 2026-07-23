@@ -21,6 +21,9 @@
         <button class="toolbar-btn" @click="triggerUpload" :title="t('sftp.upload')">
           <Upload :size="14"/>
         </button>
+        <button class="toolbar-btn" @click="downloadSelected" :disabled="selected.size === 0" :title="t('sftp.download')">
+          <Download :size="14"/>
+        </button>
         <input type="file" ref="uploadInputRef" multiple style="display:none" @change="onUploadFiles"/>
         <span class="sftp-path">{{ displayPath }}</span>
       </div>
@@ -553,6 +556,61 @@ async function downloadFile(entry) {
   } catch (err) {
     showMessage(err.message, 'is-error');
   }
+}
+
+async function downloadSelected() {
+  const names = [...selected.value];
+  if (names.length === 0) { showMessage(t('sftp.selectDownload'), 'is-info'); return; }
+  loading.value = true;
+  try {
+    const allFiles = [];
+    for (const name of names) {
+      const entry = entries.value.find(e => e.name === name);
+      if (!entry) continue;
+      if (entry.type === 'file') {
+        allFiles.push({ path: entry.name, entry });
+      } else {
+        const tree = await walkFolder(entry.name);
+        allFiles.push(...tree);
+      }
+    }
+    for (const f of allFiles) {
+      const data = await api('read', { path: fullPath(f.path) });
+      if (!data?.content) continue;
+      const bytes = Uint8Array.from(atob(data.content), c => c.charCodeAt(0));
+      const blob = new Blob([bytes]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = f.path.replace(/\//g, '_');
+      a.click();
+      URL.revokeObjectURL(url);
+      await new Promise(r => setTimeout(r, 200));
+    }
+    showMessage(t('sftp.downloaded', { name: names.join(', ') }), 'is-success');
+  } catch (err) {
+    showMessage(err.message, 'is-error');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function walkFolder(dirName) {
+  const results = [];
+  const stack = [dirName];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const list = await api('list', { path: fullPath(current) });
+    if (!list?.files) continue;
+    for (const f of list.files) {
+      const rel = current === dirName ? f.name : current + '/' + f.name;
+      if (f.type === 'dir') {
+        stack.push(current + '/' + f.name);
+      } else {
+        results.push({ path: current + '/' + f.name, entry: f });
+      }
+    }
+  }
+  return results;
 }
 
 function fullPath(name) {
