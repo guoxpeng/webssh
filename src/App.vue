@@ -8,6 +8,7 @@
     <WorkbenchLayout />
   </template>
   <div v-if="showInstall" class="pwa-install-banner">
+    <img src="/icon-192.png" alt="" class="pwa-install-icon" />
     <span class="pwa-install-text">{{ t('pwa.installPrompt') }}</span>
     <button class="pwa-install-btn" @click="promptInstall">{{ t('pwa.install') }}</button>
     <button class="pwa-dismiss-btn" @click="dismissInstall">&times;</button>
@@ -86,6 +87,7 @@ onMounted(() => {
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+.pwa-install-icon { width: 28px; height: 28px; border-radius: 6px; }
 .pwa-install-text { font-size: 0.8em; color: var(--bulma-text); }
 .pwa-install-btn {
   background: var(--bulma-primary); color: white; border: none;
@@ -97,7 +99,7 @@ onMounted(() => {
 }
 .insecure-warning {
   text-align: center; padding: 0.4rem; font-size: 0.78em;
-  background: hsl(40,90%,50%); color: #1a1a1a; font-weight: 500;
+  background: var(--bulma-warning); color: var(--bulma-warning-invert); font-weight: 500;
   position: sticky; top: 3.25rem; z-index: 50;
   display: flex; align-items: center; justify-content: center; gap: 0.5rem;
 }

@@ -97,6 +97,8 @@ export default {
     noSessions: '没有活动的会话',
     noSessionsHint: '请从服务器页面选择一个服务器来启动终端会话',
     goToServers: '前往服务器页面',
+    connect: '连接',
+    recentConnections: '最近连接',
     recentCommands: '最近使用的命令',
     clear: '清除',
     fit: '自适应',

@@ -303,7 +303,7 @@ defineExpose({ populateFromRecording, isRecording });
 .macro-panel {
   background: var(--bulma-box-background-color);
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 500px;
+  border-radius: 12px; overflow: hidden; width: 500px; max-width: 95vw;
 }
 .panel-header {
   display: flex; align-items: center; padding: 0.65rem 0.75rem;
@@ -395,7 +395,7 @@ defineExpose({ populateFromRecording, isRecording });
   background: none; border: none; padding: 0.3rem; border-radius: 6px; cursor: pointer;
   color: var(--bulma-text-light); display: flex;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-  &.is-fav.is-active { color: #f59e0b; }
+  &.is-fav.is-active { color: var(--bulma-warning); }
   &.is-danger:hover { color: var(--bulma-danger); }
   &.is-active { color: var(--bulma-primary); }
 }

@@ -8,7 +8,7 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
+      includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'icon.svg'],
       manifest: {
         name: 'WebSSH - Web-based SSH/RDP/VNC/Telnet Client',
         short_name: 'WebSSH',
@@ -28,7 +28,9 @@ export default defineConfig({
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-        screenshots: [],
+        screenshots: [
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', form_factor: 'narrow', label: 'WebSSH Terminal' },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],

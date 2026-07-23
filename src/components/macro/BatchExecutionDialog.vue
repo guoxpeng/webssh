@@ -196,7 +196,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .batch-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
-.batch-dialog { background: var(--bulma-box-background-color); border: 1px solid var(--bulma-border-light); border-radius: 14px; width: 520px; max-height: 88vh; display: flex; flex-direction: column; }
+.batch-dialog { background: var(--bulma-box-background-color); border: 1px solid var(--bulma-border-light); border-radius: 14px; width: 520px; max-width: 95vw; max-height: 88vh; display: flex; flex-direction: column; }
 .batch-header { display: flex; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--bulma-border-light); }
 .batch-header h3 { margin: 0; font-size: 0.95em; display: flex; align-items: center; gap: 0.4rem; flex: 1; }
 .close-btn { background: none; border: none; cursor: pointer; color: var(--bulma-text-light); padding: 0.3rem; border-radius: 6px; &:hover { background: var(--bulma-scheme-main-ter); } }
@@ -214,12 +214,12 @@ onBeforeUnmount(() => {
 .snippet-cmd { font-family: monospace; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conn-empty { padding: 1rem; text-align: center; color: var(--bulma-text-light); font-size: 0.8em; }
 
-.batch-errors { padding: 0.5rem 1rem; border-top: 1px solid var(--bulma-border-light); max-height: 100px; overflow-y: auto; background: hsl(0,30%,96%); }
-.errors-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.7em; font-weight: 500; color: hsl(0,60%,40%); margin-bottom: 0.2rem; }
+.batch-errors { padding: 0.5rem 1rem; border-top: 1px solid var(--bulma-border-light); max-height: 100px; overflow-y: auto; background: color-mix(in srgb, var(--bulma-danger) 10%, transparent); }
+.errors-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.7em; font-weight: 500; color: var(--bulma-danger); margin-bottom: 0.2rem; }
 .errors-clear { background: none; border: none; color: var(--bulma-text-light); cursor: pointer; font-size: 0.9em; }
 .error-line { font-size: 0.7em; color: var(--bulma-danger); font-family: monospace; padding: 1px 0; }
 
-.confirm-banner { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.8em; margin: 0 1rem; border-radius: 8px; background: hsl(155,30%,95%); color: hsl(155,60%,30%); }
+.confirm-banner { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.8em; margin: 0 1rem; border-radius: 8px; background: color-mix(in srgb, var(--bulma-success) 12%, transparent); color: var(--bulma-success); }
 .unconfirm-btn { background: none; border: none; margin-left: auto; font-size: 0.85em; cursor: pointer; color: var(--bulma-primary); text-decoration: underline; }
 
 .batch-footer { display: flex; gap: 0.5rem; padding: 0.75rem 1rem; border-top: 1px solid var(--bulma-border-light); }

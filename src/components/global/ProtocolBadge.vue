@@ -35,10 +35,10 @@ const protocolLabel = computed(() => t('protocol.' + props.protocol, props.proto
   text-transform: uppercase;
   white-space: nowrap;
 
-  &.is-ssh { background: hsl(155, 30%, 92%); color: hsl(155, 55%, 30%); }
-  &.is-rdp { background: hsl(210, 30%, 92%); color: hsl(210, 55%, 30%); }
-  &.is-vnc { background: hsl(270, 30%, 92%); color: hsl(270, 55%, 40%); }
-  &.is-telnet { background: hsl(40, 30%, 92%); color: hsl(40, 55%, 30%); }
-  &.is-serial { background: hsl(190, 30%, 92%); color: hsl(190, 55%, 30%); }
+  &.is-ssh { background: color-mix(in srgb, var(--bulma-success) 18%, transparent); color: var(--bulma-success); }
+  &.is-rdp { background: color-mix(in srgb, var(--bulma-info) 18%, transparent); color: var(--bulma-info); }
+  &.is-vnc { background: color-mix(in srgb, var(--bulma-primary) 18%, transparent); color: var(--bulma-primary); }
+  &.is-telnet { background: color-mix(in srgb, var(--bulma-warning) 18%, transparent); color: var(--bulma-warning); }
+  &.is-serial { background: color-mix(in srgb, var(--bulma-info) 18%, transparent); color: var(--bulma-info); }
 }
 </style>

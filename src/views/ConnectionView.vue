@@ -347,7 +347,6 @@ function handleFormConnect(nodeConfig) {
   formInitialData.value = null;
   const saved = connectionStore.addConnection(nodeConfig);
   connectionStore.setCurrentNodeDetails({ ...nodeConfig, id: saved.id });
-  showInfo(t('form.connecting', { name: saved.name }));
   if (nodeConfig.rememberForSession && nodeConfig.auth_value && saved.id) {
     connectionStore.saveCredentialToSessionStorage(saved.id, nodeConfig.auth_type, nodeConfig.auth_value);
   }
@@ -368,7 +367,6 @@ async function quickConnect(conn) {
   const remembered = await connectionStore.getCredentialFromSessionStorage(conn.id);
   if (remembered?.auth_value) {
     const full = { ...conn, auth_type: remembered.auth_type, auth_value: remembered.auth_value, rememberForSession: true };
-    showSuccess(t('form.connecting', { name: conn.name }));
     const saved = connectionStore.addConnection(full);
     connectionStore.setCurrentNodeDetails({ ...full, id: saved.id });
     connectionStore.pendingConnections.push({ ...full, id: saved.id });
@@ -550,7 +548,7 @@ function onDrop(e, conn, targetGroup) {
 .saved-item-desc { display: block; font-size: 0.65em; color: var(--bulma-text-light); overflow: hidden; text-overflow: ellipsis; }
 .saved-item-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s; flex-shrink: 0; .saved-item:hover & { opacity: 1; } .pinned-item & { opacity: 1; } }
 
-.icon-btn { background: none; border: none; padding: 0.25rem; border-radius: 6px; cursor: pointer; color: var(--bulma-text-light); display: flex; transition: all 0.1s; &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); } &.is-primary:hover { color: var(--bulma-primary); } &.is-danger:hover { color: var(--bulma-danger); } &.is-pinned { color: #f59e0b; } }
+.icon-btn { background: none; border: none; padding: 0.25rem; border-radius: 6px; cursor: pointer; color: var(--bulma-text-light); display: flex; transition: all 0.1s; &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); } &.is-primary:hover { color: var(--bulma-primary); } &.is-danger:hover { color: var(--bulma-danger); } &.is-pinned { color: var(--bulma-warning); } }
 
 .drop-zone { height: 3px; margin: 0 0.75rem; border-radius: 2px; background: var(--bulma-primary); }
 

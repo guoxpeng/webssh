@@ -76,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
@@ -86,6 +86,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import SshWebSocketService from '@/services/sshWebSocketService';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste } from 'lucide-vue-next';
@@ -94,6 +95,7 @@ const { t } = useI18n();
 const terminalStore = useTerminalStore();
 const connectionStore = useConnectionStore();
 const snippetStore = useSnippetStore();
+const uiStore = useUiStore();
 
 const props = defineProps({
   nodeConfig: { type: Object, required: true },
@@ -161,7 +163,7 @@ function onSnippetDrop(idx) {
   snippetDragOverIdx.value = null;
 }
 
-const fixedTerminalTheme = {
+const darkTerminalTheme = {
   background: '#0a0a0a',
   foreground: '#FFFFFF',
   cursor: '#FFFFFF',
@@ -174,8 +176,24 @@ const fixedTerminalTheme = {
   brightCyan: '#34e2e2', brightWhite: '#eeeeec'
 };
 
+const lightTerminalTheme = {
+  background: '#ffffff',
+  foreground: '#333333',
+  cursor: '#333333',
+  cursorAccent: '#ffffff',
+  selectionBackground: '#d6d6d6',
+  black: '#2e3436', red: '#cc0000', green: '#4e9a06', yellow: '#c4a000',
+  blue: '#3465a4', magenta: '#75507b', cyan: '#06989a', white: '#d3d7cf',
+  brightBlack: '#555753', brightRed: '#ef2929', brightGreen: '#8ae234',
+  brightYellow: '#fce94f', brightBlue: '#729fcf', brightMagenta: '#ad7fa8',
+  brightCyan: '#34e2e2', brightWhite: '#eeeeec'
+};
+
+function defaultTerminalTheme() {
+  return uiStore.currentTheme === 'dark' ? darkTerminalTheme : lightTerminalTheme;
+}
+
 const terminalThemes = {
-  'default': fixedTerminalTheme,
   'solarized-dark': {
     background: '#002b36', foreground: '#839496', cursor: '#839496', cursorAccent: '#002b36',
     selectionBackground: '#073642', black: '#073642', red: '#dc322f', green: '#859900', yellow: '#b58900',
@@ -234,7 +252,7 @@ function getTerminalTheme(ts) {
       brightCyan: '#34e2e2', brightWhite: fg,
     };
   }
-  return terminalThemes[ts.themeId] || fixedTerminalTheme;
+  return terminalThemes[ts.themeId] || defaultTerminalTheme();
 }
 
 function adjustColor(hex, amount) {
@@ -280,37 +298,20 @@ const initializeTerminal = async () => {
     setTimeout(() => { try { fitAddon?.fit(); } catch {} }, 200);
   }
 
-  const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];
-  let reconnectAttempt = 0;
-  let reconnectTimer = null;
-  let reconnectScheduled = false;
-
-  const scheduleReconnect = () => {
-    if (destroyed || reconnectScheduled || reconnectAttempt >= RECONNECT_DELAYS.length) return;
-    reconnectScheduled = true;
-    const delay = RECONNECT_DELAYS[reconnectAttempt++];
-    reconnectTimer = setTimeout(() => {
-      reconnectScheduled = false;
-      if (!destroyed) wsService?.connect(props.nodeConfig, callbacks);
-    }, delay);
-  };
-
-  const clearReconnect = () => {
-    reconnectAttempt = 0;
-    reconnectScheduled = false;
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  };
+  let connected = false;
 
   const callbacks = {
     onOpen: () => {
-      if (destroyed) return;
-      clearReconnect();
+      if (destroyed || connected) return;
+      connected = true;
       emit('status-change', 'connected');
       const cfg = props.nodeConfig;
       if (cfg?.id && cfg?.auth_value) {
         connectionStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value);
       }
-      term?.writeln('\r\n\x1b[32m✅ Session initiated\x1b[0m');
+      term?.writeln('\r\n\x1b[32m┌─────────────────────────────────────┐\x1b[0m');
+      term?.writeln('\x1b[32m│      ✅  Connection established      │\x1b[0m');
+      term?.writeln('\x1b[32m└─────────────────────────────────────┘\x1b[0m');
       term?.focus();
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
     },
@@ -321,12 +322,11 @@ const initializeTerminal = async () => {
     },
     onClose: (event, manual) => {
       if (destroyed) return;
+      connected = false;
       emit('status-change', 'disconnected');
       terminalStore.setActiveSendFunction(null);
       if (event && event.wasClean && !manual && event.code === 1000) {
         emit('shell-exit');
-      } else if (wsService && !destroyed && !reconnectScheduled) {
-        scheduleReconnect();
       }
     },
     onError: (errorEventOrMessage) => {
@@ -336,13 +336,15 @@ const initializeTerminal = async () => {
       emit('status-change', 'error');
       emit('error-message', errorMessage);
       terminalStore.setActiveSendFunction(null);
-      term?.writeln(`\r\n\x1b[31m❌ ${errorMessage}\x1b[0m`);
-      if (!reconnectScheduled) scheduleReconnect();
+      term?.writeln(`\r\n\x1b[31m┌─────────────────────────────────────┐\x1b[0m`);
+      term?.writeln(`\x1b[31m│  ❌ ${errorMessage.padEnd(32)}\x1b[31m│\x1b[0m`);
+      term?.writeln(`\x1b[31m└─────────────────────────────────────┘\x1b[0m`);
     }
   };
 
   wsService = new SshWebSocketService();
   emit('status-change', 'connecting');
+  term?.writeln('\r\n\x1b[33m⏳ Connecting...\x1b[0m');
   wsService.connect(props.nodeConfig, callbacks);
 
   term.onData((data) => {
@@ -369,14 +371,19 @@ let resizeTimer = null;
 const handleResize = () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    if (fitAddon && term && xtermContainerRef.value && xtermContainerRef.value.offsetWidth > 0) {
-      try { fitAddon.fit(); } catch {}
-    }
+    if (!term || !xtermContainerRef.value || xtermContainerRef.value.offsetWidth <= 0) return;
+    try { fitAddon?.fit(); } catch {}
     const isMobile = window.matchMedia('(max-width: 768px)').matches;
-    if (isMobile && term && xtermContainerRef.value) {
+    if (isMobile) {
       const newSize = Math.max(11, Math.floor(xtermContainerRef.value.offsetWidth / 28));
       if (Math.abs(newSize - term.options.fontSize) > 1) {
         term.options.fontSize = newSize;
+        try { fitAddon?.fit(); } catch {}
+      }
+    } else {
+      const defaultSize = props.termSettings?.fontSize || 13;
+      if (term.options.fontSize !== defaultSize) {
+        term.options.fontSize = defaultSize;
         try { fitAddon?.fit(); } catch {}
       }
     }
@@ -441,6 +448,12 @@ const sendKey = (keyType) => {
   term.focus();
 };
 
+watch(() => uiStore.currentTheme, () => {
+  if (!term) return;
+  term.options.theme = defaultTerminalTheme();
+  term.refresh(0, term.rows - 1);
+});
+
 onMounted(initializeTerminal);
 
 onBeforeUnmount(() => {
@@ -458,7 +471,7 @@ onBeforeUnmount(() => {
 }
 .xterm-container-parent {
   flex: 1 1 0; min-height: 0; width: 100%; box-sizing: border-box;
-  background-color: #0a0a0a;
+  background-color: var(--term-bg);
   :deep(.terminal), :deep(.xterm-viewport), :deep(.xterm-screen) { width: 100%; height: 100%; }
   :deep(.xterm-viewport) { overflow-y: auto !important; scrollbar-width: thin; }
   :deep(.xterm-rows) { will-change: transform; }

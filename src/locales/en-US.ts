@@ -97,6 +97,8 @@ export default {
     noSessions: 'No Active Sessions',
     noSessionsHint: 'Select a server from the Servers page to start a terminal session',
     goToServers: 'Go to Servers',
+    connect: 'Connect',
+    recentConnections: 'Recent Connections',
     recentCommands: 'Recent Commands',
     clear: 'Clear',
     fit: 'Fit',

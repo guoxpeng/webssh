@@ -7,24 +7,15 @@
           {{ t('terminal.sessions', { count: paneCount }) }}
         </span>
       </div>
-      <div class="toolbar-right" v-if="paneCount > 0">
-        <button v-if="isRecording" class="toolbar-btn recording-indicator" @click="toggleRecording">
+      <div class="toolbar-right">
+        <button v-if="isRecording && paneCount > 0" class="toolbar-btn recording-indicator" @click="toggleRecording">
           <Circle :size="14" class="record-dot"/>
           <span>{{ formatElapsed(recordingElapsed) }}</span>
           <Square :size="12"/>
         </button>
-        <button v-else class="toolbar-btn" @click="toggleRecording" :title="t('macro.record')">
+        <button v-else-if="paneCount > 0" class="toolbar-btn" @click="toggleRecording" :title="t('macro.record')">
           <Circle :size="14"/>
         </button>
-        <div class="settings-wrap" @click.stop>
-          <button class="toolbar-btn" @click="showTermSettings = !showTermSettings" :title="t('terminal.terminalSettings')">
-            <Settings2 :size="14"/>
-          </button>
-          <TerminalSettingsPanel v-if="showTermSettings"
-            :font-size="termFontSize" :cursor-style="termCursorStyle" :cursor-blink="termCursorBlink"
-            :theme-id="termThemeId" :bg-color="termBgColor" :fg-color="termFgColor"
-            @update="onTermSettingsUpdate"/>
-        </div>
         <div class="dropdown-wrap" @click.stop>
           <button class="toolbar-btn" :class="{ 'is-active': showSftpPanel }" @click="showSftpPanel = !showSftpPanel" :title="t('sftp.fileManager')">
             <FolderOpen :size="14"/>
@@ -42,13 +33,37 @@
         <div v-if="showSftpPanel" class="sftp-divider" @mousedown="startDrag">
           <GripVertical :size="12"/>
         </div>
-        <div v-if="showSftpPanel && sftpPanelConfig" class="sftp-panel" :style="{ width: sftpWidth + 'px' }">
+        <div v-if="showSftpPanel" class="sftp-panel" :style="{ width: sftpWidth + 'px' }">
           <div class="sftp-panel-header">
             <FolderOpen :size="14"/>
-            <span>{{ sftpPanelConfig.host }}</span>
+            <span>{{ sftpPanelConfig ? sftpPanelConfig.host : t('sftp.noConnection') }}</span>
             <button class="sftp-panel-close" @click="showSftpPanel = false">&times;</button>
           </div>
-          <SftpBrowser :key="sftpPanelKey" :node-config="sftpPanelConfig" @close="showSftpPanel = false"/>
+          <SftpBrowser v-if="sftpPanelConfig" :key="sftpPanelKey" :node-config="sftpPanelConfig" @close="showSftpPanel = false"/>
+          <div v-else class="sftp-panel-empty">
+            <div class="empty-header">
+              <FolderOpen :size="32" class="empty-icon"/>
+              <h3>{{ t('sftp.noConnection') }}</h3>
+            </div>
+            <div v-if="savedConns.length > 0" class="history-list">
+              <div class="history-title"><History :size="14"/><span>{{ t('terminal.recentConnections') }}</span></div>
+              <div v-for="conn in savedConns" :key="conn.id" class="history-item" @click="quickConnect(conn)">
+                <div class="history-icon" :class="`proto-${conn.protocol || 'ssh'}`">
+                  <Terminal :size="14"/>
+                </div>
+                <div class="history-info">
+                  <span class="history-name">{{ conn.name || conn.host }}</span>
+                  <span class="history-meta">{{ conn.username }}@{{ conn.host }}:{{ conn.port }}</span>
+                </div>
+                <button class="history-go" :title="t('terminal.connect')">
+                  <ChevronDown :size="14" class="go-arrow"/>
+                </button>
+              </div>
+            </div>
+            <router-link to="/" class="btn btn-primary" v-if="savedConns.length === 0">
+              <Server :size="16"/> {{ t('sftp.selectConnection') }}
+            </router-link>
+          </div>
         </div>
       </div>
       <div v-if="connecting && paneCount === 0" class="connecting-overlay">
@@ -60,11 +75,27 @@
         <p class="connecting-text">{{ t('status.connecting') }}</p>
       </div>
       <div v-if="paneCount === 0 && !connecting" class="terminal-empty">
-        <Terminal :size="48" class="empty-icon"/>
-        <h3>{{ t('terminal.noSessions') }}</h3>
-        <p>{{ t('terminal.noSessionsHint') }}</p>
-        <router-link to="/" class="btn btn-primary">
-          <Server :size="16"/> {{ t('terminal.goToServers') }}
+        <div class="empty-header">
+          <Terminal :size="32" class="empty-icon"/>
+          <h3>{{ t('sftp.noConnection') }}</h3>
+        </div>
+        <div v-if="savedConns.length > 0" class="history-list">
+          <div class="history-title"><History :size="14"/><span>{{ t('terminal.recentConnections') }}</span></div>
+          <div v-for="conn in savedConns" :key="conn.id" class="history-item" @click="quickConnect(conn)">
+            <div class="history-icon" :class="`proto-${conn.protocol || 'ssh'}`">
+              <Terminal :size="14"/>
+            </div>
+            <div class="history-info">
+              <span class="history-name">{{ conn.name || conn.host }}</span>
+              <span class="history-meta">{{ conn.username }}@{{ conn.host }}:{{ conn.port }}</span>
+            </div>
+            <button class="history-go" :title="t('terminal.connect')">
+              <ChevronDown :size="14" class="go-arrow"/>
+            </button>
+          </div>
+        </div>
+        <router-link to="/" class="btn btn-primary" v-if="savedConns.length === 0">
+          <Server :size="16"/> {{ t('sftp.selectConnection') }}
         </router-link>
       </div>
     </div>
@@ -87,12 +118,11 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
 import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
-import TerminalSettingsPanel from '@/components/terminal/TerminalSettingsPanel.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useMacroStore } from '@/stores/macroStore';
-import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square, Settings2, GripVertical } from 'lucide-vue-next';
+import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square, GripVertical, History } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const connectionStore = useConnectionStore();
@@ -102,7 +132,6 @@ const router = useRouter();
 
 const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
-const showTermSettings = ref(false);
 const showSftpPanel = ref(false);
 const sftpPanelKey = ref(0);
 const sftpWidth = ref(360);
@@ -116,6 +145,21 @@ const recordingSteps = ref([]);
 const recordingStartTime = ref(0);
 const recordingElapsed = ref(0);
 let recordingTimer = null;
+
+const savedConns = computed(() => connectionStore.savedConnections.slice(0, 8));
+
+async function quickConnect(conn) {
+  const remembered = await connectionStore.getCredentialFromSessionStorage(conn.id);
+  if (remembered?.auth_value) {
+    const full = { ...conn, auth_type: remembered.auth_type, auth_value: remembered.auth_value, rememberForSession: true };
+    const saved = connectionStore.addConnection(full);
+    connectionStore.setCurrentNodeDetails({ ...full, id: saved.id });
+    connectionStore.pendingConnections.push({ ...full, id: saved.id });
+    if (connectionStore.pendingConnections.length > 0) processPendingConnections();
+  } else {
+    router.push({ name: 'ConnectionHome', query: { edit: conn.id } });
+  }
+}
 
 function toggleRecording() {
   if (isRecording.value) {
@@ -227,23 +271,7 @@ function onDisconnectConfirmed() {
   router.push({ name: 'ConnectionHome' });
 }
 
-const termFontSize = ref(13);
-const termCursorStyle = ref('block');
-const termCursorBlink = ref(true);
-const termThemeId = ref('default');
-const termBgColor = ref('#000000');
-const termFgColor = ref('#FFFFFF');
-function onTermSettingsUpdate(opts) {
-  termFontSize.value = opts.fontSize;
-  termCursorStyle.value = opts.cursorStyle;
-  termCursorBlink.value = opts.cursorBlink;
-  termThemeId.value = opts.themeId || 'default';
-  termBgColor.value = opts.bgColor || '#000000';
-  termFgColor.value = opts.fgColor || '#FFFFFF';
-  splitPaneRef.value?.updateTerminalSettings?.(opts);
-}
 
-function onDocClick() { showTermSettings.value = false; }
 
 function startDrag(e) {
   e.preventDefault();
@@ -270,24 +298,8 @@ function startDrag(e) {
   document.addEventListener('mouseup', onUp);
 }
 
-function restoreSavedLayout() {
-  const saved = terminalStore.restoreLayout();
-  if (saved.length === 0) return;
-  for (const item of saved) {
-    if (item.config) {
-      splitPaneRef.value?.addTerminalPane(item.config);
-    }
-  }
-  if (saved.length > 0) {
-    startProgress();
-    setTimeout(() => { if (connecting.value) completeProgress(); }, 2500);
-  }
-}
-
 onMounted(() => {
   processPendingConnections();
-  if (connectionStore.pendingConnections.length === 0) restoreSavedLayout();
-  document.addEventListener('click', onDocClick);
 });
 onActivated(() => {
   if (connectionStore.pendingConnections.length > 0) processPendingConnections();
@@ -295,10 +307,6 @@ onActivated(() => {
 
 onBeforeUnmount(() => {
   if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
-  if (splitPaneRef.value?.panes?.length > 0) {
-    terminalStore.saveLayout(splitPaneRef.value.panes);
-  }
-  document.removeEventListener('click', onDocClick);
   if (progressTimer) clearTimeout(progressTimer);
   terminalStore.clearAll();
 });
@@ -364,9 +372,13 @@ onBeforeUnmount(() => {
   &:hover { color: var(--bulma-danger); }
 }
 .sftp-panel :deep(.sftp-browser) { flex: 1; overflow: hidden; border-radius: 0; border: none; }
+.sftp-panel-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 1rem; padding: 2rem; overflow-y: auto;
+  & .history-list { width: 100%; max-width: 320px; }
+}
 
 .dropdown-wrap { display: flex; align-items: center; gap: 0.35rem; }
-.settings-wrap { position: relative; }
 
 .connecting-overlay {
   position: absolute; inset: 0; z-index: 20;
@@ -391,11 +403,54 @@ onBeforeUnmount(() => {
 .connecting-text { font-size: 0.85em; color: var(--bulma-text-light); margin: 0; }
 
 .terminal-empty {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; gap: 0.5rem;
-  .empty-icon { opacity: 0.2; margin-bottom: 0.5rem; }
-  h3 { font-size: 1.1em; font-weight: 600; margin: 0; }
-  p { font-size: 0.85em; color: var(--bulma-text-light); }
+  display: flex; flex-direction: column; align-items: center;
+  height: 100%; padding: 2rem; gap: 1.5rem; overflow-y: auto;
+}
+.empty-header {
+  display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+  .empty-icon { opacity: 0.15; }
+  h3 { font-size: 1.1em; font-weight: 600; margin: 0; color: var(--bulma-text); }
+  p { font-size: 0.85em; color: var(--bulma-text-light); margin: 0; }
+}
+.history-list {
+  width: 100%; max-width: 420px;
+}
+.history-title {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.75em; font-weight: 600; color: var(--bulma-text-light);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: 0.6rem; padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--bulma-border-light);
+}
+.history-item {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.55rem 0.65rem; border-radius: 8px;
+  cursor: pointer; transition: all 0.12s;
+  &:hover { background: var(--bulma-scheme-main-bis); }
+  &:active { transform: scale(0.98); }
+  & + .history-item { margin-top: 2px; }
+}
+.history-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--bulma-success) 18%, transparent);
+  color: var(--bulma-success);
+  &.proto-rdp { background: color-mix(in srgb, var(--bulma-info) 18%, transparent); color: var(--bulma-info); }
+  &.proto-vnc { background: color-mix(in srgb, var(--bulma-primary) 18%, transparent); color: var(--bulma-primary); }
+  &.proto-telnet { background: color-mix(in srgb, var(--bulma-warning) 18%, transparent); color: var(--bulma-warning); }
+}
+.history-info {
+  flex: 1; min-width: 0;
+  .history-name { display: block; font-size: 0.85em; font-weight: 500; color: var(--bulma-text); }
+  .history-meta { display: block; font-size: 0.7em; color: var(--bulma-text-light); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+.history-go {
+  background: none; border: none; padding: 0.25rem; border-radius: 6px;
+  cursor: pointer; color: var(--bulma-text-light); display: flex;
+  transition: all 0.12s; opacity: 0;
+  .history-item:hover & { opacity: 1; }
+  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-primary); }
+  .go-arrow { transform: rotate(-90deg); }
 }
 .btn-primary {
   display: inline-flex; align-items: center; gap: 0.35rem;

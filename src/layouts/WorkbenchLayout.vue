@@ -280,7 +280,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   to { opacity: 1; }
 }
 .snippet-overlay-backdrop {
-  position: absolute; inset: 0; background: rgba(0,0,0,0.3);
+  position: absolute; inset: 0; background: var(--app-overlay);
   animation: backdropIn 0.2s ease-out;
 }
 @keyframes backdropIn {
@@ -296,7 +296,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .snippet-overlay-backdrop {
-  position: absolute; inset: 0; background: rgba(0,0,0,0.3);
+  position: absolute; inset: 0; background: var(--app-overlay);
 }
 .snippet-overlay-panel {
   position: relative; z-index: 1; max-height: 80vh;
@@ -358,19 +358,19 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 
   /* Mobile dark mode refinements */
   :root.is-dark-mode .workbench-sidebar {
-    background: hsl(240, 14%, 9%);
-    border-right-color: hsl(240, 10%, 16%);
+    background: var(--app-surface);
+    border-right-color: var(--app-border);
   }
   :root.is-dark-mode .mobile-bottom-nav {
-    background: hsl(240, 14%, 9%);
-    border-top-color: hsl(240, 10%, 16%);
+    background: var(--app-surface);
+    border-top-color: var(--app-border);
   }
 }
 
 /* Quick Connect dialog */
 .quick-connect-dialog {
   background: var(--bulma-scheme-main); border-radius: 12px;
-  width: 400px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+  width: 400px; overflow: hidden; box-shadow: var(--app-shadow-lg);
 }
 .qc-title {
   display: flex; align-items: center; gap: 0.5rem;
@@ -382,7 +382,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   width: 100%; box-sizing: border-box; padding: 0.6rem 0.75rem;
   border: 1px solid var(--bulma-border); border-radius: 8px; font-size: 0.9em;
   background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none;
-  &:focus { border-color: var(--bulma-primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+  &:focus { border-color: var(--bulma-primary); box-shadow: 0 0 0 2px var(--bulma-primary); }
 }
 .qc-hint { font-size: 0.75em; color: var(--bulma-text-light); margin: 0.5rem 0 0; }
 .qc-actions {

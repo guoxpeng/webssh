@@ -1,0 +1,16 @@
+name = "webssh"
+main = "dist/worker/index.mjs"
+compatibility_date = "2025-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+assets = { directory = "dist/client", binding = "ASSETS" }
+
+# Uncomment and fill in your KV namespace IDs for session persistence:
+# [[kv_namespaces]]
+# binding = "WEBSSH_KV"
+# id = "your-kv-namespace-id"
+
+# Uncomment for R2 file storage:
+# [[r2_buckets]]
+# binding = "WEBSSH_FILES"
+# bucket_name = "webssh-files"

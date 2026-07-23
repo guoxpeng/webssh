@@ -164,6 +164,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', globalKeydown));
 
 .command-palette {
   width: 540px;
+  max-width: calc(100vw - 2rem);
   max-height: 420px;
   background: var(--bulma-scheme-main);
   border-radius: 12px;

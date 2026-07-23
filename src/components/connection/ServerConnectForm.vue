@@ -375,22 +375,22 @@ const onTestSubmit = () => submit('test');
 
 .key-info-badge {
   font-size: 0.65em; font-weight: 600; padding: 1px 6px; border-radius: 4px;
-  background: var(--bulma-border-light); color: var(--bulma-text-light);
-  &.is-openssh { background: hsl(155, 30%, 88%); color: hsl(155, 55%, 22%); }
-  &.is-rsa { background: hsl(210, 30%, 88%); color: hsl(210, 55%, 22%); }
-  &.is-ecdsa { background: hsl(270, 30%, 88%); color: hsl(270, 55%, 30%); }
-  &.is-dsa { background: hsl(40, 30%, 88%); color: hsl(40, 55%, 22%); }
-  &.is-putty { background: hsl(330, 30%, 88%); color: hsl(330, 55%, 25%); }
-  &.is-ssh2 { background: hsl(190, 30%, 88%); color: hsl(190, 55%, 22%); }
-  &.is-generic { background: hsl(0, 0%, 88%); color: hsl(0, 0%, 30%); }
+  background: color-mix(in srgb, var(--bulma-text) 10%, transparent);
+  color: var(--bulma-text-light);
+  &.is-openssh { background: color-mix(in srgb, var(--bulma-success) 18%, transparent); color: var(--bulma-success); }
+  &.is-rsa { background: color-mix(in srgb, var(--bulma-info) 18%, transparent); color: var(--bulma-info); }
+  &.is-ecdsa { background: color-mix(in srgb, var(--bulma-primary) 18%, transparent); color: var(--bulma-primary); }
+  &.is-dsa { background: color-mix(in srgb, var(--bulma-warning) 18%, transparent); color: var(--bulma-warning); }
+  &.is-putty { background: color-mix(in srgb, var(--bulma-danger) 18%, transparent); color: var(--bulma-danger); }
+  &.is-ssh2 { background: color-mix(in srgb, var(--bulma-info) 18%, transparent); color: var(--bulma-info); }
+  &.is-generic { background: color-mix(in srgb, var(--bulma-text) 10%, transparent); color: var(--bulma-text-light); }
 }
 :root.is-dark-mode .key-info-badge {
-  background: var(--app-surface-hover); color: var(--bulma-text-light);
-  &.is-openssh { background: hsla(155, 40%, 30%, 0.5); color: hsl(155, 60%, 70%); }
-  &.is-rsa { background: hsla(210, 40%, 30%, 0.5); color: hsl(210, 60%, 70%); }
-  &.is-ecdsa { background: hsla(270, 40%, 30%, 0.5); color: hsl(270, 60%, 75%); }
-  &.is-putty { background: hsla(330, 40%, 30%, 0.5); color: hsl(330, 60%, 70%); }
-  &.is-ssh2 { background: hsla(190, 40%, 30%, 0.5); color: hsl(190, 60%, 70%); }
+  &.is-openssh { background: color-mix(in srgb, var(--bulma-success) 22%, transparent); color: color-mix(in srgb, var(--bulma-success) 80%, white); }
+  &.is-rsa { background: color-mix(in srgb, var(--bulma-info) 22%, transparent); color: color-mix(in srgb, var(--bulma-info) 80%, white); }
+  &.is-ecdsa { background: color-mix(in srgb, var(--bulma-primary) 22%, transparent); color: color-mix(in srgb, var(--bulma-primary) 80%, white); }
+  &.is-putty { background: color-mix(in srgb, var(--bulma-danger) 22%, transparent); color: color-mix(in srgb, var(--bulma-danger) 80%, white); }
+  &.is-ssh2 { background: color-mix(in srgb, var(--bulma-info) 22%, transparent); color: color-mix(in srgb, var(--bulma-info) 80%, white); }
 }
 
 .key-info-detail {

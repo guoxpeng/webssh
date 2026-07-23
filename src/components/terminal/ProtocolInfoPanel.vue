@@ -225,10 +225,10 @@ function downloadRdp() {
 }
 .proto-badge {
   padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.8em; font-weight: 600;
-  &.proto-rdp { background: hsl(210, 60%, 90%); color: hsl(210, 60%, 35%); }
-  &.proto-vnc { background: hsl(280, 50%, 90%); color: hsl(280, 50%, 35%); }
-  &.proto-ssh { background: hsl(155, 40%, 90%); color: hsl(155, 50%, 30%); }
-  &.proto-telnet { background: hsl(40, 60%, 90%); color: hsl(40, 60%, 30%); }
+  &.proto-rdp { background: color-mix(in srgb, var(--bulma-info) 18%, transparent); color: var(--bulma-info); }
+  &.proto-vnc { background: color-mix(in srgb, var(--bulma-primary) 18%, transparent); color: var(--bulma-primary); }
+  &.proto-ssh { background: color-mix(in srgb, var(--bulma-success) 18%, transparent); color: var(--bulma-success); }
+  &.proto-telnet { background: color-mix(in srgb, var(--bulma-warning) 18%, transparent); color: var(--bulma-warning); }
 }
 .copy-btn {
   background: none; border: none; cursor: pointer; padding: 0.2rem;

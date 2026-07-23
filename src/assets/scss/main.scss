@@ -72,12 +72,16 @@ body::before {
 
 #app { position: relative; z-index: 1; }
 
+/* Smooth theme transitions — faster for instant theme-switch feedback */
+* { transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease; }
+.xterm, .xterm *, .xterm-rows, .xterm-rows *, .xterm-screen, .xterm-screen * { transition: none !important; }
+
 .navbar { backdrop-filter: blur(16px) !important; border-bottom: 1px solid rgba(255,255,255,0.3) !important; }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: hsl(225, 15%, 80%); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(225, 15%, 65%); }
+::-webkit-scrollbar-thumb { background: var(--bulma-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--bulma-text-light); opacity: 0.5; }
 
 .is-flex-grow-1 { flex-grow: 1 !important; }
 .animations-disabled * { animation-duration: 0s !important; transition-duration: 0s !important; }
@@ -88,23 +92,25 @@ body::before {
     radial-gradient(ellipse at 80% 20%, rgba(14,165,233,0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 80%, rgba(139,92,246,0.05) 0%, transparent 50%);
 }
-:root.is-dark-mode ::-webkit-scrollbar-thumb { background: hsl(240, 8%, 35%); }
-:root.is-dark-mode ::-webkit-scrollbar-thumb:hover { background: hsl(240, 8%, 50%); }
 
-/* App chrome / menu colors – adapt to dark mode */
+
+/* App chrome / menu colors – follow Bulma theme presets */
 :root {
   --app-surface: var(--bulma-scheme-main-bis);
   --app-surface-hover: var(--bulma-scheme-main-ter);
   --app-border: var(--bulma-border-light);
   --app-text: var(--bulma-text);
   --app-text-dim: var(--bulma-text-light);
+  --app-overlay: rgba(0,0,0,0.12);
+  --app-shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --app-shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --app-shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
 }
 :root.is-dark-mode {
-  --app-surface: hsl(240, 14%, 10%);
-  --app-surface-hover: hsl(240, 12%, 16%);
-  --app-border: hsl(240, 10%, 18%);
-  --app-text: var(--bulma-text);
-  --app-text-dim: hsl(225, 10%, 55%);
+  --app-overlay: rgba(0,0,0,0.45);
+  --app-shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+  --app-shadow-md: 0 4px 12px rgba(0,0,0,0.25);
+  --app-shadow-lg: 0 12px 40px rgba(0,0,0,0.3);
 }
 
 .lucide { display: inline-block; }
@@ -122,25 +128,42 @@ body::before {
 html, body {
   margin: 0; padding: 0;
   height: 100vh; height: 100dvh; overflow: hidden;
+  overscroll-behavior: none;
 }
 
-/* Terminal chrome (bars around the terminal) — always dark to match terminal */
+/* Terminal chrome — light in light mode, dark in dark mode */
 :root {
-  --term-bg: #1a1a1a;
-  --term-bg2: #222;
-  --term-border: #333;
-  --term-text: #ccc;
-  --term-text-dim: #666;
-  --term-hover: #3a3a3a;
+  --term-bg: #f5f5f5;
+  --term-bg2: #ffffff;
+  --term-border: #e0e0e0;
+  --term-text: #333333;
+  --term-text-dim: #999999;
+  --term-hover: #e8e8e8;
   --term-primary: var(--bulma-primary);
 }
-.is-dark-mode {
+:root.is-dark-mode {
   --term-bg: #111;
   --term-bg2: #1a1a1a;
   --term-border: #2a2a2a;
   --term-text: #ddd;
   --term-text-dim: #555;
   --term-hover: #2e2e2e;
+}
+
+/* File type icon colors — adapt to theme */
+:root {
+  --icon-folder: hsl(210, 55%, 45%);
+  --icon-text: hsl(155, 50%, 40%);
+  --icon-code: hsl(270, 50%, 45%);
+  --icon-image: hsl(330, 50%, 45%);
+  --icon-archive: hsl(40, 55%, 40%);
+}
+:root.is-dark-mode {
+  --icon-folder: hsl(210, 55%, 60%);
+  --icon-text: hsl(155, 50%, 55%);
+  --icon-code: hsl(270, 50%, 60%);
+  --icon-image: hsl(330, 50%, 60%);
+  --icon-archive: hsl(40, 55%, 55%);
 }
 
 /* Better touch targets on mobile */

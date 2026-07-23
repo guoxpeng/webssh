@@ -373,7 +373,7 @@ function updateCloudCfg() {
 .backup-panel {
   background: var(--bulma-box-background-color);
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 380px;
+  border-radius: 12px; overflow: hidden; width: 380px; max-width: 95vw;
   max-height: 90vh; overflow-y: auto;
 }
 

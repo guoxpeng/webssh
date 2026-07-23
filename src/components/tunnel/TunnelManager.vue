@@ -155,9 +155,9 @@ function deleteTunnel(id) {
   font-weight: 600;
   padding: 1px 5px;
   border-radius: 4px;
-  &.is-local { background: hsl(155, 30%, 92%); color: hsl(155, 55%, 30%); }
-  &.is-remote { background: hsl(40, 30%, 92%); color: hsl(40, 55%, 30%); }
-  &.is-dynamic { background: hsl(210, 30%, 92%); color: hsl(210, 55%, 30%); }
+  &.is-local { background: color-mix(in srgb, var(--bulma-success) 18%, transparent); color: var(--bulma-success); }
+  &.is-remote { background: color-mix(in srgb, var(--bulma-warning) 18%, transparent); color: var(--bulma-warning); }
+  &.is-dynamic { background: color-mix(in srgb, var(--bulma-info) 18%, transparent); color: var(--bulma-info); }
 }
 
 .tunnel-desc {

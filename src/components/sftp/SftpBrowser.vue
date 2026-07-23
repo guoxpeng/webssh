@@ -695,7 +695,7 @@ watch(() => props.nodeConfig, () => {
   transition: all 0.12s;
   &:hover:not(:disabled) { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
   &:disabled { opacity: 0.4; cursor: default; }
-  &.is-close:hover { background: hsl(0, 60%, 92%); color: hsl(0, 60%, 40%); }
+  &.is-close:hover { background: color-mix(in srgb, var(--bulma-danger) 15%, transparent); color: var(--bulma-danger); }
 }
 
 .sftp-path {
@@ -750,11 +750,11 @@ watch(() => props.nodeConfig, () => {
 }
 
 .item-icon { flex-shrink: 0; display: flex; align-items: center; }
-.icon-folder { color: hsl(210, 60%, 50%); }
-.icon-text { color: hsl(155, 50%, 45%); }
-.icon-code { color: hsl(270, 50%, 50%); }
-.icon-image { color: hsl(330, 50%, 50%); }
-.icon-archive { color: hsl(40, 60%, 45%); }
+.icon-folder { color: var(--icon-folder); }
+.icon-text { color: var(--icon-text); }
+.icon-code { color: var(--icon-code); }
+.icon-image { color: var(--icon-image); }
+.icon-archive { color: var(--icon-archive); }
 .icon-file { color: var(--bulma-text-light); }
 
 .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 0.9em; }
@@ -773,8 +773,8 @@ watch(() => props.nodeConfig, () => {
   background: transparent; color: var(--bulma-text-light); cursor: pointer;
   transition: all 0.1s;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-  &.is-danger:hover { background: hsl(0, 60%, 92%); color: hsl(0, 60%, 40%); }
-  &.is-edit:hover { background: hsl(155, 40%, 92%); color: hsl(155, 55%, 35%); }
+  &.is-danger:hover { background: color-mix(in srgb, var(--bulma-danger) 15%, transparent); color: var(--bulma-danger); }
+  &.is-edit:hover { background: color-mix(in srgb, var(--bulma-success) 15%, transparent); color: var(--bulma-success); }
 }
 
 .sftp-context-menu {
@@ -861,9 +861,9 @@ watch(() => props.nodeConfig, () => {
   position: absolute; top: 2.5rem; right: 0.5rem; z-index: 400;
   padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8em;
   animation: fadeIn 0.2s ease;
-  &.is-success { background: hsl(155, 40%, 92%); color: hsl(155, 55%, 30%); }
-  &.is-error { background: hsl(0, 40%, 92%); color: hsl(0, 55%, 40%); }
-  &.is-info { background: hsl(210, 40%, 92%); color: hsl(210, 55%, 35%); }
+  &.is-success { background: color-mix(in srgb, var(--bulma-success) 15%, transparent); color: var(--bulma-success); }
+  &.is-error { background: color-mix(in srgb, var(--bulma-danger) 15%, transparent); color: var(--bulma-danger); }
+  &.is-info { background: color-mix(in srgb, var(--bulma-info) 15%, transparent); color: var(--bulma-info); }
 }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }

@@ -186,7 +186,7 @@ function onImportFile(e) {
 .snippet-panel {
   background: var(--bulma-box-background-color);
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 460px;
+  border-radius: 12px; overflow: hidden; width: 460px; max-width: 95vw;
 }
 .panel-header { display: flex; align-items: center; padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--bulma-border-light); }
 .panel-title { font-size: 0.85em; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.35rem; flex: 1; }
@@ -218,7 +218,7 @@ function onImportFile(e) {
 .snippet-title { display: block; font-size: 0.85em; font-weight: 500; }
 .snippet-cmd-preview { display: block; font-size: 0.7em; color: var(--bulma-text-light); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 .snippet-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; .snippet-item:hover & { opacity: 1; } }
-.snip-btn { background: none; border: none; padding: 0.3rem; border-radius: 6px; cursor: pointer; color: var(--bulma-text-light); display: flex; &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); } &.is-fav.is-active { color: #f59e0b; } &.is-danger:hover { color: var(--bulma-danger); } }
+.snip-btn { background: none; border: none; padding: 0.3rem; border-radius: 6px; cursor: pointer; color: var(--bulma-text-light); display: flex; &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); } &.is-fav.is-active { color: var(--bulma-warning); } &.is-danger:hover { color: var(--bulma-danger); } }
 .snippet-detail { margin-top: 0.35rem; }
 .snippet-command { background: var(--bulma-scheme-main-ter); border-radius: 6px; padding: 0.5rem 0.65rem; font-size: 0.75em; overflow-x: auto; margin: 0; code { color: var(--bulma-text); } }
 .snippet-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }

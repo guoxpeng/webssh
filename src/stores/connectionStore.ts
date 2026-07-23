@@ -55,7 +55,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const connectionStatus = ref<ConnectionStatusType>(ConnectionStatus.DISCONNECTED);
   const sshTestResult = ref<TestResult | null>(null);
   const sshTestLoading = ref<boolean>(false);
-  const savedConnections = ref<NodeConfig[]>(JSON.parse(sessionStorage.getItem(SESSION_STORAGE_CONNECTIONS_KEY) || '[]'));
+  const savedConnections = ref<NodeConfig[]>(JSON.parse(localStorage.getItem(SESSION_STORAGE_CONNECTIONS_KEY) || '[]'));
   const sessionRememberedCredentials = ref<Record<string, Credential>>({});
   const wsService = new SshWebSocketService();
   const pendingConnections = ref<NodeConfig[]>([]);
@@ -216,7 +216,7 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   function _saveConnectionsToSessionStorage() {
-    sessionStorage.setItem(SESSION_STORAGE_CONNECTIONS_KEY, JSON.stringify(savedConnections.value));
+    localStorage.setItem(SESSION_STORAGE_CONNECTIONS_KEY, JSON.stringify(savedConnections.value));
   }
 
   function addConnection(nodeConfigPassed) {

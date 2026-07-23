@@ -10,9 +10,13 @@ const THEME_PRESETS: Record<string, ThemePreset> = {
   light: {
     label: 'Light',
     colors: {
+      '--bulma-scheme-h': '221',
+      '--bulma-scheme-s': '14%',
+      '--bulma-scheme-main-l': '100%',
       '--bulma-body-background-color': '#f5f6fa',
+      '--bulma-scheme-main': '#ffffff',
       '--bulma-text': 'hsl(235, 15%, 23%)',
-      '--bulma-text-light': 'hsl(235, 10%, 50%)',
+      '--bulma-text-light': 'hsl(235, 12%, 40%)',
       '--bulma-text-strong': 'hsl(235, 20%, 15%)',
       '--bulma-background': '#f8f9fc',
       '--bulma-border': 'hsl(225, 15%, 86%)',
@@ -28,7 +32,11 @@ const THEME_PRESETS: Record<string, ThemePreset> = {
   dark: {
     label: 'Dark',
     colors: {
+      '--bulma-scheme-h': '240',
+      '--bulma-scheme-s': '12%',
+      '--bulma-scheme-main-l': '14%',
       '--bulma-body-background-color': 'hsl(240, 15%, 8%)',
+      '--bulma-scheme-main': 'hsl(240, 12%, 14%)',
       '--bulma-text': 'hsl(225, 15%, 88%)',
       '--bulma-text-light': 'hsl(225, 10%, 62%)',
       '--bulma-text-strong': 'hsl(225, 15%, 95%)',
@@ -46,11 +54,21 @@ const THEME_PRESETS: Record<string, ThemePreset> = {
   dracula: {
     label: 'Dracula',
     colors: {
-      '--bulma-body-background-color': '#282a36',
+      '--bulma-scheme-h': '231',
+      '--bulma-scheme-s': '15%',
+      '--bulma-scheme-main-l': '18%',
+      '--bulma-body-background-color': '#1a1b26',
+      '--bulma-scheme-main': '#282a36',
       '--bulma-text': '#f8f8f2',
       '--bulma-text-light': '#6272a4',
       '--bulma-text-strong': '#ffffff',
-      '--bulma-background': '#282a36',
+      '--bulma-background': '#1a1b26',
+      '--bulma-primary': '#bd93f9',
+      '--bulma-link': '#8be9fd',
+      '--bulma-success': '#50fa7b',
+      '--bulma-warning': '#ffb86c',
+      '--bulma-danger': '#ff5555',
+      '--bulma-info': '#8be9fd',
       '--bulma-border': '#44475a',
       '--bulma-border-light': '#383a4a',
       '--bulma-scheme-main-bis': '#21222c',
@@ -64,11 +82,21 @@ const THEME_PRESETS: Record<string, ThemePreset> = {
   nord: {
     label: 'Nord',
     colors: {
-      '--bulma-body-background-color': '#2e3440',
+      '--bulma-scheme-h': '220',
+      '--bulma-scheme-s': '16%',
+      '--bulma-scheme-main-l': '23%',
+      '--bulma-body-background-color': '#242933',
+      '--bulma-scheme-main': '#2e3440',
       '--bulma-text': '#d8dee9',
       '--bulma-text-light': '#81a1c1',
       '--bulma-text-strong': '#eceff4',
-      '--bulma-background': '#2e3440',
+      '--bulma-background': '#242933',
+      '--bulma-primary': '#88c0d0',
+      '--bulma-link': '#81a1c1',
+      '--bulma-success': '#a3be8c',
+      '--bulma-warning': '#ebcb8b',
+      '--bulma-danger': '#bf616a',
+      '--bulma-info': '#88c0d0',
       '--bulma-border': '#434c5e',
       '--bulma-border-light': '#3b4252',
       '--bulma-scheme-main-bis': '#3b4252',
@@ -87,6 +115,7 @@ export function applyThemePreset(presetId: string): void {
   const root = document.documentElement;
   const isDark = presetId === 'dark' || presetId === 'dracula' || presetId === 'nord';
   root.classList.toggle('is-dark-mode', isDark);
+  root.style.setProperty('color-scheme', isDark ? 'dark' : 'light');
 
   for (const [key, value] of Object.entries(preset.colors)) {
     root.style.setProperty(key, value);

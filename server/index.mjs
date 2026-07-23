@@ -15,6 +15,15 @@ try {
   SerialPort = mod.SerialPort;
 } catch {} // Optional serialport support
 
+// Fast SSH algorithms: order matters, fastest first
+const SSH_ALGORITHMS = {
+  kex: ['curve25519-sha256', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256'],
+  cipher: ['chacha20-poly1305@openssh.com', 'aes256-gcm@openssh.com', 'aes128-gcm@openssh.com', 'aes256-ctr', 'aes128-ctr'],
+  serverHostKey: ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-rsa'],
+  hmac: ['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
+  compress: ['none'],
+};
+
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 const DIST_DIR = join(__dirname, '..', 'dist');
 const MIME = { '.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.json':'application/json' };
@@ -37,6 +46,27 @@ function findSession(host, port, username) {
   return null;
 }
 
+function makeSSHConfig(body) {
+  const cfg = {
+    host: body.host,
+    port: body.port || 22,
+    username: body.username || 'root',
+    readyTimeout: 5000,
+    algorithms: SSH_ALGORITHMS,
+  };
+  if (body.auth_value) {
+    if (body.auth_type === 'key') cfg.privateKey = body.auth_value;
+    else cfg.password = body.auth_value;
+  }
+  return cfg;
+}
+
+function setupSSHClient(client, password) {
+  client.on('keyboard-interactive', (_name, _instructions, _lang, prompts, finish) => {
+    finish(prompts.map(() => password || ''));
+  });
+}
+
 // Prevent process crash on unhandled errors
 process.on('uncaughtException', (err) => {
   console.error('❗ Uncaught Exception:', err.message);
@@ -49,11 +79,12 @@ process.on('unhandledRejection', (reason) => {
 async function withSftp(body, fn) {
   if (!body?.host) throw new Error('Host is required');
   const conn = new Client();
+  setupSSHClient(conn, body.auth_value);
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       try { conn.end(); } catch {}
       reject(new Error('SFTP connection timeout'));
-    }, 15000);
+    }, 10000);
     conn.on('ready', () => {
       clearTimeout(timeout);
       conn.sftp((err, sftp) => {
@@ -63,12 +94,7 @@ async function withSftp(body, fn) {
     });
     conn.on('error', (err) => { clearTimeout(timeout); reject(err); });
     conn.on('close', () => { clearTimeout(timeout); });
-    const cfg = {
-      host: body.host, port: body.port || 22, username: body.username || 'root',
-      readyTimeout: 20000, keepaliveInterval: 10000,
-    };
-    if (body.auth_type === 'key') cfg.privateKey = body.auth_value;
-    else cfg.password = body.auth_value;
+    const cfg = makeSSHConfig(body);
     try { conn.connect(cfg); } catch (e) { clearTimeout(timeout); reject(e); }
   });
 }
@@ -78,24 +104,29 @@ async function withSessionSftp(body, fn) {
   let ownsClient = false;
   if (!conn) {
     conn = new Client();
+    setupSSHClient(conn, body.auth_value);
     ownsClient = true;
   }
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { reject(new Error('SFTP timeout')); }, 15000);
-    const done = () => { clearTimeout(timeout); if (ownsClient) { try { conn.end(); } catch {} } };
+    const timeout = setTimeout(() => { if (ownsClient) try { conn.end(); } catch {} reject(new Error('SFTP timeout')); }, 10000);
+    const done = () => { clearTimeout(timeout); };
     const onReady = () => {
       conn.sftp((err, sftp) => {
-        if (err) { done(); reject(err); return; }
-        fn(sftp, conn).then(r => { done(); resolve(r); }).catch(e => { done(); reject(e); });
+        if (err) { done(); if (ownsClient) try { conn.end(); } catch {} reject(err); return; }
+        fn(sftp, conn).then(r => { done(); resolve(r); }).catch(e => { done(); if (ownsClient) try { conn.end(); } catch {} reject(e); });
       });
     };
     if (ownsClient) {
-      const cfg = { host: body.host, port: body.port || 22, username: body.username || 'root', readyTimeout: 20000 };
-      if (body.auth_type === 'key') cfg.privateKey = body.auth_value;
-      else cfg.password = body.auth_value;
-      conn.on('ready', onReady);
-      conn.on('error', e => { done(); reject(e); });
-      try { conn.connect(cfg); } catch (e) { done(); reject(e); }
+      const cfg = makeSSHConfig(body);
+      const sessKey = `${body.host}_${body.port || 22}_${body.username || 'root'}`;
+      conn.on('ready', () => {
+        sessions.set(sessKey, { client: conn, host: body.host, port: body.port || 22, username: body.username || 'root', createdAt: Date.now() });
+        conn.on('close', () => sessions.delete(sessKey));
+        ownsClient = false;
+        onReady();
+      });
+      conn.on('error', e => { done(); try { conn.end(); } catch {} reject(e); });
+      try { conn.connect(cfg); } catch (e) { done(); try { conn.end(); } catch {} reject(e); }
     } else {
       onReady();
     }
@@ -141,6 +172,11 @@ const server = createServer(async (req, res) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
   if (!checkRate(ip)) { res.writeHead(429); res.end('Too many requests'); return; }
 
+  // Force PWA to reload fresh content
+  res.setHeader('Clear-Site-Data', '"cache"');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
@@ -149,6 +185,21 @@ const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // Override dist/sw.js with suicide SW to break stale PWA cache
+  if (req.url === '/sw.js') {
+    res.writeHead(200, { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' });
+    res.end(`self.addEventListener('install',()=>self.skipWaiting());
+self.addEventListener('activate',async()=>{
+  const keys=await caches.keys();
+  await Promise.all(keys.map(k=>caches.delete(k)));
+  const clients=await self.clients.matchAll();
+  clients.forEach(c=>c.navigate('/'));
+  self.registration.unregister();
+});
+self.addEventListener('fetch',()=>{});`);
+    return;
+  }
 
   if (req.url === '/health') {
     json(res, { status: 'ok', uptime: process.uptime() });
@@ -190,14 +241,29 @@ const server = createServer(async (req, res) => {
   if (req.url === '/api/ssh/test') {
     const node = body.node || body;
     try {
+      const existing = findSession(node.host, node.port, node.username);
+      if (existing) {
+        const output = [];
+        const result = await new Promise((resolve) => {
+          existing.exec('echo \'Connection test OK\' && date', (err, stream) => {
+            if (err) { resolve({ success: false, error: [err.message] }); return; }
+            stream.on('data', (d) => output.push(d.toString().trim()));
+            stream.stderr.on('data', (d) => output.push(d.toString().trim()));
+            stream.on('close', () => resolve({ success: true, output, time_elapsed: 0.1 }));
+          });
+        });
+        json(res, result);
+        return;
+      }
       const cmds = body.cmds || ["echo 'Connection test OK' && date"];
       const output = [];
       let done = false;
       const conn = new Client();
+      setupSSHClient(conn, node.auth_value);
       const result = await new Promise((resolve) => {
         const timeout = setTimeout(() => {
           if (!done) { done = true; try { conn.end(); } catch {} resolve({ success: false, error: ['Timeout'] }); }
-        }, 20000);
+        }, 10000);
         conn.on('ready', () => {
           clearTimeout(timeout);
           conn.exec(cmds.join(' && '), (err, stream) => {
@@ -208,9 +274,7 @@ const server = createServer(async (req, res) => {
           });
         });
         conn.on('error', (err) => { clearTimeout(timeout); if (!done) { done = true; resolve({ success: false, error: [err.message] }); } });
-        const cfg = { host: node.host, port: node.port || 22, username: node.username, readyTimeout: 20000 };
-        if (node.auth_type === 'key') cfg.privateKey = node.auth_value;
-        else cfg.password = node.auth_value;
+        const cfg = makeSSHConfig(node);
         try { conn.connect(cfg); } catch (e) { clearTimeout(timeout); resolve({ success: false, error: [e.message] }); }
       });
       json(res, result);
@@ -339,11 +403,11 @@ function handleSSH(ws, config) {
   // The client writes ALL WebSocket data directly to the terminal.
   // Any JSON will appear as garbled text or be misinterpreted.
   const client = new Client();
+  setupSSHClient(client, config.auth_value);
   const cfg = {
-    host: config.host, port: config.port || 22, username: config.username,
-    password: config.auth_type === 'password' ? config.auth_value : undefined,
-    privateKey: config.auth_type === 'key' ? config.auth_value : undefined,
-    readyTimeout: 15000, keepaliveInterval: 30000, keepaliveCountMax: 3,
+    ...makeSSHConfig(config),
+    keepaliveInterval: 30000,
+    keepaliveCountMax: 3,
   };
   const tag = `[SSH ${cfg.host}:${cfg.port}]`;
   let sessionId = null;
@@ -356,7 +420,17 @@ function handleSSH(ws, config) {
     sessions.set(sessionId, { client, host: cfg.host, port: cfg.port, username: cfg.username, createdAt: Date.now() });
     client.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
       if (err) { log('Shell error: ' + err.message); try { ws.send('\r\n\x1b[31m[Shell Error] ' + err.message + '\x1b[0m\r\n'); } catch {} cleanup(); return; }
-      const onWsMsg = (input) => { if (stream.writable) stream.write(input.toString()); };
+      const onWsMsg = (input) => {
+        const str = input.toString();
+        if (str.startsWith('resize:')) {
+          const [_, rs, cs] = str.split(':');
+          const rows = parseInt(rs, 10);
+          const cols = parseInt(cs, 10);
+          if (rows && cols && stream.setWindow) stream.setWindow(rows, cols);
+          return;
+        }
+        if (stream.writable) stream.write(str);
+      };
       ws.on('message', onWsMsg);
       stream.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
       stream.stderr.on('data', (c) => { if (ws.readyState === 1) ws.send(c.toString()); });
