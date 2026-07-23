@@ -11,46 +11,65 @@ err()   { echo -e "  ${RED}[ER]${NC} $1"; exit 1; }
 
 clear
 echo ""
-echo -e "  ${BOLD}${CYAN}╔══════════════════════════════════╗${NC}"
-echo -e "  ${BOLD}${CYAN}║      WebSSH - Quick Deploy       ║${NC}"
-echo -e "  ${BOLD}${CYAN}╚══════════════════════════════════╝${NC}"
+echo -e "  ${BOLD}${CYAN}╔══════════════════════════════════════╗${NC}"
+echo -e "  ${BOLD}${CYAN}║        WebSSH · 一键部署              ║${NC}"
+echo -e "  ${BOLD}${CYAN}╚══════════════════════════════════════╝${NC}"
 echo ""
 
+BAR_WIDTH=28
+
+progress() {
+  local pct=$1 msg=$2
+  local fill=$((pct * BAR_WIDTH / 100))
+  local empty=$((BAR_WIDTH - fill))
+  local s=""
+  for ((i=0; i<fill; i++)); do s="${s}="; done
+  for ((i=0; i<empty; i++)); do s="${s}-"; done
+  printf "\r  ${YELLOW}[${GREEN}${s:0:fill}${NC}${s:fill:empty}${YELLOW}]${NC} %3d%%  %s" "$pct" "$msg"
+}
+
 # --- Phase 1: Check environment (5%) ---
-echo -e "  ${YELLOW}[▌·········] 5%${NC}  Checking environment..."
+progress 5 "Checking environment..."
 command -v node >/dev/null 2>&1 || err "Node.js is required (https://nodejs.org)"
 command -v npm  >/dev/null 2>&1 || err "npm is required."
 NODE_VER=$(node -v | sed 's/v//' | cut -d. -f1)
 [ "$NODE_VER" -ge 18 ] || err "Node.js >= 18 required (current: $(node -v))"
+progress 8 "Environment OK"
 
-# --- Phase 2: Clone / Pull (15%) ---
+# --- Phase 2: Clone / Pull (8% → 30%) ---
 REPO="https://github.com/guoxpeng/webssh.git"
 DIR="webssh"
 PORT="${PORT:-9627}"
 
-echo -e "  ${YELLOW}[██▌········] 15%${NC}  Fetching source..."
+progress 10 "Fetching source..."
 if [ -d "$DIR" ]; then
   cd "$DIR"
   git checkout -- . >/dev/null 2>&1 || true
   git clean -fd >/dev/null 2>&1 || true
   git pull --quiet >/dev/null 2>&1
 else
-  git clone --depth=1 --quiet "$REPO" "$DIR" >/dev/null 2>&1
+  git clone --depth=1 "$REPO" "$DIR" >/dev/null 2>&1
   cd "$DIR"
 fi
+progress 30 "Source ready"
 
 # --- Phase 3: npm install (30% → 55%) ---
-echo -e "  ${YELLOW}[█████·····] 30%${NC}  Installing dependencies..."
-npm install --no-audit --no-fund 2>&1 | tail -3
-echo -e "  ${YELLOW}[███████···] 55%${NC}  Done."
+progress 32 "Installing dependencies..."
+npm install --no-audit --no-fund 2>&1 | while IFS= read -r line; do
+  if [[ "$line" =~ added|removed|changed ]]; then
+    pkgs=$(echo "$line" | grep -oP '\d+')
+    progress 42 "Packages: $pkgs"
+  fi
+done
+progress 55 "Dependencies installed"
 
-# --- Phase 4: Build frontend (60% → 85%) ---
-echo -e "  ${YELLOW}[████████▌·] 60%${NC}  Building frontend..."
-BUILD_OUT=$(npm run build 2>&1) || { echo "$BUILD_OUT" | tail -20; err "Build failed."; }
-echo -e "  ${YELLOW}[█████████·] 85%${NC}  Done."
+# --- Phase 4: Build frontend (55% → 85%) ---
+progress 58 "Building frontend..."
+BUILD_OUT=$(npm run build 2>&1) || { echo -e "\n$BUILD_OUT" | tail -20; err "Build failed."; }
+progress 85 "Build complete"
 
-# --- Phase 5: Start server (90% → 100%) ---
-echo -e "  ${YELLOW}[█████████▌] 90%${NC}  Starting server..."
+# --- Phase 5: Start server (85% → 100%) ---
+progress 88 "Starting server..."
 
 # Kill existing instance if any
 PID_FILE="webssh.pid"
@@ -80,7 +99,7 @@ sleep 2
 sleep 2
 HEALTH=$(curl -s --max-time 2 http://localhost:${PORT}/health 2>/dev/null || echo "")
 if [ -n "$HEALTH" ]; then
-  echo -e "  ${GREEN}[██████████] 100%${NC} Done!"
+  progress 100 "Done!"; echo ""
   echo ""
   echo -e "  ${BOLD}${GREEN}  ✓ WebSSH 已启动${NC}"
   echo -e "  ═══════════════════════════════════"
