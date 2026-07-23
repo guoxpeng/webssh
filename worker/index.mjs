@@ -17,7 +17,7 @@ function makeSSHConfig(body) {
     host: body.host,
     port: body.port || 22,
     username: body.username || 'root',
-    readyTimeout: 5000,
+    readyTimeout: 15000,
     algorithms: SSH_ALGORITHMS,
   };
   if (body.auth_value) {
@@ -36,7 +36,7 @@ function setupSSHClient(client, password) {
 /* ── CloudflareSocketDuplex: wraps cloudflare:sockets TCP into stream.Duplex ── */
 class CloudflareSocketDuplex extends Duplex {
   constructor(tcpSocket) {
-    super();
+    super({ highWaterMark: 64 * 1024 });
     this.tcpSocket = tcpSocket;
     this.reader = tcpSocket.readable.getReader();
     this.writer = tcpSocket.writable.getWriter();
@@ -45,7 +45,16 @@ class CloudflareSocketDuplex extends Duplex {
   }
   _read() {}
   _write(chunk, encoding, callback) {
-    const bytes = typeof chunk === 'string' ? Buffer.from(chunk, encoding) : new Uint8Array(chunk);
+    let bytes;
+    if (chunk instanceof Uint8Array) {
+      bytes = chunk;
+    } else if (Buffer.isBuffer(chunk)) {
+      bytes = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+    } else if (typeof chunk === 'string') {
+      bytes = new TextEncoder().encode(chunk);
+    } else {
+      bytes = new Uint8Array(chunk);
+    }
     this.writer.write(bytes).then(() => callback(), callback);
   }
   _final(callback) {
@@ -342,6 +351,56 @@ async function handleTerminalWS(request) {
   return new Response(null, { status: 101, webSocket: client });
 }
 
+/* ── Crypto Diagnostic ── */
+async function handleDiagnostic() {
+  const results = {};
+  const crypto = await import('node:crypto').then(m => m.default || m).catch(() => null);
+
+  function test(name, fn) {
+    try { results[name] = fn(); } catch (e) { results[name] = `FAIL: ${e.message}`; }
+  }
+
+  if (!crypto) {
+    results.crypto_import = 'FAIL: node:crypto not available';
+    return json(results);
+  }
+  results.crypto_import = 'OK';
+
+  const key16 = new Uint8Array(16).fill(0x42);
+  const key32 = new Uint8Array(32).fill(0x42);
+  const iv16 = new Uint8Array(16).fill(0x00);
+
+  test('randomBytes', () => crypto.randomBytes ? 'OK' : 'MISSING');
+  test('randomFill', () => crypto.randomFill ? 'OK' : 'MISSING');
+  test('createHmac', () => crypto.createHmac ? 'OK' : 'MISSING');
+  test('createHash', () => crypto.createHash ? 'OK' : 'MISSING');
+  test('createSign', () => crypto.createSign ? 'OK' : 'MISSING');
+  test('createVerify', () => crypto.createVerify ? 'OK' : 'MISSING');
+  test('createDiffieHellman', () => crypto.createDiffieHellman ? 'OK' : 'MISSING');
+  test('createECDH', () => crypto.createECDH ? 'OK' : 'MISSING');
+  test('createCipheriv', () => crypto.createCipheriv ? 'OK' : 'MISSING');
+  test('createDecipheriv', () => crypto.createDecipheriv ? 'OK' : 'MISSING');
+
+  test('hmac_sha256', () => { crypto.createHmac('sha256', key16).update('test').digest(); return 'OK'; });
+  test('hash_sha256', () => { crypto.createHash('sha256').update('test').digest(); return 'OK'; });
+
+  test('cipher_aes256ctr', () => { const c = crypto.createCipheriv('aes-256-ctr', key32, iv16.slice(0,16)); c.update('test','utf8','hex'); c.final('hex'); return 'OK'; });
+  test('cipher_aes128ctr', () => { const c = crypto.createCipheriv('aes-128-ctr', key16, iv16.slice(0,16)); c.update('test','utf8','hex'); c.final('hex'); return 'OK'; });
+  test('cipher_aes256gcm', () => { const c = crypto.createCipheriv('aes-256-gcm', key32, iv16.slice(0,12)); c.update('test','utf8','hex'); c.final('hex'); return 'OK'; });
+  test('cipher_aes256cbc', () => { const c = crypto.createCipheriv('aes-256-cbc', key32, iv16); c.update('test','utf8','hex'); c.final('hex'); return 'OK'; });
+  test('cipher_aes128cbc', () => { const c = crypto.createCipheriv('aes-128-cbc', key16, iv16); c.update('test','utf8','hex'); c.final('hex'); return 'OK'; });
+
+  test('ecdh_p256', () => { const e = crypto.createECDH('prime256v1'); e.generateKeys(); return 'OK'; });
+  test('dh_group14', () => { const d = crypto.createDiffieHellman('modp14'); d.generateKeys(); return 'OK'; });
+
+  test('ssh2_import', () => {
+    try { const { Client } = require('ssh2'); return Client ? 'OK' : 'NULL'; }
+    catch (ee) { return `FAIL: ${ee.message}`; }
+  });
+
+  return json(results);
+}
+
 /* ── Main fetch handler ── */
 export default {
   async fetch(request, env, ctx) {
@@ -350,6 +409,11 @@ export default {
     /* Health */
     if (url.pathname === '/health') {
       return json({ status: 'ok', uptime: 'worker' });
+    }
+
+    /* Crypto diagnostic */
+    if (url.pathname === '/api/diag') {
+      return handleDiagnostic();
     }
 
     /* SSH test */

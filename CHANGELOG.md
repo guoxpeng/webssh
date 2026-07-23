@@ -1,3 +1,20 @@
+## v2.2.2 — CF Worker SSH 深度诊断 + TCP 数据处理修复
+
+> 发布时间：2026-07-23
+
+### Worker SSH 连接修复
+- **TCP 数据写入修复**：`CloudflareSocketDuplex._write()` 重写，分离 `Uint8Array` / `Buffer` / `string` 三种路径
+  - 修复 workerd `Buffer` 可能不是 `Uint8Array` 子类导致数据写入错误的问题
+  - `Buffer.isBuffer()` 分支用 `buffer.byteOffset/buffer.byteLength` 安全提取字节
+- **超时延长**：`readyTimeout` 从 5s → 15s（Workers TCP 延迟较高）
+- **新增加密诊断端点** `GET /api/diag`：
+  - 逐个测试 `createECDH` / `createDiffieHellman` / `createCipheriv` / `createHmac` 等 API
+  - 测试具体算法：AES-256-CTR/GCM/CBC、HMAC-SHA256、ECDH P-256、DH group14
+  - 部署后可访问 `https://your-worker.workers.dev/api/diag` 定位失败点
+- **详细错误日志**：所有 SSH 错误附 stack trace 前 3 层
+
+---
+
 ## v2.2.1 — 部署更新修复 + CF Worker SSH 算法优化
 
 > 发布时间：2026-07-23
