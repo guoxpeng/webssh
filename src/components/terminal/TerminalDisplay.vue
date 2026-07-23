@@ -454,17 +454,17 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .terminal-wrapper {
-  display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden;
+  display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; position: relative;
 }
 .xterm-container-parent {
-  flex-grow: 1; width: 100%; min-height: 0; box-sizing: border-box;
+  flex: 1 1 0; min-height: 0; width: 100%; box-sizing: border-box;
   background-color: #0a0a0a;
   :deep(.terminal), :deep(.xterm-viewport), :deep(.xterm-screen) { width: 100%; height: 100%; }
   :deep(.xterm-viewport) { overflow-y: auto !important; scrollbar-width: thin; }
   :deep(.xterm-rows) { will-change: transform; }
 }
 .mobile-keys-toolbar {
-  flex-shrink: 0; padding: 0.35rem; display: none; flex-direction: column; gap: 0.25rem;
+  flex: 0 0 auto; padding: 0.35rem; display: none; flex-direction: column; gap: 0.25rem;
   justify-content: center; background-color: var(--term-bg); border-top: 1px solid var(--term-border);
   @media screen and (max-width: 768px) { display: flex; }
 }
@@ -484,7 +484,7 @@ onBeforeUnmount(() => {
 .quick-snippets-bar {
   display: flex; align-items: center; gap: 3px; padding: 2px 0.35rem;
   background: var(--term-bg); border-bottom: 1px solid var(--term-border);
-  flex-shrink: 0; overflow-x: auto; flex-wrap: wrap;
+  flex: 0 0 auto; overflow-x: auto; flex-wrap: wrap;
   scrollbar-width: none; &::-webkit-scrollbar { display: none; }
 }
 .quick-snippet-btn {
@@ -497,8 +497,9 @@ onBeforeUnmount(() => {
 }
 
 .command-bar-wrap {
-  flex-shrink: 0; display: flex; flex-direction: column;
+  flex: 0 0 auto; display: flex; flex-direction: column;
   border-top: 1px solid var(--term-border);
+  z-index: 10;
 }
 .command-action-btns {
   display: flex; align-items: center; gap: 2px; padding: 2px 0.35rem;

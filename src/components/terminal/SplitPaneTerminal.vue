@@ -340,7 +340,7 @@ defineExpose({ panes, activePane, addPane,
 
 <style lang="scss" scoped>
 .split-pane-terminal {
-  display: flex; flex-direction: column; height: 100%; overflow: hidden;
+  display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;
 }
 .pane-toolbar {
   display: flex; align-items: center;
@@ -400,8 +400,8 @@ defineExpose({ panes, activePane, addPane,
   .pane-tab:hover & { opacity: 1; }
   &:hover { color: var(--bulma-danger); }
 }
-.pane-body { flex: 1; overflow: hidden; position: relative; }
-.pane-content { position: absolute; inset: 0; overflow: hidden; }
+.pane-body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+.pane-content { position: absolute; inset: 0; overflow: hidden; display: flex; flex-direction: column; }
 .pane-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100%; opacity: 0.4; gap: 0.5rem;

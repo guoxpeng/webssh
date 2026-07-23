@@ -336,12 +336,12 @@ onBeforeUnmount(() => {
 @keyframes recBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes recPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 56, 96, 0.3); } 50% { box-shadow: 0 0 0 4px rgba(255, 56, 96, 0); } }
 
-.terminal-body { flex: 1; overflow: hidden; position: relative; }
+.terminal-body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
 .terminal-main-area {
-  display: flex; height: 100%;
+  display: flex; height: 100%; min-height: 0;
 }
-.terminal-pane { flex: 1; min-width: 0; overflow: hidden; }
+.terminal-pane { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .sftp-divider {
   width: 6px; flex-shrink: 0; cursor: col-resize;
   display: flex; align-items: center; justify-content: center;
