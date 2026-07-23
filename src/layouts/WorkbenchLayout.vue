@@ -170,7 +170,7 @@ import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import AuditPanel from '@/components/audit/AuditPanel.vue';
-import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
+import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const APP_VERSION = '2.2.5';

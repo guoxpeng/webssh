@@ -390,6 +390,8 @@ function confirmCreateGroup() {
   const name = newGroupName.value.trim();
   if (name && connectionStore.createGroup(name)) {
     showSuccess(t('server.groupCreated', { name }));
+  } else if (name) {
+    showWarning(t('server.groupExists', { name }));
   }
   showNewGroupInput.value = false;
   newGroupName.value = '';

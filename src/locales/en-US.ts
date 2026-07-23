@@ -44,6 +44,7 @@ export default {
     newGroup: 'New Group',
     groupNamePlaceholder: 'Group name...',
     groupCreated: 'Group "{name}" created.',
+    groupExists: 'Group "{name}" already exists.',
     groupRenamed: 'Group renamed.',
     groupDeleted: 'Group "{name}" deleted.',
     renameGroup: 'Rename group',

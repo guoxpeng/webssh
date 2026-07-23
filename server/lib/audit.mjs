@@ -1,23 +1,30 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = join(fileURLToPath(import.meta.url), '..', '..');
 const AUDIT_DIR = join(__dirname, 'data');
 const AUDIT_PATH = join(AUDIT_DIR, 'audit.log');
+const AUDIT_OLD_PATH = join(AUDIT_DIR, 'audit.old.log');
 
 if (!existsSync(AUDIT_DIR)) mkdirSync(AUDIT_DIR, { recursive: true });
 
 const MAX_SIZE = 5 * 1024 * 1024;
 let entries = [];
-let fd = null;
 
 function rotate() {
   try {
-    if (existsSync(AUDIT_PATH) && readFileSync(AUDIT_PATH).length > MAX_SIZE) {
-      writeFileSync(AUDIT_PATH.replace('.log', '.old.log'), readFileSync(AUDIT_PATH));
+    if (existsSync(AUDIT_PATH)) {
+      const stat = readFileSync(AUDIT_PATH);
+      if (stat.length > MAX_SIZE) {
+        writeFileSync(AUDIT_OLD_PATH, stat);
+        writeFileSync(AUDIT_PATH, '');
+        entries = [];
+      }
     }
-  } catch {}
+  } catch (e) {
+    console.error('[Audit] Rotation failed:', e.message);
+  }
 }
 
 function append(entry) {
@@ -30,6 +37,7 @@ function append(entry) {
 }
 
 export function audit(event, details = {}) {
+  rotate();
   const entry = {
     t: Date.now(),
     e: event,

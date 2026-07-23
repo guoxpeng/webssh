@@ -44,6 +44,7 @@ export default {
     newGroup: '新建分组',
     groupNamePlaceholder: '分组名称...',
     groupCreated: '分组 "{name}" 已创建。',
+    groupExists: '分组 "{name}" 已存在。',
     groupRenamed: '分组已重命名。',
     groupDeleted: '分组 "{name}" 已删除。',
     renameGroup: '重命名分组',

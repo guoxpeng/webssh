@@ -2,7 +2,7 @@ import { createI18n } from 'vue-i18n';
 import enUS from '@/locales/en-US';
 import zhCN from '@/locales/zh-CN';
 
-const defaultLocale = localStorage.getItem('appLocale') || navigator.language.startsWith('zh') ? 'zh-CN' : 'en-US';
+const defaultLocale = localStorage.getItem('appLocale') || (navigator.language.startsWith('zh') ? 'zh-CN' : 'en-US');
 
 export const i18n = createI18n({
   legacy: false,

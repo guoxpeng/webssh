@@ -71,19 +71,23 @@ progress 15 "Old instance stopped"
 progress 18 "Fetching source..."
 if [ -d "${APP_DIR}/.git" ]; then
   cd "$APP_DIR"
-  git fetch --unshallow origin 2>/dev/null || true
+  # Fetch deeper history — shallow clones can't always see new commits
   info "Fetching latest commits..."
-  if ! git fetch origin main 2>/dev/null; then
+  if ! git fetch --depth=10 origin main 2>/dev/null; then
     err "Failed to fetch from GitHub. Check network."
   fi
   OLD_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
   git reset --hard origin/main
   NEW_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
   git clean -fdx
-  if [ "$OLD_HASH" != "$NEW_HASH" ]; then
-    ok "Updated: ${OLD_HASH:0:7} → ${NEW_HASH:0:7}"
+  # Read version from source (before build)
+  SRC_VER=$(grep -oP "APP_VERSION\s*=\s*'\K[^']+" src/layouts/WorkbenchLayout.vue 2>/dev/null || echo "unknown")
+  if [ "$OLD_HASH" = "$NEW_HASH" ] && [ "$SRC_VER" != "unknown" ]; then
+    info "Already at latest: ${NEW_HASH:0:7} (v${SRC_VER})"
+  elif [ "$SRC_VER" = "unknown" ]; then
+    err "Source file corrupted. Remove ${APP_DIR} and re-run."
   else
-    info "Already at latest: ${NEW_HASH:0:7}"
+    ok "Updated: ${OLD_HASH:0:7} → ${NEW_HASH:0:7} (v${SRC_VER})"
   fi
 else
   info "First install — cloning repository..."
@@ -91,7 +95,8 @@ else
   git clone --depth=1 "$REPO" "$APP_DIR"
   cd "$APP_DIR"
   NEW_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-  ok "Cloned: ${NEW_HASH:0:7}"
+  SRC_VER=$(grep -oP "APP_VERSION\s*=\s*'\K[^']+" src/layouts/WorkbenchLayout.vue 2>/dev/null || echo "unknown")
+  ok "Cloned: ${NEW_HASH:0:7} (v${SRC_VER})"
 fi
 progress 30 "Source ready (${NEW_HASH:0:7})"
 
@@ -104,11 +109,9 @@ npm install --no-audit --no-fund 2>&1 | tail -3
 progress 60 "Dependencies installed"
 
 # ─── Phase 4: Build ───
-progress 65 "Building frontend..."
+progress 65 "Building frontend (v${SRC_VER})..."
 BUILD_OUT=$(npm run build 2>&1) || { echo -e "\n$BUILD_OUT" | tail -20; err "Build failed."; }
-# Verify version in built output
-VERSION_IN_BUILD=$(grep -oP 'APP_VERSION.*?"\K[^"]+' dist/assets/*.js 2>/dev/null | head -1 || echo "unknown")
-progress 85 "Build complete (v${VERSION_IN_BUILD})"
+progress 85 "Build complete"
 
 # ─── Phase 5: Start server ───
 progress 90 "Starting server..."
@@ -131,7 +134,7 @@ if [ -n "$HEALTH" ]; then
   echo -e "  ${BOLD}${GREEN}  ✓ WebSSH 已启动${NC}"
   echo -e "  ═══════════════════════════════════"
   echo -e ""
-  echo -e "  📌 ${BOLD}版本: v${VERSION_IN_BUILD}${NC} (${NEW_HASH:0:7})"
+  echo -e "  📌 ${BOLD}版本: v${SRC_VER}${NC} (${NEW_HASH:0:7})"
   echo -e "  📝 日志: ${LOG_FILE}"
   echo -e ""
   echo -e "  ${BOLD}🔗 本地:${NC}  ${GREEN}http://localhost:${PORT}${NC}"
@@ -141,10 +144,6 @@ if [ -n "$HEALTH" ]; then
   echo -e "  ${YELLOW}管理命令:${NC}"
   echo -e "  停止: kill \$(cat ${PID_FILE})"
   echo -e "  更新: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash"
-  echo -e ""
-  if [ "$VERSION_IN_BUILD" = "unknown" ]; then
-    echo -e "  ${RED}⚠ 无法验证构建版本，请 Ctrl+Shift+R 清除浏览器缓存${NC}"
-  fi
   echo ""
 else
   echo ""

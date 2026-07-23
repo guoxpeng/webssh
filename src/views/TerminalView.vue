@@ -114,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onActivated, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onActivated, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
@@ -123,7 +123,7 @@ import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useMacroStore } from '@/stores/macroStore';
-import { Power, Terminal, Server, FolderOpen, ChevronDown, Circle, Square, History, GripVertical } from 'lucide-vue-next';
+import { Terminal, Server, FolderOpen, ChevronDown, Circle, Square, History, GripVertical } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const connectionStore = useConnectionStore();
