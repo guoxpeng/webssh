@@ -1,36 +1,16 @@
 version: '3.8'
+
 services:
   webssh:
     build: .
-    restart: unless-stopped
-    environment:
-      - PORT=9627
-    volumes:
-      - webssh_data:/root
-    networks:
-      - webssh_net
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9627/health"]
-      interval: 30s
-      timeout: 3s
-
-  caddy:
-    image: caddy:2-alpine
+    container_name: webssh
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-    depends_on:
-      - webssh
-    networks:
-      - webssh_net
-
-volumes:
-  webssh_data:
-  caddy_data:
-
-networks:
-  webssh_net:
+      - "9627:9627"
+    environment:
+      - PORT=9627
+    healthcheck:
+      test: curl -f http://localhost:9627/health || exit 1
+      interval: 30s
+      timeout: 3s
+      retries: 3
