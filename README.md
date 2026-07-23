@@ -131,21 +131,33 @@ node server/index.mjs
 
 #### 通过 GitHub 自动部署
 
-**Cloudflare Dashboard Workers 集成（中文页面填写指南）：**
+Cloudflare 有 **两种方式** 连接 GitHub 仓库，字段不同，请按你选的入口对照填写：
+
+**方式 A：Cloudflare Pages（推荐，更简单）**
+路径：Workers & Pages → **Pages** → 创建项目 → 连接到 Git
+
+| 字段 | 值 |
+|------|-----|
+| 项目名称 | `webssh`（自定义） |
+| **构建命令** | `npm run build && node build-worker.mjs` ⚠ |
+| **输出目录** | `dist/client` |
+| 根目录（路径） | `/`（保持默认） |
+| 环境变量 → `NODE_VERSION` = `20` | 添加 |
+
+**方式 B：Cloudflare Workers 集成（字段不同）**
+路径：Workers & Pages → **Workers** → 创建 Worker → 连接到 Git 仓库
 
 | 字段 | 填写内容 | 说明 |
 |------|---------|------|
-| **项目名称** | 自定义（如 `webssh`） | 自动填充了 `wessh`，可以改成你喜欢的 |
-| **构建命令** | `npm run build && node build-worker.mjs` | ⚠ **默认是 `pnpm run build`，必须改成这个** |
+| **项目名称** | 自定义（如 `webssh`） | 自动填充了 `wessh`，可以改 |
+| **构建命令** | `npm run build && node build-worker.mjs` | ⚠ **必须改** |
 | **部署命令** | `npx wrangler deploy` | 保持默认 |
 | **非生产分支部署命令** | `npx wrangler versions upload` | 保持默认 |
-| **路径** | `/` | 保持默认（项目在仓库根目录） |
-| **API 令牌** | `nodewarden build token` | 保持默认（Cloudflare 自动生成） |
-| **变量** → 名称 `NODE_VERSION` | 值填 `20` | 设置 Node.js 版本 |
+| **路径** | `/` | 保持默认 |
+| **API 令牌** | `nodewarden build token` | 保持默认 |
+| **变量** → `NODE_VERSION` = `20` | 添加 | 设置 Node.js 版本 |
 
-填写完点击 **"保存并部署"**，首次构建约 1-2 分钟。之后每次 `git push` 自动部署。
-
-> 你也可以用 **Pages**（点击 Workers & Pages → Pages → 创建项目 → 连接到 Git），同样填写构建命令 `npm run build && node build-worker.mjs`，输出目录 `dist/client`。Pages 不需要 wrangler，更简单。
+两种方式填写完点击 **"保存并部署"**，首次构建约 1-2 分钟，之后每次 `git push` 自动部署。
 
 #### 命令行部署（无 CI）
 
