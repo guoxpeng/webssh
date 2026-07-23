@@ -68,10 +68,26 @@ progress 15 "Old instance stopped"
 progress 18 "Fetching source..."
 if [ -d "$DIR" ]; then
   cd "$DIR"
-  # Force-reset to remote main branch — no merge conflicts, no stale files
-  git fetch origin main --quiet 2>/dev/null || true
-  git reset --hard origin/main --quiet 2>/dev/null || true
-  git clean -fdx --quiet 2>/dev/null || true
+  # Verify git remote exists
+  if ! git remote get-url origin >/dev/null 2>&1; then
+    err "Git remote 'origin' not found. Remove '$DIR' directory and re-run."
+  fi
+  # Unshallow if previously cloned with --depth=1
+  git fetch --unshallow origin 2>/dev/null || true
+  # Fetch latest — fail loudly if it doesn't work
+  info "Fetching latest commits..."
+  if ! git fetch origin main 2>/dev/null; then
+    err "Failed to fetch from GitHub. Check network and try again."
+  fi
+  OLD_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+  git reset --hard origin/main
+  NEW_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+  git clean -fdx
+  if [ "$OLD_HASH" != "$NEW_HASH" ]; then
+    ok "Updated: ${OLD_HASH:0:7} → ${NEW_HASH:0:7}"
+  else
+    info "Already at latest: ${NEW_HASH:0:7}"
+  fi
 else
   git clone --depth=1 "$REPO" "$DIR" >/dev/null 2>&1
   cd "$DIR"
