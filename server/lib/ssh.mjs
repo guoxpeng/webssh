@@ -1,6 +1,7 @@
 import { Client } from 'ssh2';
 import { makeSSHConfig, setupSSHClient } from './utils.mjs';
 import { sessions } from './session.mjs';
+import { audit } from './audit.mjs';
 
 export function handleSSH(ws, config) {
   const client = new Client();
@@ -17,6 +18,7 @@ export function handleSSH(ws, config) {
 
   client.on('ready', () => {
     log('Connected');
+    audit('ssh_connected', { host: cfg.host, port: cfg.port, username: cfg.username });
     const stdKey = `${cfg.host}_${cfg.port}_${cfg.username}`;
     sessionId = stdKey;
     if (!sessions.has(stdKey)) {
@@ -44,9 +46,10 @@ export function handleSSH(ws, config) {
   });
   client.on('error', (err) => {
     log('Error: ' + err.message);
+    audit('ssh_error', { host: cfg.host, port: cfg.port, username: cfg.username, error: err.message });
     try { ws.send('\r\n\x1b[31m[Error] ' + err.message + '\x1b[0m\r\n'); } catch {}
     setTimeout(() => cleanup(), 500);
   });
-  client.on('close', () => { log('Disconnected'); cleanup(); });
+  client.on('close', () => { log('Disconnected'); audit('ssh_disconnected', { host: cfg.host, port: cfg.port, username: cfg.username }); cleanup(); });
   client.connect(cfg);
 }

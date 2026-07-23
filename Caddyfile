@@ -2,4 +2,5 @@
 webssh.example.com {
     reverse_proxy webssh:9627
     encode gzip
+    header / Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 }

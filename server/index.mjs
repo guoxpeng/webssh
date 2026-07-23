@@ -15,6 +15,7 @@ import { handleSSH } from './lib/ssh.mjs';
 import { handleTelnet } from './lib/telnet.mjs';
 import { handleSerial } from './lib/serial.mjs';
 import { createChatBot } from './lib/chat.mjs';
+import { audit, getAuditLog, clearAuditLog } from './lib/audit.mjs';
 
 // ─── Auth middleware (only when AUTH_TOKEN is set) ───
 const AUTH_TOKEN = process.env.AUTH_TOKEN || null;
@@ -91,6 +92,7 @@ const server = createServer(async (req, res) => {
           });
         });
         json(res, result);
+        audit('ssh_test', { host: node.host, port: node.port, username: node.username, success: result.success });
         return;
       }
       const cmds = body.cmds || ["echo 'Connection test OK' && date"];
@@ -113,6 +115,7 @@ const server = createServer(async (req, res) => {
         try { conn.connect(makeSSHConfig(node)); } catch (e) { clearTimeout(timeout); resolve({ success: false, error: [e.message] }); }
       });
       json(res, result);
+      audit('ssh_test', { host: node.host, port: node.port, username: node.username, success: result.success });
     } catch (e) { json(res, { success: false, error: [e.message] }, 500); }
     return;
   }
@@ -136,7 +139,25 @@ const server = createServer(async (req, res) => {
       json(res, result);
       return;
     }
+    if (req.url === '/api/chat/ai') {
+      const { message, serverConfig } = body;
+      if (!message) { json(res, { success: false, error: 'message required' }, 400); return; }
+      const result = await chatBot.processAiMessage(message, serverConfig || null);
+      json(res, result);
+      return;
+    }
     json(res, { error: 'Not found' }, 404);
+    return;
+  }
+
+  // ── Audit Log API ──
+  if (req.url === '/api/audit') {
+    json(res, { entries: getAuditLog(parseInt(body.limit || '200', 10)) });
+    return;
+  }
+  if (req.url === '/api/audit/clear') {
+    clearAuditLog();
+    json(res, { success: true });
     return;
   }
 

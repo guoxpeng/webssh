@@ -600,8 +600,8 @@ async function walkFolder(dirName) {
   while (stack.length > 0) {
     const current = stack.pop();
     const list = await api('list', { path: fullPath(current) });
-    if (!list?.files) continue;
-    for (const f of list.files) {
+    if (!list?.entries) continue;
+    for (const f of list.entries) {
       const rel = current === dirName ? f.name : current + '/' + f.name;
       if (f.type === 'dir') {
         stack.push(current + '/' + f.name);

@@ -58,6 +58,10 @@
               {{ uiStore.currentTheme === 'light' ? t('settings.light') : t('settings.dark') }}
             </span>
           </a>
+          <a class="sidebar-item" @click="showAudit = !showAudit; closeMobileMenu()" :title="t('nav.audit')" role="button" tabindex="0">
+            <ScrollText :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.audit') }}</span>
+          </a>
           <a class="sidebar-item is-collapse-toggle" @click="sidebarCollapsed = !sidebarCollapsed" :title="t('common.close')"
              role="button" tabindex="0" :aria-expanded="!sidebarCollapsed">
             <ChevronsLeft :size="22" stroke-width="1.5" class="collapse-icon"
@@ -132,6 +136,12 @@
         <BackupPanel @close="showBackup = false"/>
       </div>
     </div>
+    <div v-if="showAudit" class="snippet-overlay">
+      <div class="snippet-overlay-backdrop" @click="showAudit = false"></div>
+      <div class="snippet-overlay-panel">
+        <AuditPanel @close="showAudit = false"/>
+      </div>
+    </div>
     <SettingsPanel :visible="showSettings" @close="showSettings = false" />
     <div v-if="showMacro" class="snippet-overlay">
       <div class="snippet-overlay-backdrop" @click="showMacro = false"></div>
@@ -159,10 +169,11 @@ import CodeNotePanel from '@/components/codeNotes/CodeNotePanel.vue';
 import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
-import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen, FileCode, MessageSquare } from 'lucide-vue-next';
+import AuditPanel from '@/components/audit/AuditPanel.vue';
+import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
 
 const { t } = useI18n();
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.2.0';
 const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
@@ -172,6 +183,7 @@ const showMacro = ref(false);
 const showSettings = ref(false);
 const showSnippets = ref(false);
 const showBackup = ref(false);
+const showAudit = ref(false);
 const showCodeNotes = ref(false);
 const showChat = ref(false);
 

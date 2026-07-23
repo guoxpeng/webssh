@@ -1,3 +1,56 @@
+## v2.2.0 — 审计日志 + AI SSH 执行 + 安全加固
+
+> 发布时间：2026-07-23
+
+### 审计日志
+
+- 新增服务器端审计日志模块 (`server/lib/audit.mjs`)
+- 自动记录 SSH 连接/断开/错误、连接测试、AI 请求/AI SSH 执行事件
+- JSONL 格式写入 `data/audit.log`，超过 5MB 自动轮转
+- API：`POST /api/audit` 分页查询 + `POST /api/audit/clear` 清空
+- 前端新增审计日志面板（侧边栏底部 `ScrollText` 图标）
+- 支持按事件类型过滤（全部 / SSH / 测试 / AI）、下载导出 JSON
+
+### AI SSH 命令执行
+
+- 聊天机器人 AI 标签页添加服务器选择下拉框
+- AI 回复中的 ` ```bash ` 代码块自动提取并通过 SSH 执行
+- 执行结果以 `$ command` + stdout/stderr 格式展示
+- 服务器端 `processAiMessage()` — 调用 AI → 提取命令 → SSH 执行 → 返回结果
+- API：`POST /api/chat/ai` 接受 `{ message, serverConfig }`
+
+### SFTP 优化
+
+- SFTP 面板恢复为左右分割布局（拖拽分隔条调整宽度）
+- 新增文件夹递归下载：勾选文件夹 + 点击下载按钮，递归遍历所有文件下载
+
+### Docker 安全加固
+
+- Dockerfile：末尾 `USER node`，创建独立组 `nodegroup`，`chown -R` 整个 `/app`
+- docker-compose：添加 `read_only: true` + `tmpfs: /tmp`（数据目录 `/app/data` 仍可写）
+- Caddyfile：添加 `Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"`
+
+### 体验优化
+
+- 代码笔记/聊天机器人弹窗面板添加背景色和阴影，解决终端画面穿透看不清的问题
+- 移除底部状态栏 Wi-Fi 断开图标，精简界面
+- 审计日志入口移至侧边栏最底部
+- 中英文 README 顶部添加语言切换链接 + AI 配置使用文档
+
+### CF Workers 部署优化
+
+- KEX 算法移除 `diffie-hellman-group-exchange-sha256`（Workers 上计算量极大易超时）
+- `wrangler.toml` 兼容标志从 `nodejs_compat` 升级为 `nodejs_compat_v2`
+
+### 代码自查修复
+
+- SftpBrowser `walkFolder` 错误读取 `list.files` 改为 `list.entries`（API 返回键名修正）
+- 审计日志 `writeFileSync` 的 `flag: 'as'` 无效导致文件被截断，改为 `flag: 'a'`
+- QQ/WeChat URL 拼接修复：`new URL()` 构造 + `groupId/userId` 过滤非数字字符
+- Dockerfile `chown` 范围修正（`/app/data` → `/app`），确保 node 用户可读所有文件
+
+---
+
 ## v2.1.1 — 安全审计修复
 
 > 发布时间：2026-07-23

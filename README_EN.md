@@ -1,5 +1,9 @@
 # WebSSH - Manage Servers Like Opening a Web Page
 
+<p align="center">
+  <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
+</p>
+
 > **Security Notice:** WebSSH is **recommended for use within an intranet/VPN**. Do not expose it directly to the public internet. If public access is required, set the `AUTH_TOKEN` environment variable and enable HTTPS (reverse proxy with TLS certificate). The default deployment does not include multi-user or audit logging.
 
 Managing multiple remote servers?
@@ -145,3 +149,37 @@ server/
 ## License
 
 AGPL-3.0 License. See [LICENSE](./LICENSE).
+
+---
+
+## AI SSH Commands
+
+WebSSH includes a built-in AI chat feature that can execute SSH commands automatically.
+
+### How it works
+
+1. **Open Chat Panel** — Click the chat icon in the sidebar to open the Chat Bot panel
+2. **Switch to AI tab** — Toggle to the "AI" tab at the top
+3. **Select a server** (optional) — Choose a server from the dropdown to allow command execution
+4. **Ask the AI** — Type natural language requests like:
+   - "Show me disk usage"
+   - "Check memory and uptime"
+   - "List all running Docker containers"
+   - "Find large files over 1GB in /var"
+
+The AI will generate the appropriate shell commands, execute them on the selected server via SSH, and return the results.
+
+### Configuration
+
+Set your OpenAI API key in the Chat Bot config (gear icon) to enable the AI assistant:
+
+1. Click the gear icon in the top-right of the Chat Bot panel
+2. Scroll to the "AI Settings" section
+3. Fill in:
+   - **API Base URL**: `https://api.openai.com/v1` (default OpenAI, compatible with OneAPI and other proxies)
+   - **API Key**: Your API key
+   - **Model**: Model name (e.g., `gpt-4o-mini`, `gpt-4`, `deepseek-chat`)
+   - **System Prompt**: Custom system prompt for the AI assistant
+4. Check the "Enabled" toggle and click save
+
+> **Security Warning**: AI SSH command execution will directly operate on your server. Always verify AI-generated commands before execution. Consider using a read-only user account.

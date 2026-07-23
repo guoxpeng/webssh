@@ -1,5 +1,9 @@
 # 🚀 WebSSH —— 像开网页一样管理服务器
 
+<p align="center">
+  <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
+</p>
+
 ---
 
 ## 这个工具是干什么的？🤔
@@ -315,9 +319,43 @@ server/
 │   ├── telnet.mjs     # Telnet 处理器
 │   ├── serial.mjs     # 串口处理器
 │   ├── chat.mjs       # 聊天机器人 (Telegram/WeChat/QQ/AI)
-│   └── middleware.mjs # 认证中间件 (可选 AUTH_TOKEN)
+│   └── audit.mjs       # 审计日志
 └── chat-config.json   # 机器人配置（自动生成）
 ```
+
+---
+
+## 🤖 AI SSH 命令执行
+
+WebSSH 内置 AI 聊天功能，可自动执行 SSH 命令。
+
+### 工作原理
+
+1. **打开聊天面板** — 点击侧边栏的聊天图标
+2. **切换到 AI 选项卡** — 点击顶部的 "AI" 标签
+3. **选择服务器**（可选）— 从下拉菜单选择服务器，允许 AI 执行 SSH 命令
+4. **向 AI 提问** — 输入自然语言请求，例如：
+   - "显示磁盘使用情况"
+   - "检查内存和运行时间"
+   - "列出所有运行中的 Docker 容器"
+   - "查找 /var 下大于 1GB 的文件"
+
+AI 会生成相应的 shell 命令，在选择的服务器上通过 SSH 执行，并返回结果。
+
+### AI 配置
+
+在聊天机器人配置中（齿轮图标）设置 OpenAI API 密钥启用 AI 助手：
+
+1. 点击聊天面板右上角齿轮图标
+2. 找到 "AI 设置" 区域
+3. 填写：
+   - **API Base URL**：`https://api.openai.com/v1`（默认 OpenAI，也支持兼容接口如 OneAPI）
+   - **API Key**：你的 API 密钥
+   - **Model**：模型名称（如 `gpt-4o-mini`、`gpt-4`、`deepseek-chat`）
+   - **System Prompt**：自定义系统提示词
+4. 勾选 "启用" 开关，点击保存
+
+> ⚠️ **安全提醒**：AI SSH 命令执行会直接操作你的服务器。确认 AI 生成的命令无误后再执行。建议使用只读权限账户。
 
 ---
 
