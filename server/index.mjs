@@ -7,7 +7,7 @@ import { get as httpGet } from 'http';
 import { get as httpsGet } from 'https';
 
 import { PORT, WS_PATH, DIST_DIR, GUACD_HOST, GUACD_PORT } from './lib/config.mjs';
-import { makeSSHConfig, setupSSHClient, json, parseBody, checkRate, checkWsRate, serveStatic, serveSuicideSW, getLocalIP } from './lib/utils.mjs';
+import { makeSSHConfig, setupSSHClient, json, parseBody, checkRate, serveStatic, serveSuicideSW, getLocalIP } from './lib/utils.mjs';
 import { findSession, withSessionSftp } from './lib/session.mjs';
 import { handleSSH } from './lib/ssh.mjs';
 import { handleTelnet } from './lib/telnet.mjs';
@@ -229,7 +229,6 @@ server.on('upgrade', (req, socket, head) => {
 const wss = new WebSocketServer({ server, path: WS_PATH });
 wss.on('connection', (ws, req) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
-  if (!checkWsRate(ip)) { ws.close(1013, 'Too many connections'); return; }
   console.log(`[WS] New connection from ${ip}`);
   let initialized = false;
   const cleanup = () => { clearInterval(pingInterval); try { ws.close(); } catch {} try { ws.terminate(); } catch {} try { ws.removeAllListeners(); } catch {} };

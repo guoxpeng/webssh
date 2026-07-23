@@ -1,7 +1,6 @@
 import { Client } from 'ssh2';
-import { makeSSHConfig, setupSSHClient, hashCreds } from './utils.mjs';
+import { makeSSHConfig, setupSSHClient } from './utils.mjs';
 import { sessions } from './session.mjs';
-import { audit } from './audit.mjs';
 
 export function handleSSH(ws, config) {
   const client = new Client();
@@ -11,7 +10,6 @@ export function handleSSH(ws, config) {
     keepaliveInterval: 30000,
     keepaliveCountMax: 3,
   };
-  const credHash = config.auth_value ? hashCreds(config.auth_value) : null;
   const tag = `[SSH ${cfg.host}:${cfg.port}]`;
   let sessionId = null;
   const log = (m) => console.log(`${tag} ${m}`);
@@ -19,11 +17,10 @@ export function handleSSH(ws, config) {
 
   client.on('ready', () => {
     log('Connected');
-    audit('ssh_connected', { host: cfg.host, port: cfg.port, username: cfg.username });
-    const stdKey = `${cfg.host}_${cfg.port}_${cfg.username}_${credHash || 'noauth'}`;
+    const stdKey = `${cfg.host}_${cfg.port}_${cfg.username}`;
     sessionId = stdKey;
     if (!sessions.has(stdKey)) {
-      sessions.set(stdKey, { client, host: cfg.host, port: cfg.port, username: cfg.username, credHash, createdAt: Date.now() });
+      sessions.set(stdKey, { client, host: cfg.host, port: cfg.port, username: cfg.username, createdAt: Date.now() });
     }
     client.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
       if (err) { log('Shell error: ' + err.message); try { ws.send('\r\n\x1b[31m[Shell Error] ' + err.message + '\x1b[0m\r\n'); } catch {} cleanup(); return; }
@@ -47,10 +44,9 @@ export function handleSSH(ws, config) {
   });
   client.on('error', (err) => {
     log('Error: ' + err.message);
-    audit('ssh_error', { host: cfg.host, port: cfg.port, username: cfg.username, error: err.message });
     try { ws.send('\r\n\x1b[31m[Error] ' + err.message + '\x1b[0m\r\n'); } catch {}
     setTimeout(() => cleanup(), 500);
   });
-  client.on('close', () => { log('Disconnected'); audit('ssh_disconnected', { host: cfg.host, port: cfg.port, username: cfg.username }); cleanup(); });
+  client.on('close', () => { log('Disconnected'); cleanup(); });
   client.connect(cfg);
 }
