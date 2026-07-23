@@ -77,7 +77,8 @@
       <div v-if="paneCount === 0 && !connecting" class="terminal-empty">
         <div class="empty-header">
           <Terminal :size="32" class="empty-icon"/>
-          <h3>{{ t('sftp.noConnection') }}</h3>
+          <h3>{{ t('sftp.selectConnection') }}</h3>
+          <p>{{ t('terminal.noSessionsHint') }}</p>
         </div>
         <div v-if="savedConns.length > 0" class="history-list">
           <div class="history-title"><History :size="14"/><span>{{ t('terminal.recentConnections') }}</span></div>

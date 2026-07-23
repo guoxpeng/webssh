@@ -636,9 +636,11 @@ async function doDelete() {
 
 onMounted(() => { refresh(); });
 
-watch(() => props.nodeConfig, () => {
-  refresh();
-});
+watch(() => props.nodeConfig, (newCfg, oldCfg) => {
+  if (!newCfg || !oldCfg) { refresh(); return; }
+  const key = (c) => `${c.host}_${c.port}_${c.username}`;
+  if (key(newCfg) !== key(oldCfg)) refresh();
+}, { deep: false });
 </script>
 
 <style lang="scss" scoped>

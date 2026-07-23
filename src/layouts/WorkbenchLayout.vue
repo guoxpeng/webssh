@@ -167,7 +167,7 @@ import { ConnectionStatus } from '@/utils/constants';
 import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen, FileCode, MessageSquare } from 'lucide-vue-next';
 
 const { t } = useI18n();
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.1';
 const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();

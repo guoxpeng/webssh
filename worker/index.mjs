@@ -285,18 +285,23 @@ async function handleTerminalWS(request) {
       const sshCfg = makeSSHConfig(cfgData);
       conn.on('ready', () => {
         conn.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, channel) => {
-          if (err) { try { server.send(JSON.stringify({ type: 'error', message: err.message })); } catch {} cleanup(); return; }
+          if (err) { try { server.send(`\r\n\x1b[31m[Shell Error] ${err.message}\x1b[0m\r\n`); } catch {} cleanup(); return; }
           shell = channel;
           channel.on('data', (data) => { try { if (server.readyState === 1) server.send(typeof data === 'string' ? data : new Uint8Array(data)); } catch {} });
           channel.stderr.on('data', (data) => { try { if (server.readyState === 1) server.send(typeof data === 'string' ? data : new Uint8Array(data)); } catch {} });
           channel.on('close', () => cleanup());
         });
       });
-      conn.on('error', (err) => { try { server.send(JSON.stringify({ type: 'error', message: err.message })); } catch {} });
+      conn.on('error', (err) => {
+        const msg = `\r\n\x1b[31m[SSH Error] ${err.message}\x1b[0m\r\n`;
+        try { server.send(msg); } catch {}
+      });
       conn.on('close', () => cleanup());
       conn.connect({ ...sshCfg, sock: stream, keepaliveInterval: 15000, keepaliveCountMax: 3 });
     } catch (e) {
-      try { server.send(JSON.stringify({ type: 'error', message: e.message })); } catch {}
+      const msg = `\r\n\x1b[31m[Connection Error] ${e.message}\x1b[0m\r\n`;
+      try { server.send(msg); } catch {}
+      console.error('Worker SSH error:', e.message);
       cleanup();
     }
   }
@@ -308,7 +313,7 @@ async function handleTerminalWS(request) {
       try {
         cfgData = JSON.parse(str);
         if (cfgData.host && cfgData.username) openSSH();
-        else server.send(JSON.stringify({ type: 'error', message: 'Missing host or username' }));
+        else server.send('\r\n\x1b[31mMissing host or username\x1b[0m\r\n');
       } catch {
         server.send(JSON.stringify({ type: 'error', message: 'Invalid config JSON' }));
       }
