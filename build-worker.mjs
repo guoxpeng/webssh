@@ -47,3 +47,11 @@ for (const entry of readdirSync(distDir)) {
 }
 
 console.log('Frontend assets copied to dist/client/');
+
+// Copy worker to dist/ for Pages _worker.js compatibility
+const workerPath = join('dist', 'worker', 'index.mjs');
+const pagesWorkerPath = join('dist', '_worker.js');
+if (existsSync(workerPath)) {
+  cpSync(workerPath, pagesWorkerPath);
+  console.log('Worker also copied to dist/_worker.js (Pages compatible)');
+}

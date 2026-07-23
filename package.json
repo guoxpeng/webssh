@@ -1,7 +1,7 @@
 {
   "name": "webssh",
   "private": true,
-  "version": "2.2.3",
+  "version": "2.2.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,7 @@
     "worker:build": "node build-worker.mjs",
     "worker:dev": "wrangler dev",
     "worker:deploy": "npm run build && node build-worker.mjs && wrangler deploy",
+    "pages:deploy": "npm run build && node build-worker.mjs && wrangler pages deploy dist --project-name=webssh",
     "lint": "eslint src --fix",
     "format": "prettier --write src",
     "typecheck": "vue-tsc --noEmit",

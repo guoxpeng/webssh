@@ -1,3 +1,19 @@
+## v2.2.4 — 修复 Pages 部署无法 SSH 的原因 + 部署方式指引
+
+> 发布时间：2026-07-23
+
+### Cloudflare 部署方式修正
+- **根本原因**：用户部署到了 Pages（`.pages.dev`），Pages 只托管静态文件，不能运行 SSH 服务端
+- Worker 构建增加 `dist/_worker.js` 输出，兼容 Pages with Functions 模式
+- Worker fetch handler 增加 `env.ASSETS` 安全判断，Pages 环境不会因缺少绑定而崩溃
+- `package.json` 新增 `pages:deploy` 命令：`wrangler pages deploy dist --project-name=webssh`
+
+> **关键区别**：
+> - `npm run worker:deploy` → Workers（`workers.dev`），支持 SSH/API/WebSocket
+> - `npm run pages:deploy` → Pages（`pages.dev`），仅静态文件 + `_worker.js`Functions
+
+---
+
 ## v2.2.3 — 移除 HTTP 不安全警告 + 部署脚本健壮性修复
 
 > 发布时间：2026-07-23

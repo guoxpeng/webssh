@@ -441,7 +441,10 @@ export default {
       return handleTerminalWS(request);
     }
 
-    /* Serve built frontend via ASSETS binding */
-    return env.ASSETS.fetch(request);
+    /* Serve built frontend via ASSETS binding (Workers) or 404 (Pages without ASSETS) */
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+    return json({ error: 'Not found', hint: 'If on Pages, ensure _worker.js is present and static files are deployed together.' }, 404);
   },
 };
