@@ -173,7 +173,7 @@ import AuditPanel from '@/components/audit/AuditPanel.vue';
 import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
 
 const { t } = useI18n();
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.2.1';
 const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();

@@ -1,3 +1,24 @@
+## v2.2.1 — 部署更新修复 + CF Worker SSH 算法优化
+
+> 发布时间：2026-07-23
+
+### 部署脚本修复
+- **根因修复**：`git pull` 改 `git fetch + git reset --hard origin/main`，彻底消除合并冲突导致的代码不更新
+- `git clean -fdx` 清除所有未跟踪文件（包括构建产物）
+- 启动前强制杀死旧进程：PID 文件 → 端口占用 → 进程名三级兜底
+- 构建前清除缓存：`rm -rf node_modules/.cache node_modules/.vite dist`
+- `npm cache clean --force` 清除 npm 缓存
+- 部署完成显示当前 git commit hash，方便确认版本
+
+### CF Worker SSH 算法优化
+- 新增 `aes256-gcm@openssh.com` / `aes128-gcm@openssh.com` 支持（Web Crypto 原生支持 GCM）
+- 新增 `chacha20-poly1305@openssh.com` 作为后备
+- 新增 ETM 变体 `hmac-sha2-256-etm@openssh.com` / `hmac-sha2-512-etm@openssh.com`
+- 服务器主机密钥算法新增 `rsa-sha2-512` / `rsa-sha2-256`
+- 增强错误日志：`console.error` 附带 stack trace 前 3 层
+
+---
+
 ## v2.2.0 — 审计日志 + AI SSH 执行 + 安全加固
 
 > 发布时间：2026-07-23

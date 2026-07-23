@@ -3,12 +3,12 @@ import { Client } from 'ssh2';
 import { Duplex } from 'node:stream';
 
 const SSH_ALGORITHMS = {
+  // Prefer ECDH/Curve25519 (Web Crypto native); fallback to DH group14 (workerd polyfill)
   kex: ['curve25519-sha256', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group14-sha256'],
-  // Workers nodejs_compat crypto doesn't fully support GCM auth tags or
-  // ChaCha20-Poly1305, so restrict to CTR/CBC ciphers + HMAC MACs.
-  cipher: ['aes256-ctr', 'aes192-ctr', 'aes128-ctr', 'aes256-cbc', 'aes128-cbc', '3des-cbc'],
-  serverHostKey: ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'ssh-rsa'],
-  hmac: ['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
+  // CTR/CBC handled by Web Crypto AES; GCM may work on newer workerd; ChaCha20-Poly1305 as last resort
+  cipher: ['aes256-gcm@openssh.com', 'aes128-gcm@openssh.com', 'aes256-ctr', 'aes192-ctr', 'aes128-ctr', 'aes256-cbc', 'aes128-cbc', 'chacha20-poly1305@openssh.com'],
+  serverHostKey: ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'],
+  hmac: ['hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
   compress: ['none'],
 };
 
@@ -90,6 +90,7 @@ async function createSSHConnection(cfg) {
     });
     conn.on('error', (err) => {
       clearTimeout(timeout);
+      console.error('[Worker SSH] createSSHConnection error:', err.message, err.stack?.split('\n').slice(0, 3).join(' | '));
       reject(err);
     });
     conn.on('close', () => {
@@ -131,6 +132,7 @@ async function handleSSHTest(request) {
     });
     return json(result);
   } catch (e) {
+    console.error('[Worker SSH] SSH test error:', e.message);
     return json({ success: false, error: [e.message] }, 500);
   }
 }
@@ -213,6 +215,7 @@ async function handleSFTP(request, url) {
     });
     return json(result);
   } catch (e) {
+    console.error('[Worker SSH] SFTP error:', e.message);
     return json({ error: e.message }, 500);
   }
 }
@@ -296,14 +299,15 @@ async function handleTerminalWS(request) {
       });
       conn.on('error', (err) => {
         const msg = `\r\n\x1b[31m[SSH Error] ${err.message}\x1b[0m\r\n`;
+        console.error('[Worker SSH] Terminal error:', err.message, err.stack?.split('\n').slice(0, 3).join(' | '));
         try { server.send(msg); } catch {}
       });
       conn.on('close', () => cleanup());
       conn.connect({ ...sshCfg, sock: stream, keepaliveInterval: 15000, keepaliveCountMax: 3 });
     } catch (e) {
       const msg = `\r\n\x1b[31m[Connection Error] ${e.message}\x1b[0m\r\n`;
+      console.error('[Worker SSH] openSSH error:', e.message, e.stack?.split('\n').slice(0, 3).join(' | '));
       try { server.send(msg); } catch {}
-      console.error('Worker SSH error:', e.message);
       cleanup();
     }
   }
