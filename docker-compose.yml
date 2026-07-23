@@ -1,7 +1,6 @@
-version: '3.8'
-
 services:
   webssh:
+    image: nameguoguo/webssh
     build: .
     container_name: webssh
     restart: unless-stopped

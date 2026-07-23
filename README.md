@@ -91,13 +91,10 @@ curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | ba
 
 一键完成：下载 → 安装 → 构建 → 启动。然后在浏览器打开 `http://你的IP:9627`
 
-### 方法二：Docker
+### 方法二：Docker（推荐）
 
 ```bash
-docker run -d --restart=unless-stopped --name webssh -p 9627:9627 \
-  node:20-alpine sh -c "apk add git openssh && \
-  git clone --depth=1 https://github.com/guoxpeng/webssh.git /app && \
-  cd /app && npm install && npm run build && node server/index.mjs"
+docker run -d --restart=unless-stopped --name webssh -p 9627:9627 nameguoguo/webssh
 ```
 
 ### 方法三：手动安装（一步步来）
