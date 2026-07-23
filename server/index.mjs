@@ -190,29 +190,29 @@ const server = createServer(async (req, res) => {
   if (req.url === '/api/ssh/test') {
     const node = body.node || body;
     try {
-      const result = await withSftp(node, (sftp) => new Promise((resolve) => {
-        const cmds = body.cmds || ["echo 'Connection test OK' && date"];
-        const output = [];
-        let done = false;
-        const conn2 = new Client();
-        conn2.on('ready', () => {
-          conn2.exec(cmds.join(' && '), (err, stream) => {
-            if (err) { resolve({ success: false, error: [err.message] }); return; }
+      const cmds = body.cmds || ["echo 'Connection test OK' && date"];
+      const output = [];
+      let done = false;
+      const conn = new Client();
+      const result = await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          if (!done) { done = true; try { conn.end(); } catch {} resolve({ success: false, error: ['Timeout'] }); }
+        }, 20000);
+        conn.on('ready', () => {
+          clearTimeout(timeout);
+          conn.exec(cmds.join(' && '), (err, stream) => {
+            if (err) { done = true; conn.end(); resolve({ success: false, error: [err.message] }); return; }
             stream.on('data', (d) => output.push(d.toString().trim()));
             stream.stderr.on('data', (d) => output.push(d.toString().trim()));
-            stream.on('close', () => {
-              conn2.end();
-              resolve({ success: true, output, time_elapsed: 0.5 });
-            });
+            stream.on('close', () => { done = true; conn.end(); resolve({ success: true, output, time_elapsed: 0.5 }); });
           });
         });
-        conn2.on('error', (err) => resolve({ success: false, error: [err.message] }));
+        conn.on('error', (err) => { clearTimeout(timeout); if (!done) { done = true; resolve({ success: false, error: [err.message] }); } });
         const cfg = { host: node.host, port: node.port || 22, username: node.username, readyTimeout: 20000 };
         if (node.auth_type === 'key') cfg.privateKey = node.auth_value;
         else cfg.password = node.auth_value;
-        conn2.connect(cfg);
-        setTimeout(() => { if (!done) { done = true; conn2.end(); resolve({ success: false, error: ['Timeout'] }); } }, 15000);
-      }));
+        try { conn.connect(cfg); } catch (e) { clearTimeout(timeout); resolve({ success: false, error: [e.message] }); }
+      });
       json(res, result);
     } catch (e) {
       json(res, { success: false, error: [e.message] }, 500);

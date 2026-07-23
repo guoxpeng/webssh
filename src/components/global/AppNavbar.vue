@@ -27,8 +27,9 @@ const connectionStore = useConnectionStore();
   position: fixed; top: 0; left: 0; right: 0; height: 3.25rem; z-index: 500;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 1rem;
-  background: var(--bulma-scheme-main-bis);
-  border-bottom: 1px solid var(--bulma-border-light);
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+  backdrop-filter: blur(16px);
 }
 .navbar-brand { display: flex; align-items: center; }
 .navbar-logo {
@@ -38,6 +39,8 @@ const connectionStore = useConnectionStore();
 .navbar-title { font-size: 1.1em; font-weight: 700; }
 .navbar-badge {
   padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.7em; font-weight: 500;
-  background: hsl(155,30%,88%); color: hsl(155,50%,25%); border: none; cursor: default;
+  border: none; cursor: default;
+  background: var(--bulma-success);
+  color: white;
 }
 </style>

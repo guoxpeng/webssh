@@ -499,6 +499,9 @@ function onDrop(e, conn, targetGroup) {
 .test-result.is-success & { background: hsl(155,30%,95%); }
 .test-result.is-danger & { background: hsl(350,30%,95%); }
 .test-result.is-warning & { background: hsl(38,30%,95%); }
+:root.is-dark-mode .test-result.is-success & { background: hsla(155,30%,20%,0.4); }
+:root.is-dark-mode .test-result.is-danger & { background: hsla(350,30%,20%,0.4); }
+:root.is-dark-mode .test-result.is-warning & { background: hsla(38,30%,20%,0.4); }
 .test-result-title { font-weight: 600; flex: 1; }
 .test-result-status { font-weight: 500; }
 .test-result-time { color: var(--bulma-text-light); font-family: var(--bulma-family-monospace); font-size: 0.9em; }
@@ -506,12 +509,16 @@ function onDrop(e, conn, targetGroup) {
 .test-result-body { padding: 0.5rem 0.75rem; max-height: 150px; overflow-y: auto; pre { margin: 0; font-size: 0.75em; background: none; padding: 0; } code { color: var(--bulma-text); } }
 .conn-sidebar { display: flex; flex-direction: column; gap: 0.75rem; }
 .sidebar-card { background: var(--bulma-box-background-color); backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light); border-radius: 12px; overflow: hidden; }
+:root.is-dark-mode .sidebar-card { background: var(--app-surface); border-color: var(--app-border); }
 .sidebar-card-header { display: flex; align-items: center; gap: 0.4rem; padding: 0.6rem 0.75rem; font-size: 0.8em; font-weight: 600; border-bottom: 1px solid var(--bulma-border-light); }
+:root.is-dark-mode .sidebar-card-header { border-bottom-color: var(--app-border); }
 .sidebar-header-actions { display: flex; gap: 2px; margin-left: auto; margin-right: 0.25rem; }
 .header-action-btn { background: none; border: none; padding: 0.2rem; border-radius: 4px; cursor: pointer; color: var(--bulma-text-light); display: flex; &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); } }
+:root.is-dark-mode .header-action-btn { &:hover { background: var(--app-surface-hover); } }
 .sidebar-badge { font-size: 0.8em; padding: 1px 6px; border-radius: 6px; background: var(--bulma-border-light); color: var(--bulma-text-light); }
 
 .new-group-row { padding: 0.35rem 0.65rem; border-bottom: 1px solid var(--bulma-border-light); }
+:root.is-dark-mode .new-group-row { border-bottom-color: var(--app-border); }
 .new-group-input { width: 100%; padding: 0.3rem 0.5rem; border: 1px solid var(--bulma-primary); border-radius: 6px; font-size: 0.75em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none; }
 
 .sidebar-search { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--bulma-border-light); }
@@ -522,17 +529,21 @@ function onDrop(e, conn, targetGroup) {
 .sidebar-list { max-height: 400px; overflow-y: auto; }
 
 .pinned-section { border-bottom: 1px solid var(--bulma-border-light); }
+:root.is-dark-mode .pinned-section { border-bottom-color: var(--app-border); }
 .pinned-header { display: flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.65rem; font-size: 0.65em; font-weight: 500; color: var(--bulma-text-light); }
 .pinned-count { opacity: 0.5; }
 .pinned-item { background: rgba(var(--bulma-primary-rgb, 99,102,241), 0.03); }
 
 .group-header { display: flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.65rem; font-size: 0.7em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--bulma-text-light); cursor: pointer; user-select: none; &:hover { color: var(--bulma-text); } & + & { border-top: 1px solid var(--bulma-border-light); margin-top: 0.25rem; padding-top: 0.5rem; } }
+:root.is-dark-mode .group-header + .group-header { border-top-color: var(--app-border); }
 .group-chevron { transition: transform 0.15s; flex-shrink: 0; &.is-open { transform: rotate(90deg); } }
 .group-name { flex: 1; }
 .group-count { font-size: 0.85em; opacity: 0.6; }
 .group-menu-btn { background: none; border: none; padding: 2px; border-radius: 4px; cursor: pointer; color: var(--bulma-text-light); opacity: 0; display: flex; .group-header:hover & { opacity: 1; } &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); } }
 
 .saved-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; cursor: pointer; transition: background 0.1s; &.is-dragging { opacity: 0.4; } &:hover, &.is-focused { background: var(--bulma-scheme-main-ter); } &.is-focused { outline: 2px solid var(--bulma-primary); outline-offset: -2px; } & + & { border-top: 1px solid var(--bulma-border-light); } }
+:root.is-dark-mode .saved-item + .saved-item { border-top-color: var(--app-border); }
+:root.is-dark-mode .sidebar-search { border-bottom-color: var(--app-border); }
 .saved-item-left { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
 .saved-item-info { min-width: 0; }
 .saved-item-name { display: block; font-size: 0.8em; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
@@ -544,11 +555,15 @@ function onDrop(e, conn, targetGroup) {
 .drop-zone { height: 3px; margin: 0 0.75rem; border-radius: 2px; background: var(--bulma-primary); }
 
 .context-menu { position: fixed; z-index: 2000; min-width: 160px; background: var(--bulma-scheme-main); border: 1px solid var(--bulma-border-light); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); overflow: hidden; }
+:root.is-dark-mode .context-menu { background: var(--app-surface); border-color: var(--app-border); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 .context-item { display: flex; align-items: center; padding: 0.45rem 0.65rem; font-size: 0.75em; cursor: pointer; &:hover { background: var(--bulma-scheme-main-bis); } &.is-danger { color: var(--bulma-danger); } }
+:root.is-dark-mode .context-item { &:hover { background: var(--app-surface-hover); } }
 .context-divider { height: 1px; background: var(--bulma-border-light); margin: 2px 0; }
+:root.is-dark-mode .context-divider { background: var(--app-border); }
 
 .rename-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 2001; }
 .rename-dialog { background: var(--bulma-scheme-main); border-radius: 12px; padding: 1rem; width: 320px; }
+:root.is-dark-mode .rename-dialog { background: var(--app-surface); }
 .rename-dialog h4 { margin: 0 0 0.5rem; font-size: 0.9em; }
 .rename-input { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--bulma-border); border-radius: 6px; font-size: 0.85em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none; &:focus { border-color: var(--bulma-primary); } }
 .rename-actions { display: flex; gap: 0.35rem; margin-top: 0.5rem; }

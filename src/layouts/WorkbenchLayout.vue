@@ -234,8 +234,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 .workbench-body { display: flex; flex: 1; margin-top: 3.25rem; min-height: 0; max-height: 100%; overflow: hidden; }
 .workbench-sidebar {
   position: fixed; top: 3.25rem; left: 0; bottom: 24px; z-index: 100;
-  width: 200px; background: var(--bulma-scheme-main-bis);
-  border-right: 1px solid var(--bulma-border-light); padding: 1.5rem 0 0.75rem;
+  width: 200px; background: var(--app-surface);
+  border-right: 1px solid var(--app-border); padding: 1.5rem 0 0.75rem;
   display: flex; flex-direction: column; overflow-y: auto;
   &.is-collapsed { width: 56px; }
 }
@@ -245,7 +245,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   color: var(--bulma-text-light); text-decoration: none; cursor: pointer; white-space: nowrap;
   flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
-  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
+  &:hover { background: var(--app-surface-hover); color: var(--bulma-text); }
   &.is-active { background: var(--bulma-primary); color: white; }
   &.is-active .sidebar-label { font-weight: 500; }
 }
@@ -259,7 +259,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 .workbench-statusbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 0.75rem; height: 24px; font-size: 0.7em;
-  background: var(--bulma-scheme-main-ter); border-top: 1px solid var(--bulma-border-light);
+  background: var(--app-surface-hover); border-top: 1px solid var(--app-border);
   color: var(--bulma-text-light); flex-shrink: 0;
 }
 .statusbar-left, .statusbar-right { display: flex; align-items: center; gap: 0.75rem; }
@@ -307,8 +307,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   display: none;
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
   padding: 0; padding-bottom: var(--sab, 0px);
-  background: var(--bulma-scheme-main-bis);
-  border-top: 1px solid var(--bulma-border-light);
+  background: var(--app-surface);
+  border-top: 1px solid var(--app-border);
   justify-content: space-around;
   backdrop-filter: blur(12px);
 }
@@ -330,7 +330,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
   .workbench-sidebar {
     position: fixed; top: 3.25rem; left: 0; bottom: 0; z-index: 90;
     width: 240px !important; min-width: 240px; max-width: 240px;
-    transform: translateX(-100%); transition: transform 0.2s ease;
+    transform: translateX(-100%); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--app-surface);
+    border-right: 1px solid var(--app-border);
     &.is-mobile-open { transform: translateX(0); }
     &.is-collapsed { transform: translateX(-100%); }
   }
@@ -338,14 +340,31 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
     margin-left: 0 !important; padding: 0.6rem; padding-bottom: calc(3.5rem + var(--sab, 0px));
     overflow-y: auto;
   }
-  .sidebar-header { display: flex; }
-  .sidebar-title { font-weight: 600; font-size: 0.9rem; }
-  .sidebar-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--bulma-text-light); }
+  .sidebar-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--app-border);
+  }
+  .sidebar-title { font-weight: 600; font-size: 0.9rem; color: var(--bulma-text); }
+  .sidebar-close {
+    background: none; border: none; font-size: 1.5rem; cursor: pointer;
+    color: var(--bulma-text-light); padding: 0.25rem; line-height: 1;
+    &:hover { color: var(--bulma-text); }
+  }
   .sidebar-nav { padding: 0.5rem; }
   .sidebar-label { display: inline !important; }
   .collapse-icon { display: none; }
   .mobile-bottom-nav { display: flex; }
   .workbench-statusbar { display: none; }
+
+  /* Mobile dark mode refinements */
+  :root.is-dark-mode .workbench-sidebar {
+    background: hsl(240, 14%, 9%);
+    border-right-color: hsl(240, 10%, 16%);
+  }
+  :root.is-dark-mode .mobile-bottom-nav {
+    background: hsl(240, 14%, 9%);
+    border-top-color: hsl(240, 10%, 16%);
+  }
 }
 
 /* Quick Connect dialog */

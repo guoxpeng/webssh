@@ -88,9 +88,24 @@ body::before {
     radial-gradient(ellipse at 80% 20%, rgba(14,165,233,0.06) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 80%, rgba(139,92,246,0.05) 0%, transparent 50%);
 }
-:root.is-dark-mode .navbar { border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
 :root.is-dark-mode ::-webkit-scrollbar-thumb { background: hsl(240, 8%, 35%); }
 :root.is-dark-mode ::-webkit-scrollbar-thumb:hover { background: hsl(240, 8%, 50%); }
+
+/* App chrome / menu colors – adapt to dark mode */
+:root {
+  --app-surface: var(--bulma-scheme-main-bis);
+  --app-surface-hover: var(--bulma-scheme-main-ter);
+  --app-border: var(--bulma-border-light);
+  --app-text: var(--bulma-text);
+  --app-text-dim: var(--bulma-text-light);
+}
+:root.is-dark-mode {
+  --app-surface: hsl(240, 14%, 10%);
+  --app-surface-hover: hsl(240, 12%, 16%);
+  --app-border: hsl(240, 10%, 18%);
+  --app-text: var(--bulma-text);
+  --app-text-dim: hsl(225, 10%, 55%);
+}
 
 .lucide { display: inline-block; }
 

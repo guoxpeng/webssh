@@ -114,6 +114,9 @@ export const useUiStore = defineStore('ui', () => {
     if (saved && THEME_PRESETS[saved]) {
       currentPreset.value = saved;
       currentTheme.value = (saved === 'light') ? 'light' : 'dark';
+    } else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+      currentPreset.value = 'dark';
+      currentTheme.value = 'dark';
     }
     applyThemePreset(currentPreset.value);
   }
