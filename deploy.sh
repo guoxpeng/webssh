@@ -46,7 +46,12 @@ PID_FILE="${APP_DIR}/webssh.pid"
 LOG_FILE="${APP_DIR}/webssh.log"
 
 progress 10 "Stopping old instance..."
-# Kill ANY process on target port (regardless of directory)
+# 1) fuser — most reliable, works across users on Linux
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k "${PORT}/tcp" 2>/dev/null || true
+  sleep 1
+fi
+# 2) lsof fallback
 if command -v lsof >/dev/null 2>&1; then
   PORT_PID=$(lsof -ti :"${PORT}" 2>/dev/null || true)
   if [ -n "$PORT_PID" ]; then
@@ -54,7 +59,7 @@ if command -v lsof >/dev/null 2>&1; then
     info "Killed process on port ${PORT} (PID $PORT_PID)"
   fi
 fi
-# Kill by PID file if exists
+# 3) PID file
 if [ -f "$PID_FILE" ]; then
   OLD_PID=$(cat "$PID_FILE" 2>/dev/null || true)
   kill "$OLD_PID" 2>/dev/null || true
@@ -62,9 +67,20 @@ if [ -f "$PID_FILE" ]; then
   kill -9 "$OLD_PID" 2>/dev/null || true
   rm -f "$PID_FILE"
 fi
-# Kill any webssh node processes
+# 4) pkill by process name
 pkill -f "node.*server/index.mjs" 2>/dev/null || true
 sleep 2
+
+# 5) Final check — if port still occupied, print owner and bail
+PORT_OWNER=$(lsof -ti :"${PORT}" 2>/dev/null | head -1 || true)
+if [ -n "$PORT_OWNER" ]; then
+  OWNER_USER=$(ps -o user= -p "$PORT_OWNER" 2>/dev/null || echo "unknown")
+  echo ""
+  echo -e "  ${RED}端口 ${PORT} 被 ${OWNER_USER} 用户 (PID ${PORT_OWNER}) 占用，无法释放${NC}"
+  echo -e "  ${YELLOW}请手动执行: sudo kill -9 ${PORT_OWNER}${NC}"
+  echo ""
+  exit 1
+fi
 progress 15 "Old instance stopped"
 
 # ─── Phase 2: Clone or update ───
@@ -122,9 +138,39 @@ IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v
 PUBLIC_IP=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || true)
 [ -z "$PUBLIC_IP" ] && PUBLIC_IP=$(curl -s --max-time 3 https://checkip.amazonaws.com 2>/dev/null || true)
 
-nohup env PORT="$PORT" node server/index.mjs > "$LOG_FILE" 2>&1 &
-echo $! > "$PID_FILE"
-sleep 3
+USE_SYSTEMD=false
+if command -v systemctl >/dev/null 2>&1; then
+  SERVICE_FILE="/etc/systemd/system/webssh.service"
+  # Always update service file with current paths
+  sudo tee "$SERVICE_FILE" > /dev/null << SERVICE_EOF
+[Unit]
+Description=WebSSH Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=${APP_DIR}
+ExecStart=${APP_DIR}/node_modules/.bin/node 2>/dev/null || echo node ${APP_DIR}/server/index.mjs
+ExecStart=$(command -v node) ${APP_DIR}/server/index.mjs
+Restart=always
+RestartSec=5
+Environment=PORT=${PORT}
+
+[Install]
+WantedBy=multi-user.target
+SERVICE_EOF
+  sudo systemctl daemon-reload
+  sudo systemctl enable webssh 2>/dev/null || true
+  sudo systemctl restart webssh 2>/dev/null && USE_SYSTEMD=true
+fi
+
+if [ "$USE_SYSTEMD" = true ]; then
+  sleep 2
+else
+  nohup env PORT="$PORT" node server/index.mjs > "$LOG_FILE" 2>&1 &
+  echo $! > "$PID_FILE"
+  sleep 3
+fi
 
 # Verify startup
 HEALTH=$(curl -s --max-time 3 "http://localhost:${PORT}/health" 2>/dev/null || echo "")
@@ -142,7 +188,13 @@ if [ -n "$HEALTH" ]; then
   [ -n "$PUBLIC_IP" ] && echo -e "  ${BOLD}🌍 公网:${NC}   ${YELLOW}http://${PUBLIC_IP}:${PORT}${NC}"
   echo ""
   echo -e "  ${YELLOW}管理命令:${NC}"
-  echo -e "  停止: kill \$(cat ${PID_FILE})"
+  if [ "$USE_SYSTEMD" = true ]; then
+    echo -e "  状态: sudo systemctl status webssh"
+    echo -e "  停止: sudo systemctl stop webssh"
+    echo -e "  日志: sudo journalctl -u webssh -f"
+  else
+    echo -e "  停止: kill \$(cat ${PID_FILE})"
+  fi
   echo -e "  更新: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash"
   echo ""
 else
