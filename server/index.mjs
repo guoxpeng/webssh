@@ -9,7 +9,7 @@ import { get as httpGet } from 'http';
 import { get as httpsGet } from 'https';
 
 import { PORT, WS_PATH, DIST_DIR, GUACD_HOST, GUACD_PORT } from './lib/config.mjs';
-import { makeSSHConfig, setupSSHClient, json, parseBody, checkRate, serveStatic, serveSuicideSW, getLocalIP } from './lib/utils.mjs';
+import { makeSSHConfig, setupSSHClient, json, parseBody, checkRate, checkWsRate, serveStatic, serveSuicideSW, getLocalIP } from './lib/utils.mjs';
 import { findSession, withSessionSftp } from './lib/session.mjs';
 import { handleSSH } from './lib/ssh.mjs';
 import { handleTelnet } from './lib/telnet.mjs';
@@ -20,9 +20,18 @@ import { createChatBot } from './lib/chat.mjs';
 const AUTH_TOKEN = process.env.AUTH_TOKEN || null;
 function authCheck(req, res) {
   if (!AUTH_TOKEN) return true;
-  if (req.method === 'GET' || req.url === '/health' || req.headers['upgrade']?.toLowerCase() === 'websocket') return true;
+  // Health check always public
+  if (req.url === '/health') return true;
+  // Static files always public (GET only)
+  if (req.method === 'GET' && !req.url.startsWith('/api/')) return true;
+  // All API calls (GET/POST) require Bearer token
   const token = req.headers['authorization']?.replace(/^Bearer\s+/i, '');
   if (token === AUTH_TOKEN) return true;
+  // Allow WebSocket upgrade with token in query param too
+  if (req.headers['upgrade']?.toLowerCase() === 'websocket') {
+    const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+    if (url.searchParams.get('token') === AUTH_TOKEN) return true;
+  }
   res.writeHead(401, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Unauthorized. Set Authorization: Bearer <token>' }));
   return false;
@@ -70,7 +79,7 @@ const server = createServer(async (req, res) => {
   if (req.url === '/api/ssh/test') {
     const node = body.node || body;
     try {
-      const existing = findSession(node.host, node.port, node.username);
+      const existing = findSession(node.host, node.port, node.username, node.auth_value);
       if (existing) {
         const output = [];
         const result = await new Promise((resolve) => {
@@ -112,7 +121,7 @@ const server = createServer(async (req, res) => {
   if (req.url.startsWith('/api/chat/')) {
     if (req.url === '/api/chat/config') {
       if (req.method === 'POST') { chatBot.updateConfig(body); json(res, { success: true }); }
-      else json(res, chatBot.getConfig());
+      else json(res, chatBot.getSanitizedConfig());
       return;
     }
     if (req.url === '/api/chat/messages') {
@@ -186,10 +195,23 @@ const server = createServer(async (req, res) => {
   res.writeHead(404); res.end();
 });
 
+// ─── WebSocket Upgrade Auth ───
+server.on('upgrade', (req, socket, head) => {
+  if (!AUTH_TOKEN) return; // Allow WS upgrade when auth is disabled
+  // Check token from query parameter in WS URL
+  const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+  const token = url.searchParams.get('token') || req.headers['authorization']?.replace(/^Bearer\s+/i, '');
+  if (token === AUTH_TOKEN) return; // Allow upgrade
+  socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+  socket.destroy();
+});
+
 // ─── WebSocket Server (SSH/Telnet/Serial) ───
 const wss = new WebSocketServer({ server, path: WS_PATH });
 wss.on('connection', (ws, req) => {
-  console.log(`[WS] New connection from ${req.socket.remoteAddress}`);
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+  if (!checkWsRate(ip)) { ws.close(1013, 'Too many connections'); return; }
+  console.log(`[WS] New connection from ${ip}`);
   let initialized = false;
   const cleanup = () => { clearInterval(pingInterval); try { ws.close(); } catch {} try { ws.terminate(); } catch {} try { ws.removeAllListeners(); } catch {} };
   ws.on('close', cleanup);

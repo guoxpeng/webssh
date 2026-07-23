@@ -20,7 +20,9 @@ export const SESSION_STORAGE_CONNECTIONS_KEY = 'sshWebAppConnections_configs';
 export function getWsBaseUrl(): string {
   if (import.meta.env.VITE_WS_BASE_URL) return import.meta.env.VITE_WS_BASE_URL;
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${window.location.host}/ws/ssh`;
+  let url = `${proto}//${window.location.host}/ws/ssh`;
+  if (import.meta.env.VITE_AUTH_TOKEN) url += `?token=${encodeURIComponent(import.meta.env.VITE_AUTH_TOKEN)}`;
+  return url;
 }
 
 export function getApiBaseUrl(): string {

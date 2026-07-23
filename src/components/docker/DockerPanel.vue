@@ -55,6 +55,7 @@
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Container, RefreshCw, Square, Play, FileText } from 'lucide-vue-next';
+import { apiFetch } from '@/utils/api';
 
 const { t } = useI18n();
 
@@ -68,7 +69,7 @@ const loading = ref(false);
 async function refresh() {
   loading.value = true;
   try {
-    const resp = await fetch('/api/docker/ps', { method: 'POST' });
+    const resp = await apiFetch('/api/docker/ps', { method: 'POST' });
     if (resp.ok) {
       const data = await resp.json();
       containers.value = data.containers || [];
@@ -78,7 +79,7 @@ async function refresh() {
 }
 
 function execAction(id, action) {
-  fetch('/api/docker/exec', {
+  apiFetch('/api/docker/exec', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ containerId: id, action }),

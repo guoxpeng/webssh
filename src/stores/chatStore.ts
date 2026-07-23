@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import apiService from '@/services/apiService';
+import { apiFetch } from '@/utils/api';
 
 export interface ChatMessage {
   id: string;
@@ -43,7 +43,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadConfig() {
     try {
-      const res = await fetch('/api/chat/config');
+      const res = await apiFetch('/api/chat/config');
       if (res.ok) {
         config.value = await res.json();
         configLoaded.value = true;
@@ -53,13 +53,13 @@ export const useChatStore = defineStore('chat', () => {
 
   async function saveConfig() {
     try {
-      await fetch('/api/chat/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config.value) });
+      await apiFetch('/api/chat/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config.value) });
     } catch {}
   }
 
   async function fetchMessages() {
     try {
-      const res = await fetch('/api/chat/messages', { headers: { 'X-Since': String(lastFetchTime.value) } });
+      const res = await apiFetch('/api/chat/messages', { headers: { 'X-Since': String(lastFetchTime.value) } });
       if (res.ok) {
         const data = await res.json();
         for (const msg of data.messages) {
@@ -86,7 +86,7 @@ export const useChatStore = defineStore('chat', () => {
     };
     messages.value.push(msg);
     try {
-      await fetch('/api/chat/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform, text, meta }) });
+      await apiFetch('/api/chat/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform, text, meta }) });
     } catch {}
   }
 

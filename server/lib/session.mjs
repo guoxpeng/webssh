@@ -1,5 +1,5 @@
 import { Client } from 'ssh2';
-import { makeSSHConfig, setupSSHClient } from './utils.mjs';
+import { makeSSHConfig, setupSSHClient, hashCreds } from './utils.mjs';
 
 export const sessions = new Map();
 
@@ -11,9 +11,10 @@ setInterval(() => {
   }
 }, 60000);
 
-export function findSession(host, port, username) {
+export function findSession(host, port, username, authValue) {
+  const credHash = authValue ? hashCreds(authValue) : null;
   for (const [id, s] of sessions) {
-    if (s.host === host && s.port === (port || 22) && s.username === username) return s.client;
+    if (s.host === host && s.port === (port || 22) && s.username === username && s.credHash === credHash) return s.client;
   }
   return null;
 }
@@ -44,7 +45,7 @@ export async function withSftp(body, fn) {
 
 // Session-aware SFTP (reuses existing SSH connections)
 export async function withSessionSftp(body, fn) {
-  let conn = findSession(body.host, body.port, body.username);
+  let conn = findSession(body.host, body.port, body.username, body.auth_value);
   let ownsClient = false;
   if (!conn) {
     conn = new Client();
@@ -62,9 +63,10 @@ export async function withSessionSftp(body, fn) {
     };
     if (ownsClient) {
       const cfg = { ...makeSSHConfig(body), keepaliveInterval: 30000, keepaliveCountMax: 3 };
-      const sessKey = `${body.host}_${body.port || 22}_${body.username || 'root'}`;
+      const credHash = body.auth_value ? hashCreds(body.auth_value) : null;
+      const sessKey = `${body.host}_${body.port || 22}_${body.username || 'root'}_${credHash || 'noauth'}`;
       conn.on('ready', () => {
-        sessions.set(sessKey, { client: conn, host: body.host, port: body.port || 22, username: body.username || 'root', createdAt: Date.now() });
+        sessions.set(sessKey, { client: conn, host: body.host, port: body.port || 22, username: body.username || 'root', credHash, createdAt: Date.now() });
         conn.on('close', () => sessions.delete(sessKey));
         ownsClient = false;
         onReady();

@@ -114,9 +114,22 @@ async function handleAiResponse(incomingText, platform, meta) {
 
 function restartTelegramPoll() { startTelegramPoll(); }
 
+function maskSecret(val) {
+  if (!val || val.length < 8) return val;
+  return val.slice(0, 3) + '****' + val.slice(-4);
+}
+
 export function createChatBot() {
   return {
     getConfig: () => chatConfig,
+    getSanitizedConfig: () => {
+      const c = JSON.parse(JSON.stringify(chatConfig));
+      if (c.telegram?.token) c.telegram.token = maskSecret(c.telegram.token);
+      if (c.wechat?.apiKey) c.wechat.apiKey = maskSecret(c.wechat.apiKey);
+      if (c.qq?.apiKey) c.qq.apiKey = maskSecret(c.qq.apiKey);
+      if (c.ai?.apiKey) c.ai.apiKey = maskSecret(c.ai.apiKey);
+      return c;
+    },
     getMessages: (since = 0) => since > 0 ? chatMessages.filter(m => m.timestamp > since) : chatMessages,
     updateConfig: (newConfig) => {
       Object.assign(chatConfig, newConfig);

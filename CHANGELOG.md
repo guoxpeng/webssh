@@ -1,3 +1,47 @@
+## v2.1.1 — 安全审计修复
+
+> 发布时间：2026-07-23
+
+### 安全修复
+
+1. **AUTH_TOKEN WebSocket + GET 绕过修复** (CVE-2026-xxxx)
+   - 之前 `authCheck` 无条件放行所有 GET 请求和 WebSocket Upgrade 握手
+   - 现在 WebSocket 连接后第一条消息必须是 `{"type":"auth","token":"xxx"}` 才能继续
+   - GET 请求僅放行静态资源路径，`/api/*` 全部需要 Bearer Token
+   - guacd WebSocket 同样增加握手认证
+
+2. **会话劫持修复 — Session 复用校验凭据**
+   - `findSession()` 增加 `credHash` 参数，对 `auth_value` 取 SHA-256 指纹
+   - 不同凭据即使 host/port/username 相同也不再共享 session
+   - 存储的 session key 现在包含凭据指纹，彻底杜绝空密码劫持
+
+3. **路径穿越修复**
+   - `serveStatic()` 使用 `path.resolve()` 替代 `path.join()`
+   - 增加 `fullPath.startsWith(resolve(DIST_DIR))` 校验
+   - 对 URL 参数去掉 query 和 hash 部分
+
+4. **SSH 主机密钥中间人防护**
+   - `makeSSHConfig()` 增加 `hostVerifier` 回调，在终端打印 host key 指纹
+   - 为未来实现"首次连接确认 + 密钥变化告警"做好准备
+
+5. **敏感配置脱敏**
+   - `GET /api/chat/config` 返回时自动将 token/apiKey 替换为 `abc****xyz` 格式
+   - 仅 POST 更新配置时使用完整值
+
+6. **死代码清理**
+   - 删除 `server/lib/middleware.mjs`（与 index.mjs 内联认证重复）
+
+7. **WebSocket 连接频率限制**
+   - 新增 `checkWsRate()` 限制每个 IP 每分钟最多 10 次 WS 连接
+   - 防止密码喷洒攻击
+
+8. **HTTP 弱加密 UI 警告**
+   - 非 HTTPS 环境下页面顶部显示醒目黄色警告条（已存在但增强文案）
+   - 提示用户加密降级为 XOR 流密码
+
+9. **README 安全警示**
+   - 首页增加警告：仅建议内网/VPN 使用，公网必须 `AUTH_TOKEN` + HTTPS
+
 # 版本发布说明
 
 ## v2.1.0 — 架构重构 + RDP/VNC + Docker 原生管理
