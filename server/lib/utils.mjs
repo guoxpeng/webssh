@@ -13,9 +13,10 @@ export function makeSSHConfig(body) {
     username: body.username || 'root',
     readyTimeout: 3000,
     algorithms: SSH_ALGORITHMS,
-    hostVerifier: (keyHash) => {
+    hostVerifier: (keyHash, callback) => {
       const fp = keyHash.toString('hex').match(/.{2}/g)?.join(':') || keyHash.toString('hex');
       console.log(`[SSH] Host key fingerprint for ${body.host}:${body.port || 22}: ${fp}`);
+      if (typeof callback === 'function') callback(true);
       return true;
     },
   };
