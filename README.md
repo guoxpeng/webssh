@@ -99,11 +99,38 @@ services:
     restart: unless-stopped
     ports:
       - "9627:9627"
+    # volumes:
+    #   - ./data:/app/data   # 持久化聊天机器人配置等
 ```
 
 ```bash
 docker compose up -d
 ```
+
+#### 高级 Docker 部署（RDP/VNC + 原生 Docker 管理）
+
+```yaml
+services:
+  webssh:
+    image: nameguoguo/webssh
+    container_name: webssh
+    restart: unless-stopped
+    ports:
+      - "9627:9627"
+    environment:
+      - GUACD_HOST=guacd         # 启用 RDP/VNC 支持（需同时启动 guacd）
+      - DOCKER_SOCKET=/var/run/docker.sock  # 启用原生 Docker 管理
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+
+  guacd:  # RDP/VNC 远程桌面代理
+    image: guacamole/guacd
+    container_name: guacd
+    restart: unless-stopped
+```
+
+> guacd 和 docker.sock 是可选的。没有它们，SSH/Telnet/Serial 等核心功能完全不受影响。
 
 ### 方法二：一键脚本
 
@@ -250,6 +277,10 @@ cd webssh && ./uninstall.sh
 |------|--------|------|
 | `PORT` | `9627` | HTTP 服务端口 |
 | `WS_PATH` | `/ws/ssh` | WebSocket 路径 |
+| `AUTH_TOKEN` | (空) | 可选 API 认证令牌，设置后所有 API 需 Bearer Token |
+| `GUACD_HOST` | `127.0.0.1` | guacd RDP/VNC 代理地址（如 `guacd`） |
+| `GUACD_PORT` | `4822` | guacd 端口 |
+| `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker 套接字路径 |
 
 ---
 
@@ -266,6 +297,25 @@ cd webssh && ./uninstall.sh
 | Vite | 构建工具 |
 | Pinia | 状态管理 |
 | Capacitor | 桌面/移动端原生包 |
+| dockerode | 原生 Docker API 管理（可选） |
+| guacd | RDP/VNC 远程桌面代理（可选） |
+
+### 📁 后端架构（v2.0+）
+
+```
+server/
+├── index.mjs          # 入口：路由、中间件、启动
+├── lib/
+│   ├── config.mjs     # 常量（端口、路径、算法）
+│   ├── utils.mjs      # 工具函数（JSON、限流、静态文件）
+│   ├── session.mjs    # SSH session 管理（复用SFTP连接）
+│   ├── ssh.mjs        # SSH WebSocket 处理器
+│   ├── telnet.mjs     # Telnet 处理器
+│   ├── serial.mjs     # 串口处理器
+│   ├── chat.mjs       # 聊天机器人 (Telegram/WeChat/QQ/AI)
+│   └── middleware.mjs # 认证中间件 (可选 AUTH_TOKEN)
+└── chat-config.json   # 机器人配置（自动生成）
+```
 
 ---
 
