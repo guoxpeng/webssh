@@ -97,10 +97,6 @@
     </nav>
     <footer class="workbench-statusbar" role="contentinfo" aria-label="Status bar">
       <div class="statusbar-left">
-        <span class="statusbar-item" aria-live="polite" aria-atomic="true">
-          <component :is="connectionIcon" :size="12" class="mr-1"/>
-          {{ statusText }}
-        </span>
       </div>
       <div class="statusbar-right">
         <span class="statusbar-item">{{ t('terminal.sessions', { count: terminalStore.sessionCount }) }}</span>
@@ -163,8 +159,7 @@ import CodeNotePanel from '@/components/codeNotes/CodeNotePanel.vue';
 import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
-import { ConnectionStatus } from '@/utils/constants';
-import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen, FileCode, MessageSquare } from 'lucide-vue-next';
+import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen, FileCode, MessageSquare } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const APP_VERSION = '2.1.1';
@@ -182,27 +177,8 @@ const showChat = ref(false);
 
 function closeMobileMenu() { mobileMenuOpen.value = false; }
 function onSidebarNavClick(e) {
-  // Don't close on collapse toggle click
   if (e.target.closest('.is-collapse-toggle')) return;
 }
-
-const connectionIcon = computed(() => {
-  switch (connectionStore.connectionStatus) {
-    case ConnectionStatus.CONNECTED: return CheckCircle2;
-    case ConnectionStatus.CONNECTING: return LoaderCircle;
-    case ConnectionStatus.ERROR: return AlertTriangle;
-    default: return WifiOff;
-  }
-});
-
-const statusText = computed(() => {
-  switch (connectionStore.connectionStatus) {
-    case ConnectionStatus.CONNECTED: return t('status.connected');
-    case ConnectionStatus.CONNECTING: return t('status.connecting');
-    case ConnectionStatus.ERROR: return t('status.error');
-    default: return t('status.disconnected');
-  }
-});
 
 function onGlobalKeydown(e) {
   const isCtrl = e.ctrlKey || e.metaKey;
@@ -324,6 +300,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
 }
 .snippet-overlay-panel {
   position: relative; z-index: 1; max-height: 80vh;
+  background: var(--bulma-scheme-main); border-radius: 12px; overflow: hidden;
+  box-shadow: var(--app-shadow-lg);
 }
 
 /* Mobile bottom nav */

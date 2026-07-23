@@ -3,7 +3,7 @@ import { Client } from 'ssh2';
 import { Duplex } from 'node:stream';
 
 const SSH_ALGORITHMS = {
-  kex: ['curve25519-sha256', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256'],
+  kex: ['curve25519-sha256', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group14-sha256'],
   // Workers nodejs_compat crypto doesn't fully support GCM auth tags or
   // ChaCha20-Poly1305, so restrict to CTR/CBC ciphers + HMAC MACs.
   cipher: ['aes256-ctr', 'aes192-ctr', 'aes128-ctr', 'aes256-cbc', 'aes128-cbc', '3des-cbc'],
