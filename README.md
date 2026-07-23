@@ -125,7 +125,47 @@ node server/index.mjs
 
 打开 `http://localhost:9627`
 
-### 方法四：开发模式
+### 方法四：部署到 Cloudflare Workers（全球加速）⚡
+
+把 WebSSH 部署到 Cloudflare 的边缘网络，全球节点就近响应，没有 VPS 也能用。
+
+#### 通过 GitHub 自动部署
+
+**Cloudflare Dashboard Workers 集成（中文页面填写指南）：**
+
+| 字段 | 填写内容 | 说明 |
+|------|---------|------|
+| **项目名称** | 自定义（如 `webssh`） | 自动填充了 `wessh`，可以改成你喜欢的 |
+| **构建命令** | `npm run build && node build-worker.mjs` | ⚠ **默认是 `pnpm run build`，必须改成这个** |
+| **部署命令** | `npx wrangler deploy` | 保持默认 |
+| **非生产分支部署命令** | `npx wrangler versions upload` | 保持默认 |
+| **路径** | `/` | 保持默认（项目在仓库根目录） |
+| **API 令牌** | `nodewarden build token` | 保持默认（Cloudflare 自动生成） |
+| **变量** → 名称 `NODE_VERSION` | 值填 `20` | 设置 Node.js 版本 |
+
+填写完点击 **"保存并部署"**，首次构建约 1-2 分钟。之后每次 `git push` 自动部署。
+
+> 你也可以用 **Pages**（点击 Workers & Pages → Pages → 创建项目 → 连接到 Git），同样填写构建命令 `npm run build && node build-worker.mjs`，输出目录 `dist/client`。Pages 不需要 wrangler，更简单。
+
+#### 命令行部署（无 CI）
+
+```bash
+# 登录 Cloudflare
+npx wrangler login
+
+# 一键构建 + 部署
+npm run worker:deploy
+```
+
+部署后访问 `https://你的项目名.workers.dev`
+
+**已知限制（CF Workers 不支持的功能）：**
+- Telegram / WeChat / QQ 机器人（需 Node.js 长轮询）
+- AI 对话（需 OpenAI API + 服务端持久化）
+
+这些功能请使用 Docker/VPS 部署。
+
+### 方法五：开发模式
 
 ```bash
 # 终端1：后端

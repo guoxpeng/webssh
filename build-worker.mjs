@@ -1,4 +1,6 @@
 import * as esbuild from 'esbuild';
+import { cpSync, mkdirSync, existsSync, readdirSync } from 'fs';
+import { join } from 'path';
 
 const nodeBuiltins = [
   'assert', 'buffer', 'child_process', 'crypto', 'dns', 'events',
@@ -31,3 +33,17 @@ await esbuild.build({
   plugins: [workerdCompatPlugin],
   logLevel: 'info',
 });
+
+// Copy frontend assets to dist/client/ for wrangler assets
+const clientDir = join('dist', 'client');
+if (!existsSync(clientDir)) mkdirSync(clientDir, { recursive: true });
+
+const distDir = join('dist');
+for (const entry of readdirSync(distDir)) {
+  if (entry === 'worker' || entry === 'client') continue;
+  const src = join(distDir, entry);
+  const dest = join(clientDir, entry);
+  cpSync(src, dest, { recursive: true, force: true });
+}
+
+console.log('Frontend assets copied to dist/client/');

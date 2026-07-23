@@ -2,7 +2,7 @@ import { WebSocketServer } from 'ws';
 import { Client } from 'ssh2';
 import { createServer } from 'http';
 import { createConnection } from 'net';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
 import { fileURLToPath } from 'url';
 import { networkInterfaces } from 'os';
@@ -35,9 +35,9 @@ const sessions = new Map();
 setInterval(() => {
   const now = Date.now();
   for (const [id, s] of sessions) {
-    if (now - s.createdAt > 600000) { try { s.client.end(); } catch {} sessions.delete(id); }
+    if (now - s.createdAt > 1800000) { try { s.client.end(); } catch {} sessions.delete(id); }
   }
-}, 30000);
+}, 60000);
 
 function findSession(host, port, username) {
   for (const [id, s] of sessions) {
@@ -51,7 +51,7 @@ function makeSSHConfig(body) {
     host: body.host,
     port: body.port || 22,
     username: body.username || 'root',
-    readyTimeout: 5000,
+    readyTimeout: 3000,
     algorithms: SSH_ALGORITHMS,
   };
   if (body.auth_value) {
@@ -108,7 +108,7 @@ async function withSessionSftp(body, fn) {
     ownsClient = true;
   }
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { if (ownsClient) try { conn.end(); } catch {} reject(new Error('SFTP timeout')); }, 10000);
+    const timeout = setTimeout(() => { if (ownsClient) try { conn.end(); } catch {} reject(new Error('SFTP timeout')); }, 15000);
     const done = () => { clearTimeout(timeout); };
     const onReady = () => {
       conn.sftp((err, sftp) => {
@@ -117,7 +117,7 @@ async function withSessionSftp(body, fn) {
       });
     };
     if (ownsClient) {
-      const cfg = makeSSHConfig(body);
+      const cfg = { ...makeSSHConfig(body), keepaliveInterval: 30000, keepaliveCountMax: 3 };
       const sessKey = `${body.host}_${body.port || 22}_${body.username || 'root'}`;
       conn.on('ready', () => {
         sessions.set(sessKey, { client: conn, host: body.host, port: body.port || 22, username: body.username || 'root', createdAt: Date.now() });
@@ -284,6 +284,33 @@ self.addEventListener('fetch',()=>{});`);
     return;
   }
 
+  // --- Chat Bot API ---
+  if (req.url === '/api/chat/config') {
+    if (req.method === 'POST') {
+      Object.assign(chatConfig, body);
+      saveChatConfig();
+      restartTelegramPoll();
+      json(res, { success: true });
+    } else {
+      json(res, chatConfig);
+    }
+    return;
+  }
+  if (req.url === '/api/chat/messages') {
+    const since = parseInt(req.headers['x-since'] || '0', 10);
+    const msgs = since > 0 ? chatMessages.filter(m => m.timestamp > since) : chatMessages;
+    json(res, { messages: msgs });
+    return;
+  }
+  if (req.url === '/api/chat/send') {
+    const { platform, text, meta } = body;
+    if (!platform || !text) { json(res, { success: false, error: 'platform and text required' }, 400); return; }
+    addChatMessage({ platform, direction: 'out', from: 'Admin', text, meta });
+    const result = await sendBotMessage(platform, text, meta);
+    json(res, result);
+    return;
+  }
+
   if (!req.url.startsWith('/api/sftp/')) {
     res.writeHead(404); res.end();
     return;
@@ -412,12 +439,15 @@ function handleSSH(ws, config) {
   const tag = `[SSH ${cfg.host}:${cfg.port}]`;
   let sessionId = null;
   const log = (m) => console.log(`${tag} ${m}`);
-  const cleanup = () => { if (sessionId) sessions.delete(sessionId); try { client.end(); } catch {}; try { ws.close(); } catch {}; try { client.removeAllListeners(); } catch {}; try { ws.removeAllListeners(); } catch {}; };
+  const cleanup = () => { if (sessionId && sessions.get(sessionId)?.client === client) sessions.delete(sessionId); try { client.end(); } catch {}; try { ws.close(); } catch {}; try { client.removeAllListeners(); } catch {}; try { ws.removeAllListeners(); } catch {}; };
 
   client.on('ready', () => {
     log('Connected');
-    sessionId = `${cfg.host}_${cfg.port}_${cfg.username}_${Date.now().toString(36)}`;
-    sessions.set(sessionId, { client, host: cfg.host, port: cfg.port, username: cfg.username, createdAt: Date.now() });
+    const stdKey = `${cfg.host}_${cfg.port}_${cfg.username}`;
+    sessionId = stdKey;
+    if (!sessions.has(stdKey)) {
+      sessions.set(stdKey, { client, host: cfg.host, port: cfg.port, username: cfg.username, createdAt: Date.now() });
+    }
     client.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
       if (err) { log('Shell error: ' + err.message); try { ws.send('\r\n\x1b[31m[Shell Error] ' + err.message + '\x1b[0m\r\n'); } catch {} cleanup(); return; }
       const onWsMsg = (input) => {
@@ -553,6 +583,124 @@ function handleSerial(ws, config) {
     cleanup();
   }
 }
+
+// ─── Chat Bot System ──────────────────────────────────────────
+const CHAT_CONFIG_PATH = join(__dirname, 'chat-config.json');
+let chatConfig = { telegram: { enabled: false, token: '', adminIds: [] }, wechat: { enabled: false, apiUrl: '', apiKey: '' }, qq: { enabled: false, apiUrl: '', apiKey: '' }, ai: { enabled: false, apiUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-4o-mini', systemPrompt: 'You are a helpful SSH operations assistant.', temperature: 0.7 } };
+let chatMessages = [];
+let chatIdCounter = 0;
+
+try { if (existsSync(CHAT_CONFIG_PATH)) chatConfig = JSON.parse(readFileSync(CHAT_CONFIG_PATH, 'utf8')); } catch {}
+
+function saveChatConfig() { try { writeFileSync(CHAT_CONFIG_PATH, JSON.stringify(chatConfig, null, 2), 'utf8'); } catch (e) { console.error('[Chat] Failed to save config:', e.message); } }
+
+function addChatMessage(msg) {
+  const m = { id: `chat_${++chatIdCounter}`, ...msg, timestamp: msg.timestamp || Date.now() };
+  chatMessages.push(m);
+  if (chatMessages.length > 1000) chatMessages = chatMessages.slice(-1000);
+  return m;
+}
+
+// Telegram bot polling
+let telegramPollTimer = null;
+let telegramLastUpdateId = 0;
+function startTelegramPoll() {
+  stopTelegramPoll();
+  if (!chatConfig.telegram?.enabled || !chatConfig.telegram?.token) return;
+  const base = `https://api.telegram.org/bot${chatConfig.telegram.token}`;
+  const poll = () => {
+    httpsGet(`${base}/getUpdates?offset=${telegramLastUpdateId + 1}&timeout=30&allowed_updates=["message"]`, (res) => {
+      let body = '';
+      res.on('data', c => body += c);
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.ok && data.result) {
+            for (const update of data.result) {
+              const msg = update.message;
+              if (!msg) continue;
+              const uid = update.update_id;
+              if (uid > telegramLastUpdateId) telegramLastUpdateId = uid;
+              const chatId = msg.chat?.id;
+              if (!chatId) continue;
+              const text = msg.text || '';
+              const from = msg.from?.username || msg.from?.first_name || 'User';
+              if (!chatConfig.telegram.adminIds.includes(chatId)) {
+                httpsGet(`${base}/sendMessage?chat_id=${chatId}&text=Sorry, you are not authorized.`, () => {});
+                continue;
+              }
+              addChatMessage({ platform: 'telegram', direction: 'in', from, text, meta: { chatId } });
+              if (chatConfig.ai.enabled) handleAiResponse(text, 'telegram', chatId);
+            }
+          }
+        } catch {}
+        telegramPollTimer = setTimeout(poll, 1000);
+      });
+    }).on('error', () => { telegramPollTimer = setTimeout(poll, 5000); });
+  };
+  poll();
+}
+function stopTelegramPoll() { if (telegramPollTimer) { clearTimeout(telegramPollTimer); telegramPollTimer = null; } }
+
+// Platform: send message out via configured bot
+async function sendBotMessage(platform, text, meta = {}) {
+  if (platform === 'telegram') {
+    const cfg = chatConfig.telegram;
+    if (!cfg?.enabled || !cfg?.token) return { success: false, error: 'Telegram not configured' };
+    const chatId = meta?.chatId || (cfg.adminIds.length > 0 ? cfg.adminIds[0] : null);
+    if (!chatId) return { success: false, error: 'No target chat ID' };
+    return new Promise((resolve) => {
+      const url = `https://api.telegram.org/bot${cfg.token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(text)}&parse_mode=Markdown`;
+      httpsGet(url, (res) => {
+        let body = '';
+        res.on('data', c => body += c);
+        res.on('end', () => { try { const r = JSON.parse(body); resolve(r.ok ? { success: true } : { success: false, error: r.description }); } catch { resolve({ success: false }); } });
+      }).on('error', (e) => resolve({ success: false, error: e.message }));
+    });
+  } else if (platform === 'wechat') {
+    const cfg = chatConfig.wechat;
+    if (!cfg?.enabled || !cfg?.apiUrl) return { success: false, error: 'WeChat not configured' };
+    try {
+      const res = await fetch(cfg.apiUrl + '/send_message', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cfg.apiKey ? { 'Authorization': `Bearer ${cfg.apiKey}` } : {}) }, body: JSON.stringify({ type: 'text', content: text, ...meta }) });
+      return { success: res.ok };
+    } catch (e) { return { success: false, error: e.message }; }
+  } else if (platform === 'qq') {
+    const cfg = chatConfig.qq;
+    if (!cfg?.enabled || !cfg?.apiUrl) return { success: false, error: 'QQ not configured' };
+    try {
+      const target = meta?.groupId ? `group_id=${meta.groupId}` : `user_id=${meta.userId}`;
+      const res = await fetch(`${cfg.apiUrl}/send_msg?message_type=${meta?.groupId ? 'group' : 'private'}&${target}&message=${encodeURIComponent(text)}`, { headers: { ...(cfg.apiKey ? { 'Authorization': `Bearer ${cfg.apiKey}` } : {}) } });
+      return { success: res.ok };
+    } catch (e) { return { success: false, error: e.message }; }
+  }
+  return { success: false, error: `Unknown platform: ${platform}` };
+}
+
+// AI response handler
+async function handleAiResponse(incomingText, platform, meta) {
+  const cfg = chatConfig.ai;
+  if (!cfg?.enabled || !cfg?.apiKey) return;
+  try {
+    const res = await fetch(`${cfg.apiUrl.replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify({ model: cfg.model || 'gpt-4o-mini', messages: [{ role: 'system', content: cfg.systemPrompt || 'You are a helpful assistant.' }, { role: 'user', content: incomingText }], temperature: cfg.temperature || 0.7, max_tokens: 1000 }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content;
+    if (!reply) return;
+    addChatMessage({ platform: 'ai', direction: 'in', from: 'AI', text: reply });
+    await sendBotMessage(platform, reply, meta);
+  } catch (e) { console.error('[Chat] AI error:', e.message); }
+}
+
+// Start/stop Telegram poll when config changes
+function restartTelegramPoll() { startTelegramPoll(); }
+
+// Add API routes for chat
+const originalApiRoute = apiRoute;
+// We handle chat routes inline in the request handler
 
 wss.on('connection', (ws, req) => {
   console.log(`[WS] New connection from ${req.socket.remoteAddress}`);

@@ -31,6 +31,14 @@
             <TerminalSquare :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
           </a>
+          <a class="sidebar-item" @click="showCodeNotes = !showCodeNotes; closeMobileMenu()" :title="t('codeNotes.title')" role="button" tabindex="0">
+            <FileCode :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('codeNotes.title') }}</span>
+          </a>
+          <a class="sidebar-item" @click="showChat = !showChat; closeMobileMenu()" :title="t('chat.title')" role="button" tabindex="0">
+            <MessageSquare :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('chat.title') }}</span>
+          </a>
           <a class="sidebar-item" @click="showMacro = true; closeMobileMenu()" :title="t('macro.title')" role="button" tabindex="0">
             <PlayCircle :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('macro.title') }}</span>
@@ -110,6 +118,18 @@
         <SnippetPanel @close="showSnippets = false" @run="onRunSnippet"/>
       </div>
     </div>
+    <div v-if="showCodeNotes" class="snippet-overlay">
+      <div class="snippet-overlay-backdrop" @click="showCodeNotes = false"></div>
+      <div class="snippet-overlay-panel">
+        <CodeNotePanel @close="showCodeNotes = false"/>
+      </div>
+    </div>
+    <div v-if="showChat" class="snippet-overlay">
+      <div class="snippet-overlay-backdrop" @click="showChat = false"></div>
+      <div class="snippet-overlay-panel">
+        <ChatPanel @close="showChat = false"/>
+      </div>
+    </div>
     <div v-if="showBackup" class="snippet-overlay">
       <div class="snippet-overlay-backdrop" @click="showBackup = false"></div>
       <div class="snippet-overlay-panel">
@@ -139,10 +159,12 @@ import { useTerminalStore } from '@/stores/terminalStore';
 import { useBackupStore } from '@/stores/backupStore';
 import { useMacroStore } from '@/stores/macroStore';
 import SnippetPanel from '@/components/snippets/SnippetPanel.vue';
+import CodeNotePanel from '@/components/codeNotes/CodeNotePanel.vue';
+import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import { ConnectionStatus } from '@/utils/constants';
-import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen } from 'lucide-vue-next';
+import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, CheckCircle2, AlertTriangle, WifiOff, LoaderCircle, TerminalSquare, Database, ArrowRightCircle, PlayCircle, FolderOpen, FileCode, MessageSquare } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const APP_VERSION = '2.0.0';
@@ -155,6 +177,8 @@ const showMacro = ref(false);
 const showSettings = ref(false);
 const showSnippets = ref(false);
 const showBackup = ref(false);
+const showCodeNotes = ref(false);
+const showChat = ref(false);
 
 function closeMobileMenu() { mobileMenuOpen.value = false; }
 function onSidebarNavClick(e) {

@@ -89,12 +89,14 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
+import { useCodeNoteStore } from '@/stores/codeNoteStore';
 import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
 const connectionStore = useConnectionStore();
 const snippetStore = useSnippetStore();
+const codeNoteStore = useCodeNoteStore();
 const uiStore = useUiStore();
 
 const props = defineProps({
@@ -126,6 +128,7 @@ function sendCommand() {
   const cmd = commandInput.value.trim();
   if (!cmd || !wsService) return;
   wsService.sendMessage(cmd + '\n');
+  codeNoteStore.addNote(cmd, 'terminal');
   commandInput.value = '';
   term?.focus();
 }
@@ -147,7 +150,10 @@ function copyFromTerminal() {
 }
 
 function sendQuickSnippet(s) {
-  if (wsService) wsService.sendMessage(s.command + '\n');
+  if (wsService) {
+    wsService.sendMessage(s.command + '\n');
+    codeNoteStore.addNote(s.command, 'terminal');
+  }
 }
 
 function onSnippetDragStart(e, idx) { snippetDragIdx.value = idx; e.dataTransfer.effectAllowed = 'move'; }

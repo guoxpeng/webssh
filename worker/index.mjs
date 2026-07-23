@@ -356,6 +356,11 @@ export default {
       return handleDocker(request, url);
     }
 
+    /* Chat Bot API (WebSocket terminal + Docker only, chat requires Node.js backend) */
+    if (url.pathname.startsWith('/api/chat/')) {
+      return json({ error: 'Chat bot requires Node.js backend (Docker/VPS). Not available in Cloudflare Workers.' }, 501);
+    }
+
     /* WebSocket terminal */
     if (url.pathname === '/ws/ssh') {
       return handleTerminalWS(request);

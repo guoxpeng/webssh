@@ -39,7 +39,7 @@
             <span>{{ sftpPanelConfig ? sftpPanelConfig.host : t('sftp.noConnection') }}</span>
             <button class="sftp-panel-close" @click="showSftpPanel = false">&times;</button>
           </div>
-          <SftpBrowser v-if="sftpPanelConfig" :key="sftpPanelKey" :node-config="sftpPanelConfig" @close="showSftpPanel = false"/>
+          <SftpBrowser v-if="sftpPanelConfig" :node-config="sftpPanelConfig" @close="showSftpPanel = false"/>
           <div v-else class="sftp-panel-empty">
             <div class="empty-header">
               <FolderOpen :size="32" class="empty-icon"/>
@@ -133,7 +133,6 @@ const router = useRouter();
 const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
 const showSftpPanel = ref(false);
-const sftpPanelKey = ref(0);
 const sftpWidth = ref(360);
 let dragging = false;
 const connecting = ref(false);
@@ -221,12 +220,9 @@ const sftpPanelConfig = computed(() => {
   return pane?.config || null;
 });
 
-watch(sftpPanelConfig, () => { if (showSftpPanel.value) sftpPanelKey.value++; });
-
 function toggleSftpPanel() {
   if (sftpPanelConfig.value) {
     showSftpPanel.value = !showSftpPanel.value;
-    if (showSftpPanel.value) sftpPanelKey.value++;
   }
 }
 
