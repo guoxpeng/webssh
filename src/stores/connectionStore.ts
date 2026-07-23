@@ -78,6 +78,10 @@ export const useConnectionStore = defineStore('connection', () => {
     for (const c of savedConnections.value) {
       if (c.group) gs.add(c.group);
     }
+    // Also include groups from groupOrder that have no connections yet
+    for (const g of groupOrder.value) {
+      if (g) gs.add(g);
+    }
     const all = Array.from(gs);
     const ordered = groupOrder.value.filter(g => all.includes(g));
     const remainder = all.filter(g => !groupOrder.value.includes(g));

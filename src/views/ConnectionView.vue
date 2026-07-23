@@ -54,7 +54,7 @@
           <!-- New group input -->
           <div v-if="showNewGroupInput" class="new-group-row">
             <input ref="newGroupInputRef" type="text" v-model="newGroupName" :placeholder="t('server.groupNamePlaceholder')"
-                   class="new-group-input" @keydown.enter="confirmCreateGroup" @keydown.escape="cancelCreateGroup" @blur="cancelCreateGroup"/>
+                   class="new-group-input" @keydown.enter="confirmCreateGroup" @keydown.escape="cancelCreateGroup"/>
           </div>
 
           <div class="sidebar-search" v-if="connectionStore.savedConnections.length > 0">
