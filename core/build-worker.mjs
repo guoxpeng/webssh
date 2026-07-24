@@ -27,11 +27,9 @@ const workerdCompatPlugin = {
 const agentStub = {
   name: 'ssh2-agent-stub',
   setup(build) {
-    // Intercept any import of agent.js from within ssh2
-    build.onResolve({ filter: /\/agent(\.js)?$/ }, (args) => {
-      if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
-        return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
-      }
+    // Intercept require('./agent') from ssh2/lib/index.js
+    build.onResolve({ filter: /\/ssh2\/lib\/agent\.js$/ }, () => {
+      return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
     });
   },
 };
