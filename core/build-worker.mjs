@@ -37,6 +37,7 @@ globalThis.require = function require(id) {
   if (__CF_nodeModules[id] !== undefined) return __CF_nodeModules[id];
   throw new Error('[webssh worker] Cannot require("' + id + '") in CF Workers');
 };
+globalThis.Buffer = __shim_buffer.Buffer;
 `;
 
 await esbuild.build({
