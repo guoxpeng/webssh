@@ -1,6 +1,6 @@
 import { connect } from 'cloudflare:sockets';
 import { Client } from 'ssh2';
-import { Duplex } from 'node:stream';
+import { Duplex } from 'stream';
 
 const SSH_ALGORITHMS = {
   // Prefer ECDH/Curve25519 (Web Crypto native); fallback to DH group14 (workerd polyfill)
