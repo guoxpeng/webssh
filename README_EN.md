@@ -118,7 +118,7 @@ Workers & Pages → Workers → Create → Connect Git
 
 | Field | Value |
 |------|-----|
-| Build command | `npm run build && node core/build-worker.mjs` |
+| Build command | `npm run build` |
 | Deploy command | `npx wrangler deploy` |
 | Env `NODE_VERSION` | `22` |
 

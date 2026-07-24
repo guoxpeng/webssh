@@ -122,9 +122,9 @@ node core/server/index.mjs
 
 | 字段 | 值 |
 |------|-----|
-| 构建命令 | `npm run build && node core/build-worker.mjs` |
+| 构建命令 | `npm run build` |
 | 部署命令 | `npx wrangler deploy` |
-| 变量 `NODE_VERSION` | `20` |
+| 变量 `NODE_VERSION` | `22` |
 
 > **CF Workers 已知限制**：不支持 Telegram/WeChat/QQ 机器人（需 Node.js 长轮询）、AI 对话。这些请用 Docker/VPS 部署。
 
