@@ -76,10 +76,21 @@ await esbuild.build({
         contents: 'export default {};',
         loader: 'js',
       }));
+
+      // 加强内置模块处理
       const bareBuiltins = /^(assert|buffer|child_process|crypto|dns|events|fs|http|https|net|os|path|stream|string_decoder|tls|url|util|zlib|querystring|punycode)$/;
       build.onResolve({ filter: bareBuiltins }, (args) => ({
-        path: args.path, external: true,
+        path: args.path,
+        external: true,
       }));
+
+      // 特殊处理 stream（SFTP 依赖）
+      build.onResolve({ filter: /^stream$/ }, () => ({
+        path: 'node:stream',
+        external: true,
+      }));
+
+      // ssh2 agent shim
       build.onResolve({ filter: /^\.\/agent(\.js)?$/, namespace: 'file' }, (args) => {
         if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
           return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
