@@ -99,3 +99,21 @@ await esbuild.build({
 });
 
 console.log('Worker built to dist/client/_worker.js');
+
+// === Post-build patch for SFTP class extends issue ===
+const workerPath = join(outDir, '_worker.js');
+let code = require('fs').readFileSync(workerPath, 'utf8');
+
+// Mock SFTP to prevent class extends error
+code = code.replace(
+  /class .*SFTPWrapper|SFTP.*extends|from ["']\.\/protocol\/SFTP["']/g,
+  '// SFTP mocked for Cloudflare Workers'
+);
+
+code = code.replace(
+  /SFTPWrapper|new SFTP|require\(.SFTP.\)/g,
+  'class MockSFTP { constructor() {} }'
+);
+
+require('fs').writeFileSync(workerPath, code);
+console.log('Applied post-build SFTP mock patch');
