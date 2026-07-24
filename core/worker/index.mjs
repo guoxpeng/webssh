@@ -451,8 +451,8 @@ export default {
     }
 
     /* Serve built frontend via ASSETS binding (Workers) or 404 (Pages without ASSETS) */
-    if (env.ASSETS) {
-      return env.ASSETS.fetch(request);
+    if (env.ASSETS_STORE) {
+      return env.ASSETS_STORE.fetch(request);
     }
     return json({ error: 'Not found', hint: 'If on Pages, ensure _worker.js is present and static files are deployed together.' }, 404);
   },

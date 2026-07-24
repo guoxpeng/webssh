@@ -3,7 +3,7 @@ main = "dist/worker/index.mjs"
 compatibility_date = "2026-07-23"
 compatibility_flags = ["nodejs_compat_v2"]
 
-assets = { directory = "dist/client", binding = "ASSETS" }
+assets = { directory = "dist/client", binding = "ASSETS_STORE" }
 pages_build_output_dir = "dist/client"
 
 # Uncomment and fill in your KV namespace IDs for session persistence:
