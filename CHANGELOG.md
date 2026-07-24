@@ -1,3 +1,94 @@
+## v3.0.0 — 架构重构：WebSocket SFTP，模块化布局，全面优化
+
+> 发布时间：2026-07-24
+
+### 架构重组
+- **项目结构**：前端移入 `web/`，后端移入 `core/server/`，Worker 移入 `core/worker/`
+- **Docker**：配置移入 `docker/`；**部署脚本** 移入 `scripts/`
+- **原生平台**：`android/`（源码追踪）、`ios/`、`electron/` 独立目录
+
+### WebSocket SFTP 文件管理（全新）
+- **后端**：`core/server/lib/sftp.mjs` — 基于 WebSocket 的持久 SFTP 连接，支持 list/read/write/delete/mkdir/rmdir/rename/chmod
+- **前端**：`web/src/services/sftpWsService.ts` — WebSocket 客户端，请求-响应 ID 匹配，30s 超时
+- **Session 复用**：`findSession` 自动复用已有 SSH 会话，无需二次认证
+- 文件列表浏览、上传、下载（含 ZIP 批量下载文件夹）、删除、重命名、权限修改
+- SFTP 内联编辑器：双击文件直接编辑并保存
+
+### 终端增强
+- 移除标签中 `>_SSH` ProtocolBadge，更简洁
+- 双击标签重命名，联动 `connectionStore` 更新服务器名称
+- 相同服务器多标签自动追加 `(副本2)`、`(副本3)` 编号
+- 删除终端标签下方的置顶便签拖拽栏
+- 终端输入框上方保留 Copy/Paste + 便签快捷按钮
+- 字体大小设置修复：`term-settings-change` 事件 + localStorage 读取
+
+### 文件管理独立登录
+- `SftpView.vue` — 不依赖终端 SSH，独立选择服务器连接
+- 无凭据时弹出密码/密钥输入框，支持密码和私钥切换
+- 连接成功后自动加密保存凭据到 sessionStorage
+- `watch(currentNodeDetails)` + `immediate` 支持终端连接后自动填充
+
+### 代码便签优化
+- **收藏改置顶**：Star → Pin 图标，`favorite` → `pinToTop`
+- **拖动排序**：置顶便签可拖拽自排序，`sortedSnippets` computed 置顶优先
+- 置顶项背景淡黄色标注，非置顶正常显示
+- `isSaved()` 检测已收藏便签，已收藏显示实心图标
+
+### 代码笔记收藏
+- 每条命令新增 Star 按钮
+- 点击收藏到便签，已收藏状态显示实心金色图标
+- 防重复添加检查
+
+### 连接与分组
+- 保存服务器时自动加密存入 sessionStorage（`async/await` 等待完成）
+- 分组右键菜单 `setTimeout(0)` 防监听器即时关闭的竞态问题
+- 拖入分组：`@drop.prevent.stop` 防止事件冒泡
+- `moveConnectionToGroup` 添加同组跳过、Ungrouped 正确转空字符串
+- `moveConnectionToGroup` 数组展开 `[...savedConnections.value]` 强制响应式
+- 连接表单保存后不清空内容
+- 连接按钮/分组连接按钮加载 sessionStorage 凭据直连
+- SSH `readyTimeout` 从 15s 提高到 30s
+
+### 错误提示优化
+- `friendlyError()` 函数统一映射常见错误到友好中文提示
+- 超时 → "连接超时，请检查IP地址和端口"
+- 认证失败 → "认证失败，请核对用户名和密码"
+- 连接拒绝 → "连接被拒绝，请检查IP和端口是否正确"
+- 连接中断 → "连接中断，请检查网络"
+- 终端和 SFTP 文件管理均生效
+
+### 界面优化
+- 浏览器标签标题固定为 `WebSSH`
+- 新 Logo：深紫渐变底 + 白色 `>_` 终端提示符（`icon.svg`）
+- PNG 图标同步更新（icon-192、icon-512、apple-touch-icon）
+- favicon 多格式兼容（shortcut icon + SVG + PNG + mask-icon）
+- 发送按钮改为纯图标（Send），输入框 `field-sizing: content` 自适应扩宽
+- 设置中清除凭据按钮添加 `showSuccess` 通知
+
+### 国际化
+- 新增 `terminal.connecting` / `terminal.connected` 中文翻译
+- 新增 `terminal.authFailed` / `terminal.connTimeout` / `terminal.connRefused` / `terminal.connLost`
+- 新增 `sftp.enterCredentials`
+- 新增 `snippets.pinToTop` / `snippets.addToSnippets`
+- 新增 `settings.credentialsCleared`
+
+### 构建与开发
+- Vite 代理新增 `/ws/sftp` 路由
+- `findSession` 放松凭据匹配：`credHash` 为 null 时仅匹配 host+port+username
+- `.gitignore` 完整重写，保留 `android/` 源码，排除构建产物
+
+### 文件变更（部分）
+- 新增：`core/server/lib/sftp.mjs`、`web/src/services/sftpWsService.ts`
+- 修改：`core/server/lib/session.mjs`、`core/server/lib/utils.mjs`、`core/server/lib/ssh.mjs`
+- 修改：`web/src/components/sftp/SftpBrowser.vue`、`web/src/views/SftpView.vue`
+- 修改：`web/src/components/terminal/TerminalDisplay.vue`、`web/src/components/terminal/SplitPaneTerminal.vue`
+- 修改：`web/src/components/snippets/SnippetPanel.vue`、`web/src/components/codeNotes/CodeNotePanel.vue`
+- 修改：`web/src/stores/connectionStore.ts`、`web/src/views/ConnectionView.vue`
+- 修改：`web/src/router/index.ts`、`web/index.html`、`web/public/icon.svg`
+- 修改：`vite.config.mjs`、`package.json`（v3.0.0）
+
+---
+
 ## v2.2.5 — 部署脚本根因修复（绝对路径 + 版本验证）
 
 > 发布时间：2026-07-23

@@ -1,4 +1,4 @@
-# 🚀 WebSSH —— 像开网页一样管理服务器
+# 🚀 WebSSH v3.0 — 一个网页管所有服务器
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
@@ -6,357 +6,118 @@
 
 ---
 
-## 这个工具是干什么的？🤔
+## 🤔 这是什么？
 
-> **⚠️ 安全提醒：** WebSSH **建议在内网/VPN 内使用**，不建议直接暴露到公网。如需公网访问，务必设置 `AUTH_TOKEN` 环境变量并启用 HTTPS（反向代理配置 TLS 证书）。默认部署不包含多用户体系与完整审计日志。
+你有很多台服务器要管？
 
-你有很多台**远程电脑（服务器）** 要管？
-
-- 以前：装各种软件、记一堆 IP、开好多窗口、手忙脚乱 😫
-- 现在：**打开浏览器**，所有服务器列在网页上，**点一下就连上了**！
+- 以前：装各种客户端、记一堆 IP、切来切去手忙脚乱 😫
+- 现在：**打开浏览器**，所有服务器列在页面上，**点一下就连上**，甚至不用输入密码！
 
 ---
 
-## 为什么要用 WebSSH？（5 大优点）🌟
+## 🌟 我们有什么特别的？
 
-### 1️⃣ 完全免费，不要钱 💰
-
-| 工具 | 价格 |
-|------|------|
-| **WebSSH** | **0 元** ❤️ |
-| Termius | 免费版有功能限制，高级版要收费 💰 |
-| Royal TS | 要买许可证 💰 |
-| MobaXterm | 免费版有功能限制 |
-
-### 2️⃣ 网页版，不用安装 🌐
-
-不用下载安装包！Windows、Mac、Linux、iPad 都能用，有浏览器就行。还可以**安装到桌面**像原生 App 一样使用。
-
-### 3️⃣ 安全，银行级加密 🔒
-
-- 密码用 **AES-256** 加密（美国军方也在用）
-- 主密码保护（输入错误一万次都解不开）
-- 备份文件有 **SHA-256 指纹**，别人改了你也知道
-
-### 4️⃣ 功能比别的工具多 🛠️
-
-- ✅ SSH / Telnet / Serial 串口 / VNC / RDP 连接
-- ✅ 网页终端（支持 **Ctrl+F 搜索**、字体/光标自定义）
-- ✅ SFTP 文件管理（远程浏览、上传、下载、**内联编辑**）
-- ✅ SSH 隧道/端口转发（本地、远程、动态三种）
-- ✅ **Docker 容器管理**（查看/启动/停止/日志）🐳
-- ✅ **宏录制 / 自动化**（录制→回放→批量执行→定时任务）
-- ✅ 命令片段（收藏常用命令，一键发送到终端）
-- ✅ **服务器分组管理**（拖拽分组、置顶收藏、右键操作）
-- ✅ 加密备份（换电脑一键恢复）+ **自动云同步（WebDAV）**
-- ✅ 多标签终端 + **拖拽排序 + 标签着色**
-- ✅ 中英文切换 + 4 套配色主题
-- ✅ **macOS 菜单栏 App** — 菜单栏直接连服务器
-- ✅ **PWA 安装到桌面** — 像原生 App 一样用
-
-### 5️⃣ 操作简单，点鼠标就行 🖱️
-
-填好服务器地址、用户名、密码，点"连接"就完事了。
+| 功能 | 🏆 **WebSSH** | Termius | MobaXterm | PuTTY |
+|------|:-----------:|:-------:|:---------:|:-----:|
+| 免费无限制 | ✅ **完全免费** | ❌ 高级版收费 | ❌ 高级版有广告 | ✅ |
+| 网页即用，无需安装 | ✅ **浏览器打开就用** | ❌ | ❌ | ❌ |
+| 手机/平板/电脑通用 | ✅ **全平台** | 需安装 App | ❌ | ❌ |
+| AES-256 加密存密码 | ✅ **军规加密** | ✅ | ❌ | ❌ |
+| 主密码二次保护 | ✅ **双重加密** | ✅ | ✅ | ❌ |
+| **文件管理独立登录** | ✅ **不连 SSH 也能传文件** | ❌ | ❌ | ❌ |
+| **SFTP 内联编辑** | ✅ **双击直接改远程文件** | ❌ | ❌ | ❌ |
+| **宏录制 + 批量 + 定时** | ✅ **一键给所有服务器装环境** | ❌ | ✅ | ❌ |
+| **Docker 容器管理** | ✅ **网页看容器/启动/日志** 🐳 | ❌ | ❌ | ❌ |
+| **代码便签置顶** | ✅ **常用命令拖拽排序** | ✅ | ❌ | ❌ |
+| 串口/UART | ✅ **COM 口支持** | ✅ | ✅ | ❌ |
+| SSH 隧道（3种） | ✅ **本地/远程/动态** | ✅ | ✅ | ✅ |
+| **分组拖拽管理** | ✅ **右键菜单全操作** | ✅ | ❌ | ❌ |
+| 多标签终端 | ✅ **拖拽排序+着色+重命名** | ✅ | ✅ | ❌ |
+| **终端文字搜索** | ✅ **Ctrl+F 实时查** | ❌ | ✅ | ❌ |
+| 4 套主题 | ✅ **一键切换** | ✅ | ✅ | ❌ |
+| 中英文界面 | ✅ **国人友好** | ❌ | ❌ | ❌ |
+| **PWA 安装桌面** | ✅ **像原生 App** | ❌ | ❌ | ❌ |
+| **出错明确提示** | ✅ **检查IP / 核对密码** | ✅ | ❌ | ❌ |
+| Cloudflare Workers | ✅ **全球加速部署** | ❌ | ❌ | ❌ |
+| 加密备份+云同步 | ✅ **换电脑一键恢复** | ✅ | ❌ | ❌ |
 
 ---
 
-## 📊 和同类工具比一比
+## 🚀 快速开始
 
-| 功能 | 🏆 **WebSSH** | Termius | Royal TS | MobaXterm | PuTTY |
-|------|:-----------:|:-------:|:--------:|:---------:|:-----:|
-| 免费 | ✅ **完全免费** | ❌ 高级版收费 | ❌ 收费 | ❌ 高级版收费 | ✅ |
-| 网页版 | ✅ **是** | ❌ 要安装 | ❌ 要安装 | ❌ 要安装 | ❌ 要安装 |
-| 加密存储密码 | ✅ **AES-256** | ✅ | ❌ | ❌ | ❌ |
-| 主密码保护 | ✅ **有** | ✅ | ❌ | ✅ | ❌ |
-| 宏录制/自动化 | ✅ **录制+批量+定时** | ❌ | ✅ | ❌ | ❌ |
-| 串口协议 | ✅ **COM口支持** | ✅ | ✅ | ✅ | ❌ |
-| SFTP 内联编辑 | ✅ **双击直接改** | ❌ | ✅ | ❌ | ❌ |
-| Docker 管理 | ✅ **有！** 🐳 | ❌ | ❌ | ❌ | ❌ |
-| SSH 隧道 | ✅ **三种** | ✅ | ✅ | ✅ | ✅ |
-| 命令片段 | ✅ **有** | ✅ | ✅ | ❌ | ❌ |
-| 分组管理 | ✅ **拖拽+置顶** | ✅ | ✅ | ❌ | ❌ |
-| 多标签终端 | ✅ **拖拽排序** | ✅ | ✅ | ✅ | ❌ |
-| 终端内容搜索 | ✅ **Ctrl+F** | ❌ | ❌ | ✅ | ❌ |
-| 多套主题 | ✅ **4 种** | ✅ | ❌ | ✅ | ❌ |
-| 中英文切换 | ✅ **一键切换** | ❌ | ❌ | ❌ | ❌ |
-| PWA 桌面安装 | ✅ **支持** | ❌ | ❌ | ❌ | ❌ |
-| macOS 菜单栏 | ✅ **菜单栏快捷连接** | ❌ | ❌ | ❌ | ❌ |
-| 手机触控 | ✅ **触控键+缩放** | ✅ | ❌ | ❌ | ❌ |
-| 备份加密+云同步 | ✅ **有** | ✅ | ❌ | ❌ | ❌ |
-| 自动备份(WebDAV) | ✅ **每天/每周** | ✅ | ❌ | ✅ | ❌ |
-
----
-
-## 🚀 安装部署
-
-### 方法一：Docker（最快，无需安装 Node.js）
+### Docker（最快）
 
 ```bash
-docker run -d --restart=unless-stopped --name webssh -p 9627:9627 nameguoguo/webssh
+docker run -d --name webssh -p 9627:9627 --restart=unless-stopped nameguoguo/webssh
 ```
 
-或用 docker-compose：
-
-```yaml
-services:
-  webssh:
-    image: nameguoguo/webssh
-    container_name: webssh
-    restart: unless-stopped
-    ports:
-      - "9627:9627"
-    # volumes:
-    #   - ./data:/app/data   # 持久化聊天机器人配置等
-```
+### 一键脚本
 
 ```bash
-docker compose up -d
+curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/scripts/deploy.sh | bash
 ```
 
-#### 高级 Docker 部署（RDP/VNC + 原生 Docker 管理）
-
-```yaml
-services:
-  webssh:
-    image: nameguoguo/webssh
-    container_name: webssh
-    restart: unless-stopped
-    ports:
-      - "9627:9627"
-    environment:
-      - GUACD_HOST=guacd         # 启用 RDP/VNC 支持（需同时启动 guacd）
-      - DOCKER_SOCKET=/var/run/docker.sock  # 启用原生 Docker 管理
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./data:/app/data
-
-  guacd:  # RDP/VNC 远程桌面代理
-    image: guacamole/guacd
-    container_name: guacd
-    restart: unless-stopped
-```
-
-> guacd 和 docker.sock 是可选的。没有它们，SSH/Telnet/Serial 等核心功能完全不受影响。
-
-### 方法二：一键脚本
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash
-```
-
-下载 → 安装 → 构建 → 启动一条龙。浏览器打开 `http://你的IP:9627`
-
-### 方法三：手动安装
+### 手动安装
 
 ```bash
 git clone https://github.com/guoxpeng/webssh.git
-cd webssh
-npm install
-npm run build
-node server/index.mjs
+cd webssh && npm install && npm run build
+node core/server/index.mjs
 ```
 
 打开 `http://localhost:9627`
 
-### 方法四：部署到 Cloudflare Workers（全球加速）⚡
-
-把 WebSSH 部署到 Cloudflare 的边缘网络，全球节点就近响应，没有 VPS 也能用。
-
-#### 通过 GitHub 自动部署
-
-Cloudflare 有 **两种方式** 连接 GitHub 仓库，字段不同，请按你选的入口对照填写：
-
-**方式 A：Cloudflare Pages（推荐，更简单）**
-路径：Workers & Pages → **Pages** → 创建项目 → 连接到 Git
-
-| 字段 | 值 |
-|------|-----|
-| 项目名称 | `webssh`（自定义） |
-| **构建命令** | `npm run build && node build-worker.mjs` ⚠ |
-| **输出目录** | `dist/client` |
-| 根目录（路径） | `/`（保持默认） |
-| 环境变量 → `NODE_VERSION` = `20` | 添加 |
-
-**方式 B：Cloudflare Workers 集成（字段不同）**
-路径：Workers & Pages → **Workers** → 创建 Worker → 连接到 Git 仓库
-
-| 字段 | 填写内容 | 说明 |
-|------|---------|------|
-| **项目名称** | 自定义（如 `webssh`） | 自动填充了 `wessh`，可以改 |
-| **构建命令** | `npm run build && node build-worker.mjs` | ⚠ **必须改** |
-| **部署命令** | `npx wrangler deploy` | 保持默认 |
-| **非生产分支部署命令** | `npx wrangler versions upload` | 保持默认 |
-| **路径** | `/` | 保持默认 |
-| **API 令牌** | `nodewarden build token` | 保持默认 |
-| **变量** → `NODE_VERSION` = `20` | 添加 | 设置 Node.js 版本 |
-
-两种方式填写完点击 **"保存并部署"**，首次构建约 1-2 分钟，之后每次 `git push` 自动部署。
-
-#### 命令行部署（无 CI）
-
-```bash
-# 登录 Cloudflare
-npx wrangler login
-
-# 一键构建 + 部署
-npm run worker:deploy
-```
-
-部署后访问 `https://你的项目名.workers.dev`
-
-**已知限制（CF Workers 不支持的功能）：**
-- Telegram / WeChat / QQ 机器人（需 Node.js 长轮询）
-- AI 对话（需 OpenAI API + 服务端持久化）
-
-这些功能请使用 Docker/VPS 部署。
-
-### 方法五：开发模式
+### 开发模式
 
 ```bash
 # 终端1：后端
-node server/index.mjs
+node core/server/index.mjs
 
-# 终端2：前端热更新
+# 终端2：前端（热更新）
 npm run dev
-```
-
-前端 `http://localhost:5173`，后端 `http://localhost:9627`
-
-### 卸载
-
-```bash
-# 停止服务、删除文件
-cd webssh && ./uninstall.sh
-
-# 浏览器数据需手动清理：F12 → 应用程序 → 清除站点数据
 ```
 
 ---
 
-## 📖 怎么使用？
+## 🏗 架构
 
-### 第一步：设置主密码 🔐
-
-第一次打开网页，设置一个**主密码**。用它来加密你保存的所有服务器密码。
-
-> 就像手机锁屏密码，别人拿到你的电脑也看不到你的密码！
-
-### 第二步：添加服务器 🔗
-
-1. 填 **名称** — 起个名字（比如"我的博客服务器"）
-2. 选 **分组** — 归到文件夹（比如"生产环境"、"测试环境"）
-3. 填 **IP 地址** — 服务器地址（比如 192.168.1.100）
-4. **端口** — 默认 22，不用改
-5. **用户名** — 登录账号（比如 root）
-6. **密码或密钥** — 选一个
-7. 点 **连接** 就行！
-
-### 第三步：管理服务器 📂
-
-- 点 `+` **新建分组文件夹**
-- **拖拽** 服务器到不同分组
-- 右键分组：重命名 / 删除 / **一键连接全部**
-- **置顶** 常用服务器
-- 分组折叠状态自动记住
-
-### 第四步：宏 / 自动化 🤖
-
-- **录制**：点红点 → 输入命令 → 停止 → 保存
-- **回放**：在宏面板点播放，自动逐条执行
-- **批量**：勾选多台服务器 → 一键全部执行
-- **定时**：设置每小时/每天/每周自动跑
-
-### 第五步：开始用吧！🎉
-
-连上后看到**黑底白字窗口**，就是服务器的命令行。
-
-**快捷键：**
-- `Ctrl+F` — 终端里搜索文字
-- `Ctrl+P` — 宏面板
-- `Ctrl+Tab` — 切换终端标签
+```
+webssh/
+├── web/                # 前端 Vue 3 + xterm.js
+│   └── src/
+│       ├── components/terminal/   # 终端组件
+│       ├── components/sftp/       # SFTP 文件管理
+│       ├── components/snippets/   # 代码便签
+│       ├── stores/                # Pinia 状态管理
+│       └── locales/               # 中英文翻译
+├── core/
+│   ├── server/          # Node.js 后端
+│   │   ├── index.mjs    # 路由入口
+│   │   └── lib/         # SSH/Telnet/Serial/SFTP/Docker 处理
+│   ├── worker/          # Cloudflare Workers 部署
+│   └── build-worker.mjs # Worker 构建脚本
+├── android/             # Android 原生壳（源码追踪）
+├── docker/              # Docker 配置
+└── scripts/             # 部署/图标工具
+```
 
 ---
 
 ## ⚙ 环境变量
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `PORT` | `9627` | HTTP 服务端口 |
-| `WS_PATH` | `/ws/ssh` | WebSocket 路径 |
-| `AUTH_TOKEN` | (空) | 可选 API 认证令牌，设置后所有 API 需 Bearer Token |
-| `GUACD_HOST` | `127.0.0.1` | guacd RDP/VNC 代理地址（如 `guacd`） |
-| `GUACD_PORT` | `4822` | guacd 端口 |
-| `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker 套接字路径 |
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `PORT` | `9627` | HTTP 端口 |
+| `AUTH_TOKEN` | (空) | API 认证令牌 |
+| `GUACD_HOST` | `127.0.0.1` | RDP/VNC 代理地址 |
+| `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker 套接字 |
 
 ---
 
 ## 🛠 技术栈
 
-| 技术 | 用途 |
-|------|------|
-| Vue 3 | 前端框架 |
-| xterm.js | 浏览器内终端模拟 |
-| WebSocket | 实时双向通信 |
-| ssh2 | Node.js SSH 客户端 |
-| AES-256-GCM | 密码和备份加密 |
-| Bulma | CSS 界面框架 |
-| Vite | 构建工具 |
-| Pinia | 状态管理 |
-| Capacitor | 桌面/移动端原生包 |
-| dockerode | 原生 Docker API 管理（可选） |
-| guacd | RDP/VNC 远程桌面代理（可选） |
-
-### 📁 后端架构（v2.0+）
-
-```
-server/
-├── index.mjs          # 入口：路由、中间件、启动
-├── lib/
-│   ├── config.mjs     # 常量（端口、路径、算法）
-│   ├── utils.mjs      # 工具函数（JSON、限流、静态文件）
-│   ├── session.mjs    # SSH session 管理（复用SFTP连接）
-│   ├── ssh.mjs        # SSH WebSocket 处理器
-│   ├── telnet.mjs     # Telnet 处理器
-│   ├── serial.mjs     # 串口处理器
-│   ├── chat.mjs       # 聊天机器人 (Telegram/WeChat/QQ/AI)
-│   └── audit.mjs       # 审计日志
-└── chat-config.json   # 机器人配置（自动生成）
-```
+Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Capacitor
 
 ---
 
-## 🤖 AI SSH 命令执行
-
-WebSSH 内置 AI 聊天功能，可自动执行 SSH 命令。
-
-### 工作原理
-
-1. **打开聊天面板** — 点击侧边栏的聊天图标
-2. **切换到 AI 选项卡** — 点击顶部的 "AI" 标签
-3. **选择服务器**（可选）— 从下拉菜单选择服务器，允许 AI 执行 SSH 命令
-4. **向 AI 提问** — 输入自然语言请求，例如：
-   - "显示磁盘使用情况"
-   - "检查内存和运行时间"
-   - "列出所有运行中的 Docker 容器"
-   - "查找 /var 下大于 1GB 的文件"
-
-AI 会生成相应的 shell 命令，在选择的服务器上通过 SSH 执行，并返回结果。
-
-### AI 配置
-
-在聊天机器人配置中（齿轮图标）设置 OpenAI API 密钥启用 AI 助手：
-
-1. 点击聊天面板右上角齿轮图标
-2. 找到 "AI 设置" 区域
-3. 填写：
-   - **API Base URL**：`https://api.openai.com/v1`（默认 OpenAI，也支持兼容接口如 OneAPI）
-   - **API Key**：你的 API 密钥
-   - **Model**：模型名称（如 `gpt-4o-mini`、`gpt-4`、`deepseek-chat`）
-   - **System Prompt**：自定义系统提示词
-4. 勾选 "启用" 开关，点击保存
-
-> ⚠️ **安全提醒**：AI SSH 命令执行会直接操作你的服务器。确认 AI 生成的命令无误后再执行。建议使用只读权限账户。
-
----
-
-> 💡 **小窍门**：点左边菜单的"服务器"开始，填好信息点连接就能用了！
+> ⚠️ **安全提醒：** WebSSH 建议在内网/VPN 内使用。公网访问请设置 `AUTH_TOKEN` 并启用 HTTPS。
