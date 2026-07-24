@@ -15,12 +15,6 @@ import * as __shim_crypto from 'node:crypto';
 import * as __shim_events from 'node:events';
 import * as __shim_path from 'node:path';
 import * as __shim_stream from 'node:stream';
-const { Duplex, Readable, Writable, Transform } = __shim_stream;
-
-globalThis.Duplex = Duplex;
-globalThis.Readable = Readable;
-globalThis.Writable = Writable;
-globalThis.Transform = Transform;
 import * as __shim_string_decoder from 'node:string_decoder';
 import * as __shim_url from 'node:url';
 import * as __shim_util from 'node:util';
@@ -29,7 +23,6 @@ import * as __shim_zlib from 'node:zlib';
 const Buffer = __shim_buffer.Buffer;
 globalThis.Buffer = Buffer;
 
-// 强力修复 safer-buffer 常见问题
 Buffer.hasOwnProperty = function (prop) {
   return Object.prototype.hasOwnProperty.call(Buffer, prop);
 };
@@ -41,6 +34,11 @@ if (Buffer.prototype) {
   };
 }
 
+globalThis.Duplex = __shim_stream.Duplex;
+globalThis.Readable = __shim_stream.Readable;
+globalThis.Writable = __shim_stream.Writable;
+globalThis.Transform = __shim_stream.Transform;
+
 var __CF_nodeModules = {
   'assert': __shim_assert, 'node:assert': __shim_assert,
   'buffer': { Buffer, ...__shim_buffer },
@@ -48,8 +46,7 @@ var __CF_nodeModules = {
   'crypto': __shim_crypto, 'node:crypto': __shim_crypto,
   'events': __shim_events, 'node:events': __shim_events,
   'path': __shim_path, 'node:path': __shim_path,
-  'stream': { Duplex, Readable, Writable, Transform, ...__shim_stream },
-  'node:stream': { Duplex, Readable, Writable, Transform, ...__shim_stream },
+  'stream': __shim_stream, 'node:stream': __shim_stream,
   'string_decoder': __shim_string_decoder, 'node:string_decoder': __shim_string_decoder,
   'url': __shim_url, 'node:url': __shim_url,
   'util': __shim_util, 'node:util': __shim_util,
@@ -83,21 +80,15 @@ await esbuild.build({
         contents: 'export default {};',
         loader: 'js',
       }));
-
-      // 加强内置模块处理
       const bareBuiltins = /^(assert|buffer|child_process|crypto|dns|events|fs|http|https|net|os|path|stream|string_decoder|tls|url|util|zlib|querystring|punycode)$/;
       build.onResolve({ filter: bareBuiltins }, (args) => ({
         path: args.path,
         external: true,
       }));
-
-      // 特殊处理 stream（SFTP 依赖）
       build.onResolve({ filter: /^stream$/ }, () => ({
         path: 'node:stream',
         external: true,
       }));
-
-      // ssh2 agent shim
       build.onResolve({ filter: /^\.\/agent(\.js)?$/, namespace: 'file' }, (args) => {
         if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
           return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
