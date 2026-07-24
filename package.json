@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:server": "node core/server/index.mjs",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
+    "prebuild": "node -e \"var fs=require('fs');try{fs.rmSync('dist',{recursive:true,force:true})}catch(e){}\"",
     "build": "vite build",
     "preview": "vite preview",
     "worker:build": "node core/build-worker.mjs",
