@@ -16,14 +16,16 @@ const workerdCompatPlugin = {
     }));
     build.onResolve({ filter: /^node:/ }, (args) => ({ path: args.path, external: true }));
     build.onResolve({ filter: /\.node$/ }, () => ({ path: 'noop', namespace: 'native-addon-stub' }));
-    build.onLoad({ filter: /.*/, namespace: 'native-addon-stub' }, () => ({ contents: 'module.exports = undefined;', loader: 'js' }));
-    // ssh2/lib/agent.js uses node:net via dynamic require, which CF Workers rejects
-    // Intercept and replace with empty stub
-    build.onLoad({ filter: /agent\.js$/ }, (args) => {
-      if (args.path.replace(/\\/g, '/').includes('ssh2/lib/agent')) {
-        return { contents: 'module.exports = {};', loader: 'js' };
-      }
-    });
+    build.onLoad({ filter: /.*/, namespace: 'native-addon-stub' }, () => ({ contents: 'export default undefined;', loader: 'js' }));
+    // Stub ssh2/lib/agent.js: intercept both resolve and load
+    build.onResolve({ filter: /\/ssh2\/lib\/agent\.js$/ }, () => ({
+      path: 'ssh2-agent-stub.js',
+      namespace: 'agent-stub',
+    }));
+    build.onLoad({ filter: /.*/, namespace: 'agent-stub' }, () => ({
+      contents: 'export default {}; export const AgentProtocol = function(){}; export const BaseAgent = function(){}; export const createAgent = function(){}; export const CygwinAgent = function(){}; export const OpenSSHAgent = function(){}; export const PageantAgent = function(){};',
+      loader: 'js',
+    }));
   },
 };
 
