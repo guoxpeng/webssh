@@ -4,6 +4,7 @@ compatibility_date = "2026-07-23"
 compatibility_flags = ["nodejs_compat_v2"]
 
 assets = { directory = "dist/client", binding = "ASSETS" }
+pages_build_output_dir = "dist/client"
 
 # Uncomment and fill in your KV namespace IDs for session persistence:
 # [[kv_namespaces]]
