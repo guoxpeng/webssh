@@ -1,6 +1,9 @@
 import * as esbuild from 'esbuild';
 import { cpSync, mkdirSync, existsSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const nodeBuiltins = [
   'assert', 'buffer', 'child_process', 'crypto', 'dns', 'events',
@@ -17,15 +20,19 @@ const workerdCompatPlugin = {
     build.onResolve({ filter: /^node:/ }, (args) => ({ path: args.path, external: true }));
     build.onResolve({ filter: /\.node$/ }, () => ({ path: 'noop', namespace: 'native-addon-stub' }));
     build.onLoad({ filter: /.*/, namespace: 'native-addon-stub' }, () => ({ contents: 'export default undefined;', loader: 'js' }));
-    // Stub ssh2/lib/agent.js: intercept both resolve and load
-    build.onResolve({ filter: /\/ssh2\/lib\/agent\.js$/ }, () => ({
-      path: 'ssh2-agent-stub.js',
-      namespace: 'agent-stub',
-    }));
-    build.onLoad({ filter: /.*/, namespace: 'agent-stub' }, () => ({
-      contents: 'export default {}; export const AgentProtocol = function(){}; export const BaseAgent = function(){}; export const createAgent = function(){}; export const CygwinAgent = function(){}; export const OpenSSHAgent = function(){}; export const PageantAgent = function(){};',
-      loader: 'js',
-    }));
+  },
+};
+
+// Replace ssh2/lib/agent with a stub - CF Workers can't do dynamic require('node:net')
+const agentStub = {
+  name: 'ssh2-agent-stub',
+  setup(build) {
+    build.onResolve({ filter: /^\.?\/agent$/, namespace: 'file' }, (args) => {
+      // Only intercept when resolving from within ssh2/lib/
+      if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2/lib/index')) {
+        return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
+      }
+    });
   },
 };
 
@@ -39,7 +46,7 @@ await esbuild.build({
   mainFields: ['module', 'main'],
   conditions: ['workerd', 'worker', 'import', 'require'],
   external: ['cloudflare:*'],
-  plugins: [workerdCompatPlugin],
+  plugins: [workerdCompatPlugin, agentStub],
   logLevel: 'info',
 });
 
