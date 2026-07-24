@@ -1,8 +1,9 @@
-// Stub for ssh2/lib/agent.js — CF Workers don't support dynamic require('net')
-export const AgentProtocol = {};
-export const BaseAgent = {};
-export const createAgent = function() {};
-export const CygwinAgent = {};
-export const OpenSSHAgent = {};
-export const PageantAgent = {};
-export default {};
+// Stub for ssh2/lib/agent.js — CF Workers don't support dynamic require('node:net')
+const stub = {};
+stub.AgentProtocol = function() {};
+stub.BaseAgent = function() {};
+stub.createAgent = function() {};
+stub.CygwinAgent = function() {};
+stub.OpenSSHAgent = function() {};
+stub.PageantAgent = function() {};
+module.exports = stub;
