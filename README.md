@@ -114,7 +114,7 @@ node core/server/index.mjs
 |------|-----|
 | 构建命令 | `npm run build && node core/build-worker.mjs` |
 | 输出目录 | `dist/client` |
-| 环境变量 `NODE_VERSION` | `20` |
+| 环境变量 `NODE_VERSION` | `22` |
 
 #### Workers 方式
 

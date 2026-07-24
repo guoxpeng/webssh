@@ -110,7 +110,7 @@ Workers & Pages → Pages → Create → Connect Git
 |------|-----|
 | Build command | `npm run build && node core/build-worker.mjs` |
 | Output directory | `dist/client` |
-| Env `NODE_VERSION` | `20` |
+| Env `NODE_VERSION` | `22` |
 
 #### Workers
 
@@ -120,7 +120,7 @@ Workers & Pages → Workers → Create → Connect Git
 |------|-----|
 | Build command | `npm run build && node core/build-worker.mjs` |
 | Deploy command | `npx wrangler deploy` |
-| Env `NODE_VERSION` | `20` |
+| Env `NODE_VERSION` | `22` |
 
 > **CF Workers limitations**: No Telegram/WeChat/QQ bots (need Node.js long-polling), no AI chat. Use Docker/VPS for those.
 
