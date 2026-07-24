@@ -4,12 +4,10 @@ import { Duplex } from 'stream';
 import { Buffer } from 'node:buffer';
 globalThis.Buffer = Buffer;
 
-// 针对 safer-buffer 的额外修复
-if (!Buffer.prototype.hasOwnProperty) {
-  Buffer.prototype.hasOwnProperty = function(prop) {
-    return Object.prototype.hasOwnProperty.call(this, prop);
-  };
-}
+// 重复强修复
+Buffer.hasOwnProperty = function (prop) {
+  return Object.prototype.hasOwnProperty.call(Buffer, prop);
+};
 
 const SSH_ALGORITHMS = {
   // Prefer ECDH/Curve25519 (Web Crypto native); fallback to DH group14 (workerd polyfill)
