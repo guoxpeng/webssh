@@ -11,8 +11,19 @@ const nodeStubBuiltins = [
   'child_process', 'dns', 'fs', 'net', 'os', 'tls',
 ];
 
+// Node builtins available via CF Workers nodejs_compat
+const nodeCompatBuiltins = [
+  'assert', 'buffer', 'crypto', 'events', 'path', 'process',
+  'stream', 'string_decoder', 'util', 'url', 'zlib',
+];
+
 const outDir = join('dist', 'client');
 if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+
+// Build a shim that maps CJS require(name) to nodejs_compat ESM modules
+const requireShim = nodeCompatBuiltins.map(m =>
+  `  if (m === '${m}') { return await import('node:${m}'); }`
+).join('\n');
 
 await esbuild.build({
   entryPoints: ['core/worker/index.mjs'],
@@ -23,6 +34,16 @@ await esbuild.build({
   platform: 'node',
   mainFields: ['module', 'main'],
   external: ['cloudflare:*'],
+  banner: {
+    js: `
+// Provide global require() for CJS modules (ssh2) in CF Pages ESM runtime
+if (typeof globalThis.require === 'undefined') {
+  globalThis.require = async function requireShim(m) {
+${requireShim}
+  };
+}
+`,
+  },
   logLevel: 'info',
   plugins: [{
     name: 'cf-worker',
@@ -37,24 +58,19 @@ await esbuild.build({
         contents: 'export default {};',
         loader: 'js',
       }));
-      // http/https need a real (dummy) Agent class: ssh2/lib/http-agents.js
-      // does `class X extends require('http').Agent` at module scope, so
-      // stubbing http/https as plain {} crashes with
-      // "Class extends value undefined is not a constructor or null".
+      // http/https need a real (dummy) Agent class
       build.onResolve({ filter: /^(http|https)$/ }, () => ({
         path: 'stub-http', namespace: 'node-stub-http',
       }));
       build.onLoad({ filter: /.*/, namespace: 'node-stub-http' }, () => ({
         contents: `
-          class Agent {
-            constructor() {}
-          }
+          class Agent { constructor() {} }
           export default { Agent };
           export { Agent };
         `,
         loader: 'js',
       }));
-      // Stub ssh2/lib/agent.js (uses dynamic require of unsupported builtins)
+      // Stub ssh2/lib/agent.js
       build.onResolve({ filter: /^\.\/agent(\.js)?$/ }, (args) => {
         if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
           return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
