@@ -11,14 +11,32 @@ const nodeBuiltins = [
   'tls', 'url', 'util', 'zlib',
 ];
 
+// Node compat modules (CF Workers supports these natively via nodejs_compat_v2)
+const nodeCompat = [
+  'assert', 'buffer', 'crypto', 'events', 'path', 'process',
+  'stream', 'string_decoder', 'util', 'url', 'zlib',
+];
+
+// Builtins NOT natively supported → stub them to avoid dynamic require violations
+const nodeStubBuiltins = nodeBuiltins.filter(b => !nodeCompat.includes(b));
+
 const workerdCompatPlugin = {
   name: 'workerd-compat',
   setup(build) {
-    build.onResolve({ filter: new RegExp(`^(${nodeBuiltins.join('|')})$`) }, (args) => ({
+    // Route node compat modules through node: prefix (CF Workers native support)
+    build.onResolve({ filter: new RegExp(`^(${nodeCompat.join('|')})$`) }, (args) => ({
       path: `node:${args.path}`, external: true,
+    }));
+    // Stub unsupported node builtins
+    build.onResolve({ filter: new RegExp(`^(${nodeStubBuiltins.join('|')})$`) }, (args) => ({
+      path: `node-stub-${args.path}`, namespace: 'node-stub',
     }));
     build.onResolve({ filter: /^node:/ }, (args) => ({ path: args.path, external: true }));
     build.onResolve({ filter: /\.node$/ }, () => ({ path: 'noop', namespace: 'native-addon-stub' }));
+    build.onLoad({ filter: /.*/, namespace: 'node-stub' }, (args) => {
+      const name = args.path.replace('node-stub-', '');
+      return { contents: `export default {};`, loader: 'js' };
+    });
     build.onLoad({ filter: /.*/, namespace: 'native-addon-stub' }, () => ({ contents: 'export default undefined;', loader: 'js' }));
   },
 };
@@ -27,9 +45,8 @@ const workerdCompatPlugin = {
 const agentStub = {
   name: 'ssh2-agent-stub',
   setup(build) {
-    // The import specifier from ssh2/lib/index.js is exactly './agent'
-    build.onResolve({ filter: /^\.\/agent$/ }, (args) => {
-      if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2/lib/index')) {
+    build.onResolve({ filter: /^\.\/agent(\.js)?$/ }, (args) => {
+      if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
         return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
       }
     });
