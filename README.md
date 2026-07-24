@@ -51,6 +51,43 @@
 docker run -d --name webssh -p 9627:9627 --restart=unless-stopped nameguoguo/webssh
 ```
 
+或用 docker-compose：
+
+```yaml
+services:
+  webssh:
+    image: nameguoguo/webssh
+    container_name: webssh
+    restart: unless-stopped
+    ports:
+      - "9627:9627"
+```
+
+```bash
+docker compose up -d
+```
+
+#### 高级 Docker 部署（RDP/VNC + 原生 Docker 管理）
+
+```yaml
+services:
+  webssh:
+    image: nameguoguo/webssh
+    container_name: webssh
+    restart: unless-stopped
+    ports:
+      - "9627:9627"
+    environment:
+      - GUACD_HOST=guacd
+      - DOCKER_SOCKET=/var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  guacd:
+    image: guacamole/guacd
+    container_name: guacd
+    restart: unless-stopped
+```
+
 ### 一键脚本
 
 ```bash
@@ -67,6 +104,30 @@ node core/server/index.mjs
 
 打开 `http://localhost:9627`
 
+### Cloudflare Workers 部署（全球加速）⚡
+
+#### Pages 方式（推荐）
+
+路径：Workers & Pages → Pages → 创建项目 → 连接到 Git
+
+| 字段 | 值 |
+|------|-----|
+| 构建命令 | `npm run build && node core/build-worker.mjs` |
+| 输出目录 | `dist/client` |
+| 环境变量 `NODE_VERSION` | `20` |
+
+#### Workers 方式
+
+路径：Workers & Pages → Workers → 创建 Worker → 连接到 Git
+
+| 字段 | 值 |
+|------|-----|
+| 构建命令 | `npm run build && node core/build-worker.mjs` |
+| 部署命令 | `npx wrangler deploy` |
+| 变量 `NODE_VERSION` | `20` |
+
+> **CF Workers 已知限制**：不支持 Telegram/WeChat/QQ 机器人（需 Node.js 长轮询）、AI 对话。这些请用 Docker/VPS 部署。
+
 ### 开发模式
 
 ```bash
@@ -79,23 +140,52 @@ npm run dev
 
 ---
 
+## 📖 怎么使用？
+
+### 第一：设置主密码 🔐
+
+第一次打开网页设置一个**主密码**，用它加密所有服务器密码。
+
+### 第二：添加服务器
+
+填名称、IP、用户名、密码（或密钥），点**连接**即可。支持**保存**后下次直连不输密码。
+
+### 第三：管理分组
+
+- 给服务器**分组**（生产/测试）
+- **拖拽**到不同分组
+- 右键分组：重命名/删除/**一键连接全部**
+- **置顶**常用服务器
+
+### 第四：宏 / 自动化 🤖
+
+- **录制**命令 → **回放** → **批量**多服务器执行 → **定时**自动跑
+
+### 第五：快捷键
+
+- `Ctrl+F` 终端搜索 · `Ctrl+Tab` 切换标签 · `Ctrl+P` 宏面板
+
+---
+
+## 🤖 AI SSH 命令执行
+
+在聊天面板配置 OpenAI API，输入自然语言让 AI 生成并在服务器上执行命令。
+
+> 点击侧边栏聊天图标 → 切换到 AI → 填写 API Key 和模型 → 输入"检查磁盘使用情况"即可。
+
+---
+
 ## 🏗 架构
 
 ```
 webssh/
 ├── web/                # 前端 Vue 3 + xterm.js
-│   └── src/
-│       ├── components/terminal/   # 终端组件
-│       ├── components/sftp/       # SFTP 文件管理
-│       ├── components/snippets/   # 代码便签
-│       ├── stores/                # Pinia 状态管理
-│       └── locales/               # 中英文翻译
 ├── core/
 │   ├── server/          # Node.js 后端
-│   │   ├── index.mjs    # 路由入口
-│   │   └── lib/         # SSH/Telnet/Serial/SFTP/Docker 处理
-│   ├── worker/          # Cloudflare Workers 部署
-│   └── build-worker.mjs # Worker 构建脚本
+│   │   ├── index.mjs    # 入口：路由、中间件、启动
+│   │   └── lib/         # ssh / telnet / serial / sftp / chat / docker / session
+│   ├── worker/          # Cloudflare Workers
+│   └── build-worker.mjs
 ├── android/             # Android 原生壳（源码追踪）
 ├── docker/              # Docker 配置
 └── scripts/             # 部署/图标工具
@@ -110,13 +200,22 @@ webssh/
 | `PORT` | `9627` | HTTP 端口 |
 | `AUTH_TOKEN` | (空) | API 认证令牌 |
 | `GUACD_HOST` | `127.0.0.1` | RDP/VNC 代理地址 |
+| `GUACD_PORT` | `4822` | guacd 端口 |
 | `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker 套接字 |
+
+---
+
+### 卸载
+
+```bash
+cd webssh && bash scripts/uninstall.sh
+```
 
 ---
 
 ## 🛠 技术栈
 
-Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Capacitor
+Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Capacitor · dockerode · guacd
 
 ---
 

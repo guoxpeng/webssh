@@ -51,6 +51,39 @@ Managing lots of servers?
 docker run -d --name webssh -p 9627:9627 --restart=unless-stopped nameguoguo/webssh
 ```
 
+Or with docker-compose:
+
+```yaml
+services:
+  webssh:
+    image: nameguoguo/webssh
+    container_name: webssh
+    restart: unless-stopped
+    ports:
+      - "9627:9627"
+```
+
+#### Advanced Docker (RDP/VNC + Docker management)
+
+```yaml
+services:
+  webssh:
+    image: nameguoguo/webssh
+    restart: unless-stopped
+    ports:
+      - "9627:9627"
+    environment:
+      - GUACD_HOST=guacd
+      - DOCKER_SOCKET=/var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  guacd:
+    image: guacamole/guacd
+    restart: unless-stopped
+```
+
+> guacd and docker.sock are optional. SSH/Telnet/Serial work without them.
+
 ### One-liner
 
 ```bash
@@ -67,6 +100,30 @@ node core/server/index.mjs
 
 Open `http://localhost:9627`
 
+### Cloudflare Workers (global edge deploy) ⚡
+
+#### Pages (recommended)
+
+Workers & Pages → Pages → Create → Connect Git
+
+| Field | Value |
+|------|-----|
+| Build command | `npm run build && node core/build-worker.mjs` |
+| Output directory | `dist/client` |
+| Env `NODE_VERSION` | `20` |
+
+#### Workers
+
+Workers & Pages → Workers → Create → Connect Git
+
+| Field | Value |
+|------|-----|
+| Build command | `npm run build && node core/build-worker.mjs` |
+| Deploy command | `npx wrangler deploy` |
+| Env `NODE_VERSION` | `20` |
+
+> **CF Workers limitations**: No Telegram/WeChat/QQ bots (need Node.js long-polling), no AI chat. Use Docker/VPS for those.
+
 ### Dev mode
 
 ```bash
@@ -79,23 +136,52 @@ npm run dev
 
 ---
 
+## 📖 How to Use
+
+### 1. Set master password 🔐
+
+First visit sets a master password to encrypt all stored server credentials.
+
+### 2. Add a server
+
+Fill hostname, username, password (or key), click **Connect**. Save it to skip password next time.
+
+### 3. Organize groups
+
+- Group servers (production / staging)
+- **Drag** to reorder
+- Right-click group: rename / delete / **connect all**
+- **Pin** frequently used servers
+
+### 4. Macros 🤖
+
+Record commands → replay → **batch** across multiple servers → schedule
+
+### 5. Shortcuts
+
+- `Ctrl+F` search in terminal · `Ctrl+Tab` switch tabs
+
+---
+
+## 🤖 AI SSH Commands
+
+Configure OpenAI API key in the chat panel to let AI generate and execute shell commands:
+
+> Sidebar chat icon → switch to AI tab → fill API key + model → type "check disk usage"
+
+---
+
 ## 🏗 Architecture
 
 ```
 webssh/
 ├── web/                # Vue 3 + xterm.js frontend
-│   └── src/
-│       ├── components/terminal/   # Terminal component
-│       ├── components/sftp/       # SFTP file browser
-│       ├── components/snippets/   # Command snippets
-│       ├── stores/                # Pinia state
-│       └── locales/               # i18n translations
 ├── core/
 │   ├── server/          # Node.js backend
-│   │   ├── index.mjs    # Route entry
-│   │   └── lib/         # SSH/Telnet/Serial/SFTP/Docker handlers
+│   │   ├── index.mjs    # Routes, middleware, startup
+│   │   └── lib/         # ssh / telnet / serial / sftp / chat / docker / session
 │   ├── worker/          # Cloudflare Workers
-│   └── build-worker.mjs # Worker build script
+│   └── build-worker.mjs
 ├── android/             # Android shell (source tracked)
 ├── docker/              # Docker configs
 └── scripts/             # Deploy & icon utilities
@@ -110,13 +196,20 @@ webssh/
 | `PORT` | `9627` | HTTP port |
 | `AUTH_TOKEN` | (empty) | API auth token |
 | `GUACD_HOST` | `127.0.0.1` | RDP/VNC proxy |
+| `GUACD_PORT` | `4822` | guacd port |
 | `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker socket |
+
+### Uninstall
+
+```bash
+cd webssh && bash scripts/uninstall.sh
+```
 
 ---
 
 ## 🛠 Tech Stack
 
-Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Capacitor
+Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Capacitor · dockerode · guacd
 
 ---
 
