@@ -1,21 +1,5 @@
 name = "webssh"
-main = "core/worker/index.mjs"
 compatibility_date = "2026-07-23"
 compatibility_flags = ["nodejs_compat"]
-
-[define]
-__dirname = '""'
-__filename = '""'
-
-# Treat .node native addon files as data blobs so esbuild doesn't choke.
-# ssh2 wraps the require in try/catch so it falls back to pure JS crypto.
-[[rules]]
-type = "Data"
-globs = ["**/*.node"]
-fallthrough = true
-
-[assets]
-directory = "./dist/client"
-binding = "ASSETS"
 
 pages_build_output_dir = "dist/client"
