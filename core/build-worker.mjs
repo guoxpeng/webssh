@@ -15,6 +15,12 @@ import * as __shim_crypto from 'node:crypto';
 import * as __shim_events from 'node:events';
 import * as __shim_path from 'node:path';
 import * as __shim_stream from 'node:stream';
+const { Duplex, Readable, Writable, Transform } = __shim_stream;
+
+globalThis.Duplex = Duplex;
+globalThis.Readable = Readable;
+globalThis.Writable = Writable;
+globalThis.Transform = Transform;
 import * as __shim_string_decoder from 'node:string_decoder';
 import * as __shim_url from 'node:url';
 import * as __shim_util from 'node:util';
@@ -42,7 +48,8 @@ var __CF_nodeModules = {
   'crypto': __shim_crypto, 'node:crypto': __shim_crypto,
   'events': __shim_events, 'node:events': __shim_events,
   'path': __shim_path, 'node:path': __shim_path,
-  'stream': __shim_stream, 'node:stream': __shim_stream,
+  'stream': { Duplex, Readable, Writable, Transform, ...__shim_stream },
+  'node:stream': { Duplex, Readable, Writable, Transform, ...__shim_stream },
   'string_decoder': __shim_string_decoder, 'node:string_decoder': __shim_string_decoder,
   'url': __shim_url, 'node:url': __shim_url,
   'util': __shim_util, 'node:util': __shim_util,
