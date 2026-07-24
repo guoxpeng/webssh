@@ -108,7 +108,7 @@ Workers & Pages → Pages → Create → Connect Git
 
 | Field | Value |
 |------|-----|
-| Build command | `npm run build` |
+| Build command | `npm run build && node core/build-worker.mjs` |
 | Output directory | `dist/client` |
 | Env `NODE_VERSION` | `22` |
 
