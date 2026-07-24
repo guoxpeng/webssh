@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Node builtins NOT available in CF Workers → stub them
 const nodeStubBuiltins = [
-  'child_process', 'dns', 'fs', 'http', 'https', 'net', 'os', 'tls',
+  'child_process', 'dns', 'fs', 'net', 'os', 'tls',
 ];
 
 const outDir = join('dist', 'client');
@@ -33,13 +33,27 @@ await esbuild.build({
       }));
       // Native .node addons → stub
       build.onResolve({ filter: /\.node$/ }, () => ({ path: 'stub', namespace: 'node-stub' }));
-      build.onLoad({ filter: /.*/, namespace: 'node-stub' }, (args) => {
-        // Provide proper Agent classes for http/https (ssh2 needs them)
-        if (args.path.includes('http') || args.path.includes('https')) {
-          return { contents: 'export const Agent = class {}; export default {Agent: class {}};', loader: 'js' };
-        }
-        return { contents: 'export default {};', loader: 'js' };
-      });
+      build.onLoad({ filter: /.*/, namespace: 'node-stub' }, () => ({
+        contents: 'export default {};',
+        loader: 'js',
+      }));
+      // http/https need a real (dummy) Agent class: ssh2/lib/http-agents.js
+      // does `class X extends require('http').Agent` at module scope, so
+      // stubbing http/https as plain {} crashes with
+      // "Class extends value undefined is not a constructor or null".
+      build.onResolve({ filter: /^(http|https)$/ }, () => ({
+        path: 'stub-http', namespace: 'node-stub-http',
+      }));
+      build.onLoad({ filter: /.*/, namespace: 'node-stub-http' }, () => ({
+        contents: `
+          class Agent {
+            constructor() {}
+          }
+          export default { Agent };
+          export { Agent };
+        `,
+        loader: 'js',
+      }));
       // Stub ssh2/lib/agent.js (uses dynamic require of unsupported builtins)
       build.onResolve({ filter: /^\.\/agent(\.js)?$/ }, (args) => {
         if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
