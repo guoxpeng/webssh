@@ -1,36 +1,62 @@
-// Build Cloudflare Pages _worker.js (wrangler handles node:compat properly)
-import { cpSync, mkdirSync, existsSync } from 'fs';
+// Build _worker.js for CF Pages using esbuild with proper compat handling
+import * as esbuild from 'esbuild';
+import { mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Ensure dist/client exists
-const clientDir = join('dist', 'client');
-if (!existsSync(clientDir)) mkdirSync(clientDir, { recursive: true });
+// CF Workers node compat modules (available natively via nodejs_compat)
+const nodeCompat = [
+  'assert', 'buffer', 'crypto', 'events', 'path', 'process',
+  'stream', 'string_decoder', 'util', 'url', 'zlib',
+];
 
-// Use wrangler to build the worker with proper CF compat (avoids __require node:net issues)
-// Output _worker.js directly into dist/client/ for Pages
-try {
-  execSync('npx wrangler deploy --dry-run --outdir dist/client --config wrangler.toml', {
-    cwd: join(__dirname, '..'),
-    stdio: 'inherit',
-  });
-} catch (e) {
-  // If dry-run fails, try building via esbuild as fallback
-  console.error('wrangler dry-run failed, trying direct build...');
-  const esbuild = await import('esbuild');
-  await esbuild.build({
-    entryPoints: ['core/worker/index.mjs'],
-    bundle: true,
-    outfile: 'dist/client/_worker.js',
-    format: 'esm',
-    target: 'es2022',
-    platform: 'neutral',
-    external: ['cloudflare:*'],
-    logLevel: 'info',
-  });
-}
+// Node builtins NOT available in CF Workers → stub them
+const nodeStubBuiltins = [
+  'child_process', 'dns', 'fs', 'http', 'https', 'net', 'os', 'tls',
+];
+
+const outDir = join('dist', 'client');
+if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+
+await esbuild.build({
+  entryPoints: ['core/worker/index.mjs'],
+  bundle: true,
+  outfile: join(outDir, '_worker.js'),
+  format: 'esm',
+  target: 'es2022',
+  platform: 'neutral',
+  mainFields: ['module', 'main'],
+  conditions: ['workerd', 'worker', 'import'],
+  external: ['cloudflare:*'],
+  logLevel: 'info',
+  plugins: [{
+    name: 'cf-worker',
+    setup(build) {
+      // CF-native node modules → node: prefix
+      build.onResolve({ filter: new RegExp(`^(${nodeCompat.join('|')})$`) }, (args) => ({
+        path: `node:${args.path}`, external: true,
+      }));
+      build.onResolve({ filter: /^node:/ }, (args) => ({ path: args.path, external: true }));
+      // Unsupported builtins → empty stub
+      build.onResolve({ filter: new RegExp(`^(${nodeStubBuiltins.join('|')})$`) }, () => ({
+        path: 'stub', namespace: 'node-stub',
+      }));
+      // Native .node addons → stub
+      build.onResolve({ filter: /\.node$/ }, () => ({ path: 'stub', namespace: 'node-stub' }));
+      build.onLoad({ filter: /.*/, namespace: 'node-stub' }, () => ({
+        contents: 'export default {};',
+        loader: 'js',
+      }));
+      // Stub ssh2/lib/agent.js (uses dynamic require of net)
+      build.onResolve({ filter: /^\.\/agent(\.js)?$/ }, (args) => {
+        if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
+          return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
+        }
+      });
+    },
+  }],
+});
 
 console.log('Worker built to dist/client/_worker.js');
