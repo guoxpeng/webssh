@@ -1,0 +1,25 @@
+{
+  "telegram": {
+    "enabled": true,
+    "token": "",
+    "adminIds": []
+  },
+  "wechat": {
+    "enabled": false,
+    "apiUrl": "",
+    "apiKey": ""
+  },
+  "qq": {
+    "enabled": false,
+    "apiUrl": "",
+    "apiKey": ""
+  },
+  "ai": {
+    "enabled": false,
+    "apiUrl": "https://api.openai.com/v1",
+    "apiKey": "",
+    "model": "gpt-4o-mini",
+    "systemPrompt": "You are a helpful SSH operations assistant.",
+    "temperature": 0.7
+  }
+}

@@ -1,0 +1,15 @@
+[Unit]
+Description=WebSSH Server
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+WorkingDirectory=/opt/webssh
+ExecStart=/usr/bin/node /opt/webssh/core/server/index.mjs
+Restart=always
+RestartSec=5
+Environment=PORT=9627
+
+[Install]
+WantedBy=multi-user.target

@@ -8,7 +8,7 @@ export default [
     ignores: ['dist/**', 'node_modules/**'],
   },
   {
-    files: ['src/**/*.{js,ts,vue}'],
+    files: ['web/src/**/*.{js,ts,vue}'],
     languageOptions: {
       parser: tsParser,
       parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },

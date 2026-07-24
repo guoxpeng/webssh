@@ -14,16 +14,16 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["web/src/*"]
     },
     "types": ["vitest/globals"]
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.d.ts",
-    "src/**/*.vue",
-    "src/**/*.js",
-    "env.d.ts"
+    "web/src/**/*.ts",
+    "web/src/**/*.d.ts",
+    "web/src/**/*.vue",
+    "web/src/**/*.js",
+    "web/env.d.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

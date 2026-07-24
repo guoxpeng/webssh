@@ -1,0 +1,1039 @@
+<template>
+  <div class="sftp-browser" @drop.prevent="onDropFiles" @dragover.prevent="dragOver = true" @dragleave.prevent="dragOver = false" :class="{ 'is-dragover': dragOver }">
+    <div v-if="dragOver" class="sftp-drop-overlay">
+      <div class="drop-circle">
+        <Upload :size="36"/>
+      </div>
+      <span class="drop-label">{{ t('sftp.upload') }}</span>
+      <span class="drop-hint">{{ t('sftp.dropHint') }}</span>
+    </div>
+    <div class="sftp-toolbar">
+      <div class="sftp-toolbar-left">
+        <button class="toolbar-btn" @click="goBack" :disabled="currentPath === '/' || loading" :title="t('sftp.back')">
+          <ArrowLeft :size="14"/>
+        </button>
+        <button class="toolbar-btn" @click="refresh" :disabled="loading" :title="t('sftp.refresh')">
+          <RefreshCw :size="14" :class="{ 'is-spinning': loading }"/>
+        </button>
+        <button class="toolbar-btn" @click="openNewFolder" :title="t('sftp.newFolder')">
+          <FolderPlus :size="14"/>
+        </button>
+        <button class="toolbar-btn" @click="triggerUpload" :title="t('sftp.upload')">
+          <Upload :size="14"/>
+        </button>
+        <button class="toolbar-btn" @click="downloadSelected" :disabled="selected.size === 0" :title="t('sftp.download')">
+          <Download :size="14"/>
+        </button>
+        <input type="file" ref="uploadInputRef" multiple style="display:none" @change="onUploadFiles"/>
+        <span class="sftp-path">{{ displayPath }}</span>
+      </div>
+      <div class="sftp-toolbar-right">
+        <button class="toolbar-btn is-close" @click="$emit('close')" :title="t('common.close')">
+          <X :size="14"/>
+        </button>
+      </div>
+    </div>
+
+    <div class="sftp-breadcrumb">
+      <span class="crumb-item" @click="navigateTo('/')">/</span>
+      <template v-for="(seg, i) in pathSegments" :key="i">
+        <span class="crumb-sep">/</span>
+        <span class="crumb-item" @click="navigateTo('/' + pathSegments.slice(0, i + 1).join('/'))">{{ seg }}</span>
+      </template>
+      <div v-if="selectedCount > 0" class="sftp-selection-info">
+        {{ t('sftp.selected', { count: selectedCount }) }}
+      </div>
+    </div>
+
+    <div v-if="loading" class="sftp-loading">{{ t('sftp.loading') }}</div>
+    <div v-else-if="error" class="sftp-error">{{ error }}</div>
+    <div v-else-if="connected && entries.length === 0" class="sftp-empty">{{ t('sftp.empty') }}</div>
+    <div v-else-if="!connected && entries.length === 0" class="sftp-error">{{ t('sftp.notConnected') }}</div>
+    <div v-else class="sftp-list">
+      <div v-for="entry in entries" :key="entry.name"
+           class="sftp-item" :class="{ 'is-selected': selected.has(entry.name), 'is-dir': entry.type === 'dir' }"
+           @click="toggleSelect(entry)" @dblclick="enterDir(entry)"
+           @contextmenu.prevent="onContextMenu($event, entry)">
+        <div class="item-icon">
+          <Folder :size="18" v-if="entry.type === 'dir'" class="icon-folder"/>
+          <FileText :size="18" v-else-if="isTextFile(entry.name)" class="icon-text"/>
+          <FileCode :size="18" v-else-if="isCodeFile(entry.name)" class="icon-code"/>
+          <FileImage :size="18" v-else-if="isImageFile(entry.name)" class="icon-image"/>
+          <FileArchive :size="18" v-else-if="isArchiveFile(entry.name)" class="icon-archive"/>
+          <File :size="18" v-else class="icon-file"/>
+        </div>
+        <div class="item-name">{{ entry.name }}</div>
+        <div class="item-size">{{ entry.type === 'dir' ? '—' : formatSize(entry.size) }}</div>
+        <div class="item-mtime">{{ entry.mtime ? formatTime(entry.mtime) : '—' }}</div>
+        <div class="item-mode">{{ formatMode(entry.mode) }}</div>
+        <div class="item-actions">
+          <button class="item-action-btn" @click.stop="downloadFile(entry)" :title="t('sftp.download')" v-if="entry.type === 'file'">
+            <Download :size="13"/>
+          </button>
+          <button class="item-action-btn is-edit" @click.stop="editFile(entry)" :title="t('sftp.edit')" v-if="entry.type === 'file' && (isTextFile(entry.name) || isCodeFile(entry.name))">
+            <Edit3 :size="13"/>
+          </button>
+          <button class="item-action-btn" @click.stop="renameFile(entry)" :title="t('sftp.rename')">
+            <Pencil :size="13"/>
+          </button>
+          <button class="item-action-btn" @click.stop="chmodFile(entry)" :title="t('sftp.permissions')">
+            <Shield :size="13"/>
+          </button>
+          <button class="item-action-btn is-danger" @click.stop="confirmDelete(entry)" :title="t('common.remove')">
+            <Trash2 :size="13"/>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="contextEntry" class="sftp-context-menu" :style="contextStyle">
+      <div class="ctx-item" @click="downloadFile(contextEntry); contextEntry = null" v-if="contextEntry.type === 'file'">
+        <Download :size="13"/> {{ t('sftp.download') }}
+      </div>
+      <div class="ctx-item" @click="editFile(contextEntry); contextEntry = null" v-if="contextEntry.type === 'file' && (isTextFile(contextEntry.name) || isCodeFile(contextEntry.name))">
+        <Edit3 :size="13"/> {{ t('sftp.edit') }}
+      </div>
+      <div class="ctx-item" @click="renameFile(contextEntry); contextEntry = null">
+        <Pencil :size="13"/> {{ t('sftp.rename') }}
+      </div>
+      <div class="ctx-item" @click="chmodFile(contextEntry); contextEntry = null">
+        <Shield :size="13"/> {{ t('sftp.permissions') }}
+      </div>
+      <div class="ctx-sep"></div>
+      <div class="ctx-item is-danger" @click="confirmDelete(contextEntry); contextEntry = null">
+        <Trash2 :size="13"/> {{ t('common.remove') }}
+      </div>
+    </div>
+
+    <div v-if="showNewFolder" class="sftp-dialog-overlay" @click.self="showNewFolder = false">
+      <div class="sftp-dialog">
+        <h4>{{ t('sftp.newFolder') }}</h4>
+        <input v-model="newFolderName" @keydown.enter="createFolder" placeholder="folder-name" class="dialog-input" ref="folderInputRef"/>
+        <div class="dialog-actions">
+          <button class="dialog-btn" @click="showNewFolder = false">{{ t('common.cancel') }}</button>
+          <button class="dialog-btn is-primary" @click="createFolder" :disabled="!newFolderName.trim()">{{ t('common.confirm') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showRename" class="sftp-dialog-overlay" @click.self="showRename = false">
+      <div class="sftp-dialog">
+        <h4>{{ t('sftp.rename') }}</h4>
+        <input v-model="renameValue" @keydown.enter="doRename" class="dialog-input" ref="renameInputRef"/>
+        <div class="dialog-actions">
+          <button class="dialog-btn" @click="showRename = false">{{ t('common.cancel') }}</button>
+          <button class="dialog-btn is-primary" @click="doRename" :disabled="!renameValue.trim()">{{ t('common.confirm') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showChmod" class="sftp-dialog-overlay" @click.self="showChmod = false">
+      <div class="sftp-dialog">
+        <h4>{{ t('sftp.permissions') }} — {{ chmodTarget }}</h4>
+        <div class="chmod-grid">
+          <div class="chmod-col">
+            <span class="chmod-label">{{ t('sftp.owner') }}</span>
+            <div class="chmod-bits">
+              <label><input type="checkbox" v-model="chmodBits.owner.r"/> r</label>
+              <label><input type="checkbox" v-model="chmodBits.owner.w"/> w</label>
+              <label><input type="checkbox" v-model="chmodBits.owner.x"/> x</label>
+            </div>
+          </div>
+          <div class="chmod-col">
+            <span class="chmod-label">{{ t('sftp.group') }}</span>
+            <div class="chmod-bits">
+              <label><input type="checkbox" v-model="chmodBits.group.r"/> r</label>
+              <label><input type="checkbox" v-model="chmodBits.group.w"/> w</label>
+              <label><input type="checkbox" v-model="chmodBits.group.x"/> x</label>
+            </div>
+          </div>
+          <div class="chmod-col">
+            <span class="chmod-label">{{ t('sftp.other') }}</span>
+            <div class="chmod-bits">
+              <label><input type="checkbox" v-model="chmodBits.other.r"/> r</label>
+              <label><input type="checkbox" v-model="chmodBits.other.w"/> w</label>
+              <label><input type="checkbox" v-model="chmodBits.other.x"/> x</label>
+            </div>
+          </div>
+        </div>
+        <div class="chmod-octal">{{ t('sftp.permissions') }}: <strong>{{ chmodOctal }}</strong></div>
+        <div class="dialog-actions">
+          <button class="dialog-btn" @click="showChmod = false">{{ t('common.cancel') }}</button>
+          <button class="dialog-btn is-primary" @click="doChmod">{{ t('common.confirm') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="deleteTarget" class="sftp-dialog-overlay" @click.self="deleteTarget = null">
+      <div class="sftp-dialog">
+        <h4>{{ t('common.remove') }}</h4>
+        <p>{{ t('sftp.deleteConfirm', { name: deleteTarget.name }) }}</p>
+        <div class="dialog-actions">
+          <button class="dialog-btn" @click="deleteTarget = null">{{ t('common.cancel') }}</button>
+          <button class="dialog-btn is-danger" @click="doDelete">{{ t('common.remove') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="uploadProgress !== null" class="sftp-upload-progress">
+      <div class="upload-bar"><div class="upload-bar-fill" :style="{ width: uploadProgress + '%' }"></div></div>
+      <span>{{ uploadFileName }} — {{ uploadProgress }}%</span>
+    </div>
+
+    <div v-if="showEditor" class="sftp-editor-overlay" @click.self="closeEditor">
+      <div class="sftp-editor" @keydown="onEditorKeydown">
+        <div class="editor-header">
+          <div class="editor-file-info">
+            <FileCode :size="15"/>
+            <span class="editor-filename">{{ editFileName }}</span>
+            <span class="editor-path">{{ editFilePath }}</span>
+            <span class="editor-status" v-if="editorDirty">{{ t('sftp.unsaved') }}</span>
+            <span class="editor-status is-saved" v-else-if="editorJustSaved">{{ t('sftp.saved') }}</span>
+          </div>
+          <div class="editor-actions">
+            <button class="editor-btn is-primary" @click="saveEditor" :disabled="!editorDirty || saving">
+              <Upload :size="14"/> {{ saving ? t('sftp.saving') + '...' : t('sftp.saveEdit') }}
+            </button>
+            <span class="editor-shortcut">Ctrl+S</span>
+            <button class="editor-btn" @click="closeEditor"><X :size="14"/></button>
+          </div>
+        </div>
+        <div class="editor-body">
+          <div class="editor-lines">
+            <div v-for="n in lineCount" :key="n" class="editor-line-no">{{ n }}</div>
+          </div>
+          <textarea ref="editorTextareaRef" v-model="editContent"
+                    class="editor-textarea" spellcheck="false"
+                    :placeholder="t('sftp.editPlaceholder')"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="message" class="sftp-toast" :class="messageType">{{ message }}</div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { useI18n } from 'vue-i18n';
+import {
+  Folder, FolderPlus, FileText, FileCode, FileImage,
+  FileArchive, File, ArrowLeft, RefreshCw, Upload, Download,
+  Edit3, Pencil, Shield, Trash2, X,
+} from 'lucide-vue-next';
+import { useConnectionStore } from '@/stores/connectionStore';
+import SftpWsService from '@/services/sftpWsService';
+import JSZip from 'jszip';
+/* WS_SFTP_V1 */
+
+const { t } = useI18n();
+const connStore = useConnectionStore();
+
+const props = defineProps({
+  nodeConfig: { type: Object, default: null },
+});
+
+const emit = defineEmits(['close']);
+
+const sftpWs = new SftpWsService();
+const loading = ref(false);
+const error = ref('');
+const entries = ref([]);
+const currentPath = ref('/');
+const connected = ref(false);
+const selected = ref(new Set());
+const message = ref('');
+const messageType = ref('is-info');
+const uploadInputRef = ref(null);
+const uploadProgress = ref(null);
+const uploadFileName = ref('');
+const dragOver = ref(false);
+
+const showNewFolder = ref(false);
+const newFolderName = ref('');
+const folderInputRef = ref(null);
+
+const showRename = ref(false);
+const renameValue = ref('');
+const renameTarget = ref(null);
+const renameInputRef = ref(null);
+
+const showChmod = ref(false);
+const chmodTarget = ref('');
+const chmodBits = ref({ owner: { r: true, w: true, x: false }, group: { r: true, w: false, x: false }, other: { r: true, w: false, x: false } });
+
+const deleteTarget = ref(null);
+
+const contextEntry = ref(null);
+const contextStyle = ref({});
+
+const showEditor = ref(false);
+const editFilePath = ref('');
+const editFileName = ref('');
+const editContent = ref('');
+const editOriginal = ref('');
+const editorDirty = ref(false);
+const editorJustSaved = ref(false);
+const saving = ref(false);
+const editorTextareaRef = ref(null);
+
+const lineCount = computed(() => (editContent.value.match(/\n/g) || []).length + 1);
+
+watch(editContent, () => {
+  editorDirty.value = editContent.value !== editOriginal.value;
+  if (editorJustSaved.value) editorJustSaved.value = false;
+});
+
+function openEditor(path, name) {
+  editFilePath.value = path;
+  editFileName.value = name;
+  editContent.value = '';
+  editOriginal.value = '';
+  editorDirty.value = false;
+  editorJustSaved.value = false;
+  showEditor.value = true;
+  loadEditorContent();
+}
+
+async function loadEditorContent() {
+  try {
+    const data = await api('read', { path: editFilePath.value });
+    if (!data?.content) return;
+    const decoded = atob(data.content);
+    editContent.value = decoded;
+    editOriginal.value = decoded;
+    editorDirty.value = false;
+    nextTick(() => {
+      editorTextareaRef.value?.focus();
+    });
+  } catch (err) {
+    showMessage(t('sftp.loadFailed', { name: editFileName.value, error: err.message }), 'is-error');
+  }
+}
+
+async function saveEditor() {
+  saving.value = true;
+  try {
+    await api('write', { path: editFilePath.value, content: btoa(editContent.value), encoding: 'base64' });
+    editOriginal.value = editContent.value;
+    editorDirty.value = false;
+    editorJustSaved.value = true;
+    showMessage(t('sftp.savedFile', { name: editFileName.value }), 'is-success');
+  } catch (err) {
+    showMessage(t('sftp.saveFailed', { name: editFileName.value, error: err.message }), 'is-error');
+  } finally {
+    saving.value = false;
+  }
+}
+
+function onEditorKeydown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (editorDirty.value) saveEditor();
+  }
+  if (e.key === 'Escape') {
+    if (editorDirty.value && !confirm(t('sftp.discardConfirm'))) return;
+    closeEditor();
+  }
+}
+
+function closeEditor() {
+  if (editorDirty.value && !confirm(t('sftp.discardConfirm'))) return;
+  showEditor.value = false;
+  editContent.value = '';
+}
+
+const pathSegments = computed(() => currentPath.value.split('/').filter(Boolean));
+const displayPath = computed(() => currentPath.value || '/');
+const selectedCount = computed(() => selected.value.size);
+const chmodOctal = computed(() => {
+  const o = chmodBits.value.owner;
+  const g = chmodBits.value.group;
+  const u = chmodBits.value.other;
+  const val = (o.r ? 4 : 0) + (o.w ? 2 : 0) + (o.x ? 1 : 0);
+  const val2 = (g.r ? 4 : 0) + (g.w ? 2 : 0) + (g.x ? 1 : 0);
+  const val3 = (u.r ? 4 : 0) + (u.w ? 2 : 0) + (u.x ? 1 : 0);
+  return String(val) + String(val2) + String(val3);
+});
+
+watch(showNewFolder, (v) => { if (v) nextTick(() => folderInputRef.value?.focus()); });
+watch(showRename, (v) => { if (v) nextTick(() => renameInputRef.value?.focus()); });
+
+function showMessage(msg, type = 'is-info') {
+  message.value = msg;
+  messageType.value = type;
+  setTimeout(() => { message.value = ''; }, 3000);
+}
+
+function friendlyError(msg) {
+  const m = (msg || '').toLowerCase();
+  if (m.includes('timed out') || m.includes('timeout') || m.includes('handshake') || m.includes('ETIMEDOUT')) return t('terminal.connTimeout');
+  if (m.includes('authentication') || m.includes('auth failed') || m.includes('password') || m.includes('permission denied')) return t('terminal.authFailed');
+  if (m.includes('refused') || m.includes('ECONNREFUSED') || m.includes('not allowed')) return t('terminal.connRefused');
+  if (m.includes('lost') || m.includes('closed') || m.includes('reset')) return t('terminal.connLost');
+  return msg || t('sftp.notConnected');
+}
+
+async function getAuth() {
+  const src = props.nodeConfig || connStore.currentNodeDetails;
+  let authValue = src?.auth_value || '';
+  let authType = src?.auth_type || 'password';
+
+  if (!authValue && src?.id) {
+    try {
+      const cred = await connStore.getCredentialFromSessionStorage(src.id);
+      if (cred?.auth_value) { authValue = cred.auth_value; authType = cred.auth_type || 'password'; }
+    } catch {}
+  }
+
+  return {
+    host: src?.host,
+    port: src?.port != null ? src.port : 22,
+    username: src?.username,
+    auth_type: authType,
+    auth_value: authValue,
+  };
+}
+
+async function api(action, data = {}) {
+  if (!connected.value) {
+    showMessage(t('sftp.notConnected'), 'is-error');
+    throw new Error('SFTP not connected');
+  }
+  try {
+    const result = await sftpWs.send(action, data);
+    return result;
+  } catch (e) {
+    throw e;
+  }
+}
+
+async function listDir(path) {
+  loading.value = true;
+  error.value = '';
+  try {
+    const data = await api('list', { path });
+    entries.value = (data?.entries || []).sort((a, b) => {
+      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    connected.value = true;
+  } catch (e) {
+    error.value = e.message;
+    entries.value = [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function refresh() {
+  await listDir(currentPath.value);
+}
+function goBack() {
+  const p = currentPath.value.replace(/\/$/, '');
+  const parent = p.includes('/') ? p.slice(0, p.lastIndexOf('/')) || '/' : '/';
+  navigateTo(parent);
+}
+function navigateTo(path) {
+  currentPath.value = path;
+  listDir(path);
+}
+
+function enterDir(entry) {
+  if (entry.type !== 'dir') {
+    if (entry.type === 'file' && (isTextFile(entry.name) || isCodeFile(entry.name))) {
+      openEditor(fullPath(entry.name), entry.name);
+    }
+    return;
+  }
+  const path = (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + entry.name;
+  navigateTo(path);
+}
+
+function toggleSelect(entry) {
+  const s = new Set(selected.value);
+  if (s.has(entry.name)) s.delete(entry.name); else s.add(entry.name);
+  selected.value = s;
+}
+
+function isTextFile(name) { return /\.(md|txt|log|yml|yaml|toml|ini|cfg|conf|env|gitignore)$/i.test(name); }
+function isCodeFile(name) { return /\.(js|jsx|ts|tsx|vue|html|css|scss|json|xml|py|rb|go|rs|java|c|cpp|h|sh|bash|zsh|php|sql|mjs)$/i.test(name); }
+function isImageFile(name) { return /\.(png|jpg|jpeg|gif|svg|bmp|ico|webp)$/i.test(name); }
+function isArchiveFile(name) { return /\.(zip|tar|gz|bz2|xz|7z|rar|tgz)$/i.test(name); }
+
+function formatSize(bytes) {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0; let size = bytes;
+  while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+  return size.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
+}
+
+function formatTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  if (d.toDateString() === now.toDateString()) return pad(d.getHours()) + ':' + pad(d.getMinutes());
+  if (d.getFullYear() === now.getFullYear()) return pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+function formatMode(mode) {
+  if (!mode) return '—';
+  const s = mode.toString(8);
+  return s.slice(-3);
+}
+
+function onContextMenu(e, entry) {
+  contextEntry.value = entry;
+  const rect = document.querySelector('.sftp-browser')?.getBoundingClientRect();
+  if (rect) {
+    contextStyle.value = {
+      top: (e.clientY - rect.top) + 'px',
+      left: (e.clientX - rect.left) + 'px',
+    };
+  }
+  document.addEventListener('click', () => { contextEntry.value = null; }, { once: true });
+}
+
+function triggerUpload() { uploadInputRef.value?.click(); }
+async function onUploadFiles(e) {
+  const files = e.target?.files;
+  if (!files?.length) return;
+  for (const file of files) {
+    if (file.size > 52428800) { showMessage(t('sftp.fileTooLarge', { name: file.name }), 'is-error'); continue; }
+    uploadFileName.value = file.name;
+    uploadProgress.value = 0;
+    const reader = new FileReader();
+    const content = await new Promise((resolve) => {
+      reader.onload = (ev) => resolve(ev.target.result.split(',')[1] || '');
+      reader.readAsDataURL(file);
+    });
+    try {
+      await api('write', { path: (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + file.name, content, encoding: 'base64' });
+      uploadProgress.value = 100;
+      showMessage(t('sftp.uploaded', { name: file.name }), 'is-success');
+    } catch (err) {
+      showMessage(t('sftp.uploadFailed', { name: file.name, error: err.message }), 'is-error');
+    }
+  }
+  uploadProgress.value = null;
+  uploadFileName.value = '';
+  e.target.value = '';
+  refresh();
+}
+
+async function onDropFiles(e) {
+  dragOver.value = false;
+  const files = e.dataTransfer?.files;
+  if (!files?.length) return;
+  // Reuse the file upload logic
+  const input = uploadInputRef.value;
+  if (input) {
+    const dt = new DataTransfer();
+    for (const f of files) dt.items.add(f);
+    input.files = dt.files;
+    await onUploadFiles({ target: input });
+  }
+}
+
+async function downloadFile(entry) {
+  if (entry.type === 'dir') {
+    return downloadFolderAsZip(entry.name);
+  }
+  try {
+    const data = await api('read', { path: fullPath(entry.name) });
+    if (!data?.content) return;
+    const bytes = Uint8Array.from(atob(data.content), c => c.charCodeAt(0));
+    const blob = new Blob([bytes]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = entry.name; a.click();
+    URL.revokeObjectURL(url);
+    showMessage(t('sftp.downloaded', { name: entry.name }), 'is-success');
+  } catch (err) {
+    showMessage(err.message, 'is-error');
+  }
+}
+
+async function downloadFolderAsZip(dirName) {
+  loading.value = true;
+  try {
+    const allFiles = await walkFolder(dirName);
+    if (allFiles.length === 0) { showMessage(t('sftp.empty'), 'is-info'); return; }
+    const zip = new JSZip();
+    for (const f of allFiles) {
+      const data = await api('read', { path: fullPath(f.path) });
+      if (data?.content) {
+        const bytes = Uint8Array.from(atob(data.content), c => c.charCodeAt(0));
+        zip.file(f.path, bytes);
+      }
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = dirName + '.zip'; a.click();
+    URL.revokeObjectURL(url);
+    showMessage(t('sftp.downloaded', { name: dirName + '.zip' }), 'is-success');
+  } catch (err) {
+    showMessage(err.message, 'is-error');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function downloadSelected() {
+  const names = [...selected.value];
+  if (names.length === 0) { showMessage(t('sftp.selectDownload'), 'is-info'); return; }
+  loading.value = true;
+  try {
+    const allFiles = [];
+    for (const name of names) {
+      const entry = entries.value.find(e => e.name === name);
+      if (!entry) continue;
+      if (entry.type === 'file') {
+        allFiles.push({ path: entry.name, entry });
+      } else {
+        const tree = await walkFolder(entry.name);
+        allFiles.push(...tree);
+      }
+    }
+    const zip = new JSZip();
+    for (const f of allFiles) {
+      const data = await api('read', { path: fullPath(f.path) });
+      if (data?.content) {
+        const bytes = Uint8Array.from(atob(data.content), c => c.charCodeAt(0));
+        zip.file(f.path, bytes);
+      }
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'download.zip'; a.click();
+    URL.revokeObjectURL(url);
+    showMessage(t('sftp.downloaded', { name: names.join(', ') }), 'is-success');
+  } catch (err) {
+    showMessage(err.message, 'is-error');
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function walkFolder(dirName) {
+  const results = [];
+  const stack = [dirName];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const list = await api('list', { path: fullPath(current) });
+    if (!list?.entries) continue;
+    for (const f of list.entries) {
+      const rel = current === dirName ? f.name : current + '/' + f.name;
+      if (f.type === 'dir') {
+        stack.push(current + '/' + f.name);
+      } else {
+        results.push({ path: current + '/' + f.name, entry: f });
+      }
+    }
+  }
+  return results;
+}
+
+function fullPath(name) {
+  const safe = name.replace(/\.\./g, '').replace(/\/\//g, '/');
+  return (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + safe;
+}
+
+function editFile(entry) {
+  if (entry.type === 'file') openEditor(fullPath(entry.name), entry.name);
+}
+function openNewFolder() { showNewFolder.value = true; newFolderName.value = ''; }
+async function createFolder() {
+  if (!newFolderName.value.trim()) return;
+  try {
+    await api('mkdir', { path: fullPath(newFolderName.value.trim()) });
+    showNewFolder.value = false;
+    showMessage(t('sftp.folderCreated'), 'is-success');
+    refresh();
+  } catch (err) {
+    showMessage(err.message, 'is-error');
+  }
+}
+
+function renameFile(entry) {
+  renameTarget.value = entry;
+  renameValue.value = entry.name;
+  showRename.value = true;
+}
+async function doRename() {
+  if (!renameValue.value.trim() || !renameTarget.value) return;
+  const src = fullPath(renameTarget.value.name);
+  const dst = fullPath(renameValue.value.trim());
+  try {
+    await api('rename', { srcPath: src, destPath: dst });
+    showRename.value = false;
+    renameTarget.value = null;
+    showMessage(t('sftp.renamed'), 'is-success');
+    refresh();
+  } catch (err) {
+    showMessage(err.message, 'is-error');
+  }
+}
+
+function chmodFile(entry) {
+  chmodTarget.value = entry.name;
+  const mode = entry.mode || 0o644;
+  const s = mode.toString(8).slice(-3).split('').map(c => parseInt(c, 10));
+  const bits = (v) => ({ r: !!(v & 4), w: !!(v & 2), x: !!(v & 1) });
+  const vals = s.length >= 3 ? s : [6, 4, 4];
+  chmodBits.value = { owner: bits(vals[0]), group: bits(vals[1] || 4), other: bits(vals[2] || 4) };
+  showChmod.value = true;
+}
+async function doChmod() {
+  try {
+    await api('chmod', { path: fullPath(chmodTarget.value), mode: chmodOctal.value });
+    showChmod.value = false;
+    showMessage(t('sftp.permissionsChanged'), 'is-success');
+    refresh();
+  } catch (err) {
+    showMessage(err.message, 'is-error');
+  }
+}
+
+function confirmDelete(entry) { deleteTarget.value = entry; }
+async function doDelete() {
+  if (!deleteTarget.value) return;
+  try {
+    const path = fullPath(deleteTarget.value.name);
+    if (deleteTarget.value.type === 'dir') {
+      await api('rmdir', { path });
+    } else {
+      await api('delete', { path });
+    }
+    deleteTarget.value = null;
+    showMessage(t('sftp.deleted'), 'is-success');
+    refresh();
+  } catch (err) {
+    showMessage(err.message, 'is-error');
+  }
+}
+
+onMounted(async () => {
+  const auth = await getAuth();
+  if (!auth.host) { error.value = t('sftp.notConnected'); return; }
+  error.value = '';
+  connected.value = false;
+  sftpWs.connect(auth, {
+    onStatus: (status, err) => {
+      if (status === 'connected') {
+        connected.value = true;
+        error.value = '';
+        if (auth.auth_value && props.nodeConfig?.id) {
+          connStore.saveCredentialToSessionStorage(props.nodeConfig.id, auth.auth_type, auth.auth_value);
+        }
+        listDir('/');
+      } else if (status === 'error') {
+        connected.value = false;
+        error.value = friendlyError(err) || t('sftp.notConnected');
+      } else if (status === 'disconnected') {
+        connected.value = false;
+        error.value = t('sftp.notConnected');
+      }
+    },
+  });
+});
+
+onBeforeUnmount(() => {
+  sftpWs.disconnect();
+  if (showEditor.value) closeEditor();
+});
+
+watch(() => props.nodeConfig, (newCfg, oldCfg) => {
+  if (!newCfg || !oldCfg) { currentPath.value = '/'; refresh(); return; }
+  const key = (c) => `${c.host}_${c.port}_${c.username}`;
+  if (key(newCfg) !== key(oldCfg)) {
+    currentPath.value = '/';
+    refresh();
+  }
+}, { deep: false });
+</script>
+
+<style lang="scss" scoped>
+.sftp-browser {
+  height: 100%; display: flex; flex-direction: column;
+  font-size: 0.8em; background: var(--bulma-scheme-main); position: relative;
+  &.is-dragover { outline: 3px dashed var(--bulma-primary); outline-offset: -3px; }
+  position: relative; overflow: hidden;
+}
+
+.sftp-drop-overlay {
+  position: absolute; inset: 0; z-index: 500;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem;
+  background: rgba(99, 102, 241, 0.08); backdrop-filter: blur(6px);
+  color: var(--bulma-primary); font-weight: 600; font-size: 1em;
+  animation: dropFadeIn 0.2s ease-out;
+}
+@keyframes dropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.drop-circle {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(99, 102, 241, 0.12); display: flex;
+  align-items: center; justify-content: center;
+  animation: dropPulse 1.2s ease-in-out infinite;
+}
+@keyframes dropPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.drop-label { font-size: 1em; font-weight: 600; }
+.drop-hint { font-size: 0.75em; opacity: 0.7; font-weight: 400; }
+
+.sftp-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--bulma-border-light);
+  background: var(--bulma-scheme-main-bis);
+  gap: 0.3rem;
+}
+
+.sftp-toolbar-left {
+  display: flex; align-items: center; gap: 0.2rem; flex: 1; min-width: 0;
+}
+
+.sftp-toolbar-right {
+  display: flex; align-items: center; gap: 0.2rem;
+}
+
+.toolbar-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: none; border-radius: 6px;
+  background: transparent; color: var(--bulma-text-light); cursor: pointer;
+  transition: all 0.12s;
+  &:hover:not(:disabled) { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
+  &:disabled { opacity: 0.4; cursor: default; }
+  &.is-close:hover { background: color-mix(in srgb, var(--bulma-danger) 15%, transparent); color: var(--bulma-danger); }
+}
+
+.sftp-path {
+  font-size: 0.75em; color: var(--bulma-text-light); margin-left: 0.4rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.sftp-breadcrumb {
+  display: flex; align-items: center; gap: 0;
+  padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--bulma-border-light);
+  font-size: 0.75em; overflow-x: auto; white-space: nowrap;
+}
+
+.crumb-item {
+  color: var(--bulma-primary); cursor: pointer; padding: 0 0.1rem;
+  &:hover { text-decoration: underline; }
+}
+
+.crumb-sep { color: var(--bulma-text-light); margin: 0 0.05rem; }
+
+.sftp-selection-info {
+  margin-left: auto; font-size: 0.85em; color: var(--bulma-primary); font-weight: 500;
+}
+
+.sftp-loading, .sftp-empty, .sftp-error {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  color: var(--bulma-text-light); font-size: 0.85em;
+}
+
+.sftp-error { color: var(--bulma-danger); }
+
+.sftp-list {
+  flex: 1; overflow-y: auto; padding: 0;
+}
+
+.sftp-item {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--bulma-border-light);
+  cursor: default; transition: background 0.1s;
+  &:hover { background: var(--bulma-scheme-main-ter); }
+  &.is-selected { background: rgba(99, 102, 241, 0.08); }
+  &.is-dir { cursor: pointer; }
+}
+
+.item-icon { flex-shrink: 0; display: flex; align-items: center; }
+.icon-folder { color: var(--icon-folder); }
+.icon-text { color: var(--icon-text); }
+.icon-code { color: var(--icon-code); }
+.icon-image { color: var(--icon-image); }
+.icon-archive { color: var(--icon-archive); }
+.icon-file { color: var(--bulma-text-light); }
+
+.item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 0.9em; }
+.item-size { width: 60px; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
+.item-mtime { width: 70px; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
+.item-mode { width: 36px; text-align: center; color: var(--bulma-text-light); font-family: monospace; font-size: 0.85em; }
+
+.item-actions {
+  display: none; gap: 1px;
+  .sftp-item:hover & { display: flex; }
+}
+
+.item-action-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border: none; border-radius: 4px;
+  background: transparent; color: var(--bulma-text-light); cursor: pointer;
+  transition: all 0.1s;
+  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
+  &.is-danger:hover { background: color-mix(in srgb, var(--bulma-danger) 15%, transparent); color: var(--bulma-danger); }
+  &.is-edit:hover { background: color-mix(in srgb, var(--bulma-success) 15%, transparent); color: var(--bulma-success); }
+}
+
+.sftp-context-menu {
+  position: absolute; background: var(--bulma-scheme-main);
+  border: 1px solid var(--bulma-border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 0.3rem; z-index: 100;
+  min-width: 140px;
+}
+
+.ctx-item {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer;
+  font-size: 0.85em; color: var(--bulma-text);
+  &:hover { background: var(--bulma-scheme-main-ter); }
+  &.is-danger { color: var(--bulma-danger); &:hover { background: hsl(0, 60%, 92%); } }
+}
+
+.ctx-sep { height: 1px; background: var(--bulma-border-light); margin: 0.2rem 0; }
+
+.sftp-dialog-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+}
+
+.sftp-dialog {
+  background: var(--bulma-scheme-main); border-radius: 12px;
+  padding: 1.2rem; min-width: 300px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  h4 { font-size: 0.95em; font-weight: 600; margin-bottom: 0.8rem; }
+  p { font-size: 0.85em; color: var(--bulma-text-light); margin-bottom: 0.8rem; }
+}
+
+.dialog-input {
+  width: 100%; padding: 0.5rem 0.6rem; border: 1.5px solid var(--bulma-border);
+  border-radius: 8px; font-size: 0.85em; outline: none; box-sizing: border-box;
+  &:focus { border-color: var(--bulma-primary); }
+}
+
+.dialog-actions {
+  display: flex; justify-content: flex-end; gap: 0.4rem; margin-top: 0.8rem;
+}
+
+.dialog-btn {
+  padding: 0.4rem 0.8rem; border: 1.5px solid var(--bulma-border);
+  border-radius: 6px; background: var(--bulma-scheme-main); cursor: pointer;
+  font-size: 0.8em; color: var(--bulma-text); transition: all 0.12s;
+  &:hover { border-color: var(--bulma-primary); }
+  &.is-primary { background: var(--bulma-primary); border-color: var(--bulma-primary); color: white; }
+  &.is-danger { background: var(--bulma-danger); border-color: var(--bulma-danger); color: white; }
+  &:disabled { opacity: 0.5; cursor: default; }
+}
+
+.chmod-grid {
+  display: flex; gap: 0.8rem; margin-bottom: 0.5rem;
+}
+
+.chmod-col { flex: 1; }
+.chmod-label { font-size: 0.75em; font-weight: 500; color: var(--bulma-text-light); display: block; margin-bottom: 0.3rem; text-transform: uppercase; }
+
+.chmod-bits {
+  display: flex; flex-direction: column; gap: 0.2rem;
+  label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.85em; font-family: monospace; cursor: pointer;
+    input { accent-color: var(--bulma-primary); }
+  }
+}
+
+.chmod-octal {
+  font-size: 0.85em; color: var(--bulma-text-light); text-align: center; margin-top: 0.3rem;
+  strong { font-family: monospace; font-size: 1.1em; color: var(--bulma-text); }
+}
+
+.sftp-upload-progress {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 300; gap: 0.5rem; color: white; font-size: 0.85em;
+}
+
+.upload-bar {
+  width: 200px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; overflow: hidden;
+}
+
+.upload-bar-fill { height: 100%; background: var(--bulma-primary); transition: width 0.2s; }
+
+.sftp-toast {
+  position: absolute; top: 2.5rem; right: 0.5rem; z-index: 400;
+  padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8em;
+  animation: fadeIn 0.2s ease;
+  &.is-success { background: color-mix(in srgb, var(--bulma-success) 15%, transparent); color: var(--bulma-success); }
+  &.is-error { background: color-mix(in srgb, var(--bulma-danger) 15%, transparent); color: var(--bulma-danger); }
+  &.is-info { background: color-mix(in srgb, var(--bulma-info) 15%, transparent); color: var(--bulma-info); }
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.is-spinning { animation: spin 1s linear infinite; }
+
+.sftp-editor-overlay {
+  position: absolute; inset: 0; z-index: 400;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.35);
+  animation: editorIn 0.15s ease-out;
+}
+@keyframes editorIn { from { opacity: 0; } to { opacity: 1; } }
+
+.sftp-editor {
+  width: 85%; height: 80%; max-width: 900px;
+  background: var(--bulma-scheme-main);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column;
+  animation: editorSlideIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes editorSlideIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+.editor-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--bulma-border-light);
+  background: var(--bulma-scheme-main-ter);
+}
+.editor-file-info {
+  display: flex; align-items: center; gap: 0.4rem; font-size: 0.8em; min-width: 0;
+}
+.editor-filename { font-weight: 600; }
+.editor-path { color: var(--bulma-text-light); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-status { font-size: 0.85em; font-weight: 500; color: var(--bulma-warning); margin-left: 0.3rem; &.is-saved { color: var(--bulma-success); } }
+.editor-actions { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
+.editor-btn {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  border: none; background: transparent; cursor: pointer; padding: 0.3rem 0.5rem;
+  border-radius: 6px; color: var(--bulma-text-light); font-size: 0.75em;
+  transition: all 0.1s;
+  &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); }
+  &.is-primary { background: var(--bulma-primary); color: white; &:hover { opacity: 0.9; } &:disabled { opacity: 0.5; cursor: default; } }
+}
+.editor-shortcut { font-size: 0.6em; color: var(--bulma-text-light); font-family: monospace; opacity: 0.6; }
+.editor-body { flex: 1; display: flex; overflow: hidden; }
+.editor-lines {
+  padding: 0.5rem 0; text-align: right; user-select: none;
+  min-width: 36px; background: var(--bulma-scheme-main-ter);
+  border-right: 1px solid var(--bulma-border-light);
+  overflow: hidden;
+}
+.editor-line-no {
+  padding: 0 0.5rem; font-size: 0.75em; line-height: 1.5;
+  font-family: var(--bulma-family-monospace); color: var(--bulma-text-light);
+}
+.editor-textarea {
+  flex: 1; border: none; outline: none; resize: none;
+  padding: 0.5rem 0.65rem; font-size: 0.85em; line-height: 1.5;
+  font-family: var(--bulma-family-monospace); tab-size: 2;
+  background: var(--bulma-scheme-main); color: var(--bulma-text);
+  &::placeholder { color: var(--bulma-text-light); opacity: 0.5; }
+}
+</style>
