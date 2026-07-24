@@ -100,29 +100,22 @@ node core/server/index.mjs
 
 Open `http://localhost:9627`
 
-### Cloudflare Workers (global edge deploy) ⚡
+### Cloudflare Pages (global edge deploy) ⚡
 
-#### Pages (recommended)
+> ⚠️ **CF Pages vs VPS/Docker**: CF Pages deploys a lightweight version (`cf-pages` branch) based on v2.2.5, supporting **SSH terminal** and **SSH test** only. SFTP file manager, Docker management, serial, chat bots, AI features require VPS/Docker (`main` branch v3.0).
+
+#### Pages
 
 Workers & Pages → Pages → Create → Connect Git
 
 | Field | Value |
 |------|-----|
-| Build command | `npm run build && node core/build-worker.mjs` |
-| Output directory | `dist/client` |
+| Production branch | `cf-pages` |
+| Build command | `npm run build && node build-worker.mjs` |
+| Output directory | `dist` |
 | Env `NODE_VERSION` | `22` |
 
-#### Workers
-
-Workers & Pages → Workers → Create → Connect Git
-
-| Field | Value |
-|------|-----|
-| Build command | `npm run build` |
-| Deploy command | `npx wrangler deploy` |
-| Env `NODE_VERSION` | `22` |
-
-> **CF Workers limitations**: No Telegram/WeChat/QQ bots (need Node.js long-polling), no AI chat. Use Docker/VPS for those.
+> **CF Pages limitations**: No WebSocket SFTP, Telegram/WeChat/QQ bots, AI chat. Use Docker/VPS for full features.
 
 ### Dev mode
 
