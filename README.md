@@ -104,29 +104,22 @@ node core/server/index.mjs
 
 打开 `http://localhost:9627`
 
-### Cloudflare Workers 部署（全球加速）⚡
+### Cloudflare Pages 部署（全球加速）⚡
 
-#### Pages 方式（推荐）
+> ⚠️ **CF Pages 与 VPS/Docker 版本的区别**：CF Pages 部署的是独立精简版（`cf-pages` 分支），基于 v2.2.5 架构，仅支持 **SSH 终端** 和 **SSH 测试**。SFTP 文件管理、Docker 管理、串口、聊天机器人、AI 对话等功能仅 VPS/Docker 部署（`main` 分支 v3.0）支持。
+
+#### Pages 方式
 
 路径：Workers & Pages → Pages → 创建项目 → 连接到 Git
 
 | 字段 | 值 |
 |------|-----|
-| 构建命令 | `npm run build && node core/build-worker.mjs` |
-| 输出目录 | `dist/client` |
+| 生产分支 | `cf-pages` |
+| 构建命令 | `npm run build && node build-worker.mjs` |
+| 输出目录 | `dist` |
 | 环境变量 `NODE_VERSION` | `22` |
 
-#### Workers 方式
-
-路径：Workers & Pages → Workers → 创建 Worker → 连接到 Git
-
-| 字段 | 值 |
-|------|-----|
-| 构建命令 | `npm run build` |
-| 部署命令 | `npx wrangler deploy` |
-| 变量 `NODE_VERSION` | `22` |
-
-> **CF Workers 已知限制**：不支持 Telegram/WeChat/QQ 机器人（需 Node.js 长轮询）、AI 对话。这些请用 Docker/VPS 部署。
+> **CF Pages 已知限制**：不支持 WebSocket SFTP、Telegram/WeChat/QQ 机器人、AI 对话。如需完整功能请用 Docker/VPS 部署。
 
 ### 开发模式
 
