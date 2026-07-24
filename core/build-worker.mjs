@@ -1,4 +1,3 @@
-// Build _worker.js for CF Pages using esbuild with proper compat handling
 import * as esbuild from 'esbuild';
 import { mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -6,24 +5,39 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Node builtins NOT available in CF Workers → stub them
-const nodeStubBuiltins = [
-  'child_process', 'dns', 'fs', 'net', 'os', 'tls',
-];
-
-// Node builtins available via CF Workers nodejs_compat
-const nodeCompatBuiltins = [
-  'assert', 'buffer', 'crypto', 'events', 'path', 'process',
-  'stream', 'string_decoder', 'util', 'url', 'zlib',
-];
-
 const outDir = join('dist', 'client');
 if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
-// Build a shim that maps CJS require(name) to nodejs_compat ESM modules
-const requireShim = nodeCompatBuiltins.map(m =>
-  `  if (m === '${m}') { return await import('node:${m}'); }`
-).join('\n');
+const requireShimBanner = `
+import * as __shim_assert from 'node:assert';
+import * as __shim_buffer from 'node:buffer';
+import * as __shim_crypto from 'node:crypto';
+import * as __shim_events from 'node:events';
+import * as __shim_path from 'node:path';
+import * as __shim_stream from 'node:stream';
+import * as __shim_string_decoder from 'node:string_decoder';
+import * as __shim_url from 'node:url';
+import * as __shim_util from 'node:util';
+import * as __shim_zlib from 'node:zlib';
+var __CF_nodeModules = {
+  'assert': __shim_assert, 'node:assert': __shim_assert,
+  'buffer': __shim_buffer, 'node:buffer': __shim_buffer,
+  'crypto': __shim_crypto, 'node:crypto': __shim_crypto,
+  'events': __shim_events, 'node:events': __shim_events,
+  'path': __shim_path, 'node:path': __shim_path,
+  'stream': __shim_stream, 'node:stream': __shim_stream,
+  'string_decoder': __shim_string_decoder, 'node:string_decoder': __shim_string_decoder,
+  'url': __shim_url, 'node:url': __shim_url,
+  'util': __shim_util, 'node:util': __shim_util,
+  'zlib': __shim_zlib, 'node:zlib': __shim_zlib,
+  'child_process': {}, 'dns': {}, 'fs': {}, 'net': {}, 'os': {}, 'tls': {},
+  'http': { Agent: class Agent {} }, 'https': { Agent: class Agent {} },
+};
+globalThis.require = function require(id) {
+  if (__CF_nodeModules[id] !== undefined) return __CF_nodeModules[id];
+  throw new Error('[webssh worker] Cannot require("' + id + '") in CF Workers');
+};
+`;
 
 await esbuild.build({
   entryPoints: ['core/worker/index.mjs'],
@@ -31,47 +45,24 @@ await esbuild.build({
   outfile: join(outDir, '_worker.js'),
   format: 'esm',
   target: 'es2022',
-  platform: 'node',
+  platform: 'browser',
   mainFields: ['module', 'main'],
-  external: ['cloudflare:*'],
-  banner: {
-    js: `
-// Provide global require() for CJS modules (ssh2) in CF Pages ESM runtime
-if (typeof globalThis.require === 'undefined') {
-  globalThis.require = async function requireShim(m) {
-${requireShim}
-  };
-}
-`,
-  },
+  external: ['cloudflare:*', 'node:*'],
+  banner: { js: requireShimBanner },
   logLevel: 'info',
   plugins: [{
     name: 'cf-worker',
     setup(build) {
-      // Unsupported builtins → empty stub
-      build.onResolve({ filter: new RegExp(`^(${nodeStubBuiltins.join('|')})$`) }, () => ({
-        path: 'stub', namespace: 'node-stub',
-      }));
-      // Native .node addons → stub
       build.onResolve({ filter: /\.node$/ }, () => ({ path: 'stub', namespace: 'node-stub' }));
       build.onLoad({ filter: /.*/, namespace: 'node-stub' }, () => ({
         contents: 'export default {};',
         loader: 'js',
       }));
-      // http/https need a real (dummy) Agent class
-      build.onResolve({ filter: /^(http|https)$/ }, () => ({
-        path: 'stub-http', namespace: 'node-stub-http',
+      const bareBuiltins = /^(assert|buffer|child_process|crypto|dns|events|fs|http|https|net|os|path|stream|string_decoder|tls|url|util|zlib|querystring|punycode)$/;
+      build.onResolve({ filter: bareBuiltins }, (args) => ({
+        path: args.path, external: true,
       }));
-      build.onLoad({ filter: /.*/, namespace: 'node-stub-http' }, () => ({
-        contents: `
-          class Agent { constructor() {} }
-          export default { Agent };
-          export { Agent };
-        `,
-        loader: 'js',
-      }));
-      // Stub ssh2/lib/agent.js
-      build.onResolve({ filter: /^\.\/agent(\.js)?$/ }, (args) => {
+      build.onResolve({ filter: /^\.\/agent(\.js)?$/, namespace: 'file' }, (args) => {
         if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
           return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
         }
