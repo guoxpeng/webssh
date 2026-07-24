@@ -33,10 +33,13 @@ await esbuild.build({
       }));
       // Native .node addons → stub
       build.onResolve({ filter: /\.node$/ }, () => ({ path: 'stub', namespace: 'node-stub' }));
-      build.onLoad({ filter: /.*/, namespace: 'node-stub' }, () => ({
-        contents: 'export default {};',
-        loader: 'js',
-      }));
+      build.onLoad({ filter: /.*/, namespace: 'node-stub' }, (args) => {
+        // Provide proper Agent classes for http/https (ssh2 needs them)
+        if (args.path.includes('http') || args.path.includes('https')) {
+          return { contents: 'export const Agent = class {}; export default {Agent: class {}};', loader: 'js' };
+        }
+        return { contents: 'export default {};', loader: 'js' };
+      });
       // Stub ssh2/lib/agent.js (uses dynamic require of unsupported builtins)
       build.onResolve({ filter: /^\.\/agent(\.js)?$/ }, (args) => {
         if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
