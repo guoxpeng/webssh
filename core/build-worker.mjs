@@ -17,10 +17,11 @@ const workerdCompatPlugin = {
     build.onResolve({ filter: /^node:/ }, (args) => ({ path: args.path, external: true }));
     build.onResolve({ filter: /\.node$/ }, () => ({ path: 'noop', namespace: 'native-addon-stub' }));
     build.onLoad({ filter: /.*/, namespace: 'native-addon-stub' }, () => ({ contents: 'module.exports = undefined;', loader: 'js' }));
-    // ssh2 agent.js uses dynamic require('net') -> stub it
-    build.onLoad({ filter: /agent\.js$/, namespace: 'file' }, (args) => {
-      if (args.path.includes('ssh2')) {
-        return { contents: 'module.exports = { AgentProtocol: function(){}, BaseAgent: function(){}, createAgent: function(){}, CygwinAgent: function(){}, OpenSSHAgent: function(){}, PageantAgent: function(){} };', loader: 'js' };
+    // ssh2/lib/agent.js uses node:net via dynamic require, which CF Workers rejects
+    // Intercept and replace with empty stub
+    build.onLoad({ filter: /agent\.js$/ }, (args) => {
+      if (args.path.replace(/\\/g, '/').includes('ssh2/lib/agent')) {
+        return { contents: 'module.exports = {};', loader: 'js' };
       }
     });
   },
