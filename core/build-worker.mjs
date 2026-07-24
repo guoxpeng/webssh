@@ -19,6 +19,14 @@ import * as __shim_string_decoder from 'node:string_decoder';
 import * as __shim_url from 'node:url';
 import * as __shim_util from 'node:util';
 import * as __shim_zlib from 'node:zlib';
+
+// 加强 Buffer 兼容
+const Buffer = __shim_buffer.Buffer;
+globalThis.Buffer = Buffer;
+globalThis.Buffer.hasOwnProperty = function(prop) {
+  return Object.prototype.hasOwnProperty.call(this, prop);
+};
+
 var __CF_nodeModules = {
   'assert': __shim_assert, 'node:assert': __shim_assert,
   'buffer': __shim_buffer, 'node:buffer': __shim_buffer,
@@ -33,11 +41,11 @@ var __CF_nodeModules = {
   'child_process': {}, 'dns': {}, 'fs': {}, 'net': {}, 'os': {}, 'tls': {},
   'http': { Agent: class Agent {} }, 'https': { Agent: class Agent {} },
 };
+
 globalThis.require = function require(id) {
   if (__CF_nodeModules[id] !== undefined) return __CF_nodeModules[id];
   throw new Error('[webssh worker] Cannot require("' + id + '") in CF Workers');
 };
-globalThis.Buffer = __shim_buffer.Buffer;
 `;
 
 await esbuild.build({
