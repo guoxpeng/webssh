@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// CF Workers node compat modules (available natively via nodejs_compat)
+// CF Workers node compat modules — bundle inline, not external
 const nodeCompat = [
   'assert', 'buffer', 'crypto', 'events', 'path', 'process',
   'stream', 'string_decoder', 'util', 'url', 'zlib',
@@ -34,11 +34,6 @@ await esbuild.build({
   plugins: [{
     name: 'cf-worker',
     setup(build) {
-      // CF-native node modules → node: prefix
-      build.onResolve({ filter: new RegExp(`^(${nodeCompat.join('|')})$`) }, (args) => ({
-        path: `node:${args.path}`, external: true,
-      }));
-      build.onResolve({ filter: /^node:/ }, (args) => ({ path: args.path, external: true }));
       // Unsupported builtins → empty stub
       build.onResolve({ filter: new RegExp(`^(${nodeStubBuiltins.join('|')})$`) }, () => ({
         path: 'stub', namespace: 'node-stub',
@@ -49,12 +44,15 @@ await esbuild.build({
         contents: 'export default {};',
         loader: 'js',
       }));
-      // Stub ssh2/lib/agent.js (uses dynamic require of net)
+      // Stub ssh2/lib/agent.js (uses dynamic require of unsupported builtins)
       build.onResolve({ filter: /^\.\/agent(\.js)?$/ }, (args) => {
         if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
           return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
         }
       });
+    },
+  }],
+});
     },
   }],
 });
