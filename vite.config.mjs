@@ -4,7 +4,7 @@ import { fileURLToPath, URL } from 'url';
 
 export default defineConfig({
   root: 'web',
-  build: { outDir: '../dist/client' },
+  build: { outDir: '../dist/client', emptyOutDir: true },
   plugins: [
     vue(),
   ],
