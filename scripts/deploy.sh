@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# WebSSH - One-click Deploy (v2.2.5)
-# Usage: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash
+# WebSSH - One-click Deploy (v3.0.0)
+# Usage: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/scripts/deploy.sh | bash
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'; BOLD='\033[1m'
 info()  { echo -e "  ${CYAN}[..]${NC} $1"; }
@@ -207,7 +207,7 @@ if [ -n "$HEALTH" ]; then
   else
     echo -e "  停止: kill \$(cat ${PID_FILE})"
   fi
-  echo -e "  更新: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/deploy.sh | bash"
+  echo -e "  更新: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/scripts/deploy.sh | bash"
   echo ""
 else
   echo ""
