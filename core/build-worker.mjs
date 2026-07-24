@@ -18,14 +18,14 @@ const workerdCompatPlugin = {
     build.onResolve({ filter: /\.node$/ }, () => ({ path: 'noop', namespace: 'native-addon-stub' }));
     build.onLoad({ filter: /.*/, namespace: 'native-addon-stub' }, () => ({ contents: 'module.exports = undefined;', loader: 'js' }));
     // ssh2 agent.js uses dynamic require('net') which CF Workers don't support
-    build.onResolve({ filter: /[\\/]ssh2[\\/]lib[\\/]agent$/ }, () => ({ path: 'ssh2-agent-stub', namespace: 'ssh2-stub' }));
+    build.onResolve({ filter: /ssh2[\\/]lib[\\/]agent\.js$/ }, () => ({ path: 'ssh2-agent-stub', namespace: 'ssh2-stub' }));
     build.onLoad({ filter: /.*/, namespace: 'ssh2-stub' }, () => ({ contents: `
-      exports.AgentProtocol = undefined;
-      exports.BaseAgent = undefined;
+      exports.AgentProtocol = function() {};
+      exports.BaseAgent = function() {};
       exports.createAgent = function() {};
-      exports.CygwinAgent = undefined;
-      exports.OpenSSHAgent = undefined;
-      exports.PageantAgent = undefined;
+      exports.CygwinAgent = function() {};
+      exports.OpenSSHAgent = function() {};
+      exports.PageantAgent = function() {};
     `, loader: 'js' }));
   },
 };
