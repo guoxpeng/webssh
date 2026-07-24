@@ -20,16 +20,25 @@ import * as __shim_url from 'node:url';
 import * as __shim_util from 'node:util';
 import * as __shim_zlib from 'node:zlib';
 
-// 加强 Buffer 兼容
 const Buffer = __shim_buffer.Buffer;
 globalThis.Buffer = Buffer;
-globalThis.Buffer.hasOwnProperty = function(prop) {
-  return Object.prototype.hasOwnProperty.call(this, prop);
+
+// 强力修复 safer-buffer 常见问题
+Buffer.hasOwnProperty = function (prop) {
+  return Object.prototype.hasOwnProperty.call(Buffer, prop);
 };
+Object.defineProperty(Buffer, 'hasOwnProperty', { enumerable: false });
+
+if (Buffer.prototype) {
+  Buffer.prototype.hasOwnProperty = function (prop) {
+    return Object.prototype.hasOwnProperty.call(this, prop);
+  };
+}
 
 var __CF_nodeModules = {
   'assert': __shim_assert, 'node:assert': __shim_assert,
-  'buffer': __shim_buffer, 'node:buffer': __shim_buffer,
+  'buffer': { Buffer, ...__shim_buffer },
+  'node:buffer': { Buffer, ...__shim_buffer },
   'crypto': __shim_crypto, 'node:crypto': __shim_crypto,
   'events': __shim_events, 'node:events': __shim_events,
   'path': __shim_path, 'node:path': __shim_path,
