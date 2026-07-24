@@ -1,13 +1,6 @@
 import { connect } from 'cloudflare:sockets';
 import { Client } from 'ssh2';
 import { Duplex } from 'stream';
-import { Buffer } from 'node:buffer';
-globalThis.Buffer = Buffer;
-
-// 重复强修复
-Buffer.hasOwnProperty = function (prop) {
-  return Object.prototype.hasOwnProperty.call(Buffer, prop);
-};
 
 const SSH_ALGORITHMS = {
   // Prefer ECDH/Curve25519 (Web Crypto native); fallback to DH group14 (workerd polyfill)
