@@ -1,9 +1,15 @@
 import * as esbuild from 'esbuild';
-import { cpSync, mkdirSync, existsSync, readdirSync } from 'fs';
+import { cpSync, mkdirSync, existsSync, readdirSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Clean stale dist to avoid CF cache poisoning
+const distDir = join('dist');
+if (existsSync(distDir)) {
+  try { rmSync(distDir, { recursive: true, force: true }); } catch {}
+}
 
 const nodeBuiltins = [
   'assert', 'buffer', 'child_process', 'crypto', 'dns', 'events',
@@ -68,10 +74,9 @@ await esbuild.build({
 });
 
 // Copy frontend assets to dist/client/ for wrangler assets
-const clientDir = join('dist', 'client');
+const clientDir = join(distDir, 'client');
 if (!existsSync(clientDir)) mkdirSync(clientDir, { recursive: true });
 
-const distDir = join('dist');
 for (const entry of readdirSync(distDir)) {
   if (entry === 'worker' || entry === 'client') continue;
   const src = join(distDir, entry);
