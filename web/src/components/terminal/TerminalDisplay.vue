@@ -21,9 +21,12 @@
         <button class="cmd-act-btn" @click="toggleSnippets" :title="t('snippets.title')">
           <Star :size="12"/> {{ t('snippets.title') }}
         </button>
+        <button class="cmd-act-btn" @click="toggleChat" :title="t('chat.title')">
+          <Bot :size="12"/> AI
+        </button>
         <div class="cmd-dropdown" @click.stop>
           <button class="cmd-act-btn" @click="showCmdMenu = !showCmdMenu" :title="t('common.more')">
-            <Plus :size="12"/>
+            <Menu :size="12"/>
           </button>
           <div v-if="showCmdMenu" class="cmd-dropdown-menu" @click="showCmdMenu = false">
             <button @click="toggleCodeNotes"><TerminalSquare :size="13"/> {{ t('codeNotes.title') }}</button>
@@ -79,6 +82,8 @@
         <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('DOWN')" title="Down">▼</button>
         <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('UP')" title="Up">▲</button>
         <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('RIGHT')" title="Right">▶</button>
+        <button class="mkey" @mousedown.prevent="sendKey('ENTER')" title="Enter">↵</button>
+        <button class="mkey" @mousedown.prevent="sendKey('SPACE')" title="Space">␣</button>
       </div>
     </div>
   </div>
@@ -99,7 +104,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
-import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Plus, TerminalSquare, Settings, PlayCircle } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Menu, Bot, TerminalSquare, Settings, PlayCircle } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
@@ -108,6 +113,7 @@ const snippetStore = useSnippetStore();
 const codeNoteStore = useCodeNoteStore();
 const toggleSnippets = inject('toggleSnippets', () => {});
 const toggleCodeNotes = inject('toggleCodeNotes', () => {});
+const toggleChat = inject('toggleChat', () => {});
 const showCmdMenu = ref(false);
 const uiStore = useUiStore();
 
@@ -488,6 +494,8 @@ const sendKey = (keyType) => {
     case 'DOWN': sequence = '\x1B[B'; break;
     case 'LEFT': sequence = '\x1B[D'; break;
     case 'RIGHT': sequence = '\x1B[C'; break;
+    case 'ENTER': sequence = '\r'; break;
+    case 'SPACE': sequence = ' '; break;
     default: return;
   }
   wsService.sendMessage(sequence);

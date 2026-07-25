@@ -216,8 +216,8 @@ function close() { emit('close'); }
 }
 
 .settings-panel {
-  width: 200px;
-  max-width: 200px;
+  width: 320px;
+  max-width: 90vw;
   height: 100vh;
   background: var(--bulma-scheme-main);
   display: flex;
@@ -240,12 +240,12 @@ function close() { emit('close'); }
 .settings-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1.25rem 1.5rem;
+  padding: 0.85rem 1rem;
   scrollbar-width: thin;
 }
 
 .settings-section {
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
   &:last-child { margin-bottom: 0; }
 }
 
