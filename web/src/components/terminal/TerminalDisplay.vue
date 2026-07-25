@@ -87,7 +87,7 @@ const terminalStore = useTerminalStore();
 const connectionStore = useConnectionStore();
 const snippetStore = useSnippetStore();
 const codeNoteStore = useCodeNoteStore();
-const toggleCodeNotes = inject<() => void>('toggleCodeNotes', () => {});
+const toggleCodeNotes = inject('toggleCodeNotes', () => {});
 const uiStore = useUiStore();
 
 const props = defineProps({
