@@ -28,9 +28,6 @@
         <span class="sftp-path">{{ displayPath }}</span>
       </div>
       <div class="sftp-toolbar-right">
-        <button class="toolbar-btn is-close" @click="$emit('close')" :title="t('common.close')">
-          <X :size="14"/>
-        </button>
       </div>
     </div>
 

@@ -155,6 +155,7 @@ const showConnPicker = ref(false);
 const showSftpPanel = ref(false);
 const sftpWidth = ref(500);
 const dragging = ref(false);
+let sftpResizeObserver = null;
 
 const isRecording = ref(false);
 const recordingSteps = ref([]);
@@ -285,6 +286,21 @@ function startDrag(e) {
 
 onMounted(() => {
   processPendingConnections();
+  const area = document.querySelector('.terminal-main-area');
+  if (area) {
+    sftpResizeObserver = new ResizeObserver(() => {
+      if (!showSftpPanel.value) return;
+      const avail = area.offsetWidth;
+      const maxW = Math.round(avail * 0.45);
+      const ideal = Math.min(sftpWidth.value, maxW);
+      if (ideal < 250) {
+        showSftpPanel.value = false;
+      } else {
+        sftpWidth.value = Math.max(250, Math.min(800, ideal));
+      }
+    });
+    sftpResizeObserver.observe(area);
+  }
 });
 onActivated(() => {
   if (connectionStore.pendingConnections.length > 0) processPendingConnections();
@@ -304,6 +320,7 @@ watch(() => splitPaneRef.value?.panes, (panes) => {
 
 onBeforeUnmount(() => {
   if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+  if (sftpResizeObserver) { sftpResizeObserver.disconnect(); sftpResizeObserver = null; }
   terminalStore.clearAll();
 });
 </script>
