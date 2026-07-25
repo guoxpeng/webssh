@@ -216,8 +216,8 @@ function close() { emit('close'); }
 }
 
 .settings-panel {
-  width: 460px;
-  max-width: 95vw;
+  width: 200px;
+  max-width: 200px;
   height: 100vh;
   background: var(--bulma-scheme-main);
   display: flex;

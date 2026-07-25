@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
 .sidebar-spacer { flex: 1; }
 .collapse-icon { transition: transform 0.2s ease; &.is-rotated { transform: rotate(180deg); } }
 
-.workbench-content { flex: 1; min-width: 0; overflow: hidden; padding: 1.5rem 2rem; margin-left: 200px; }
+.workbench-content { flex: 1; min-width: 0; overflow: hidden; padding: 0; margin-left: 200px; }
 .workbench-content.is-sidebar-collapsed { margin-left: 56px; }
 
 .workbench-statusbar {

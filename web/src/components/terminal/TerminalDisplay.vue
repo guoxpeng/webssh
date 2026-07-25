@@ -112,10 +112,10 @@ const showCmdMenu = ref(false);
 const uiStore = useUiStore();
 
 function openSettings() {
-  window.dispatchEvent(new CustomEvent('open-settings'));
+  document.dispatchEvent(new CustomEvent('open-settings'));
 }
 function openMacro() {
-  window.dispatchEvent(new CustomEvent('open-macro'));
+  document.dispatchEvent(new CustomEvent('open-macro'));
 }
 
 const props = defineProps({
