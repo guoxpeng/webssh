@@ -1,6 +1,7 @@
-const ITERATIONS = 600000;
+const ITERATIONS = 100000;
 const SALT_LENGTH = 32;
 const IV_LENGTH = 12;
+const keyCache = new Map<string, CryptoKey | Uint8Array>();
 
 export const STORAGE_VERIFY_KEY = 'webssh_verify';
 export const STORAGE_SALT_KEY = 'webssh_verify_salt';
@@ -85,15 +86,22 @@ function xorEncrypt(plain: Uint8Array, key: Uint8Array): Uint8Array {
 }
 
 async function deriveKey(masterPassword: string, salt: Uint8Array): Promise<CryptoKey | Uint8Array> {
+  const cacheKey = masterPassword + ':' + btoa(String.fromCharCode(...salt));
+  const cached = keyCache.get(cacheKey);
+  if (cached) return cached;
+  let key: CryptoKey | Uint8Array;
   if (haveSubtle()) {
     const enc = new TextEncoder();
     const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(masterPassword), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey(
+    key = await crypto.subtle.deriveKey(
       { name: 'PBKDF2', salt, iterations: ITERATIONS, hash: 'SHA-256' },
       keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
     );
+  } else {
+    key = pbkdf2Fallback(masterPassword, salt, Math.min(ITERATIONS, 10000));
   }
-  return pbkdf2Fallback(masterPassword, salt, Math.min(ITERATIONS, 10000));
+  keyCache.set(cacheKey, key);
+  return key;
 }
 
 async function exportKeyRaw(key: CryptoKey | Uint8Array): Promise<Uint8Array> {
