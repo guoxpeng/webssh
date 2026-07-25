@@ -210,27 +210,21 @@ function close() { emit('close'); }
   position: fixed;
   inset: 0;
   z-index: 9000;
-  background: var(--app-overlay);
-  backdrop-filter: blur(4px);
+  background: transparent;
   display: flex;
   justify-content: flex-start;
-  animation: overlayIn 0.2s ease;
 }
 
 .settings-panel {
-  width: 400px;
-  max-width: 100vw;
+  width: 460px;
+  max-width: 95vw;
   height: 100vh;
   background: var(--bulma-scheme-main);
   display: flex;
   flex-direction: column;
   box-shadow: 8px 0 40px rgba(0,0,0,0.15);
   outline: none;
-  animation: slideIn 0.25s ease-out;
 }
-
-@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 
 .settings-header {
   display: flex;
