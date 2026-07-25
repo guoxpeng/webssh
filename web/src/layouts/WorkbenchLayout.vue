@@ -187,6 +187,7 @@ const showAudit = ref(false);
 const showCodeNotes = ref(false);
 const showChat = ref(false);
 provide('toggleCodeNotes', () => { showCodeNotes.value = !showCodeNotes.value; });
+provide('toggleSnippets', () => { showSnippets.value = !showSnippets.value; });
 
 function closeMobileMenu() { mobileMenuOpen.value = false; }
 function onSidebarNavClick(e) {

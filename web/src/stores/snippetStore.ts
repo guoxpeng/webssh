@@ -25,17 +25,6 @@ function saveSnippets(snippets: CommandSnippet[]): void {
 
 export const useSnippetStore = defineStore('snippets', () => {
   const snippets = ref<CommandSnippet[]>(loadSnippets());
-  const searchQuery = ref('');
-
-  const filteredSnippets = computed(() => {
-    const q = searchQuery.value.toLowerCase().trim();
-    if (!q) return snippets.value;
-    return snippets.value.filter(s =>
-      s.title.toLowerCase().includes(q) ||
-      s.command.toLowerCase().includes(q) ||
-      s.tags.some(t => t.toLowerCase().includes(q))
-    );
-  });
 
   const favorites = computed(() => snippets.value.filter(s => s.favorite));
 
@@ -96,7 +85,7 @@ export const useSnippetStore = defineStore('snippets', () => {
   }
 
   return {
-    snippets, searchQuery, filteredSnippets, favorites,
+    snippets, favorites,
     addSnippet, updateSnippet, toggleFavorite, removeSnippet, importSnippets, exportSnippets,
     reorderFavorites,
   };

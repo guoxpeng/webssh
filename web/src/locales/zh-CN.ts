@@ -7,7 +7,7 @@ export default {
     servers: '服务器',
     terminal: '终端',
     sftp: '文件管理',
-    snippets: '代码便签',
+    snippets: '收藏代码',
     search: '宏 / 自动化',
     disconnected: '已断开',
     backup: '备份',
@@ -150,8 +150,8 @@ export default {
     create: '创建',
   },
   snippets: {
-    title: '代码便签',
-    searchPlaceholder: '搜索代码便签...',
+    title: '收藏代码',
+    searchPlaceholder: '搜索收藏代码...',
     addSnippet: '添加片段',
     titleField: '标题',
     commandField: '命令（使用 {var} 作为变量）',
@@ -496,7 +496,7 @@ export default {
     testFailed: '失败',
   },
   codeNotes: {
-    title: '代码笔记',
+    title: '历史代码',
     empty: '暂无代码笔记。你在终端中输入的命令将自动保存到此处。',
     nameField: '名称',
     fromTerminal: '终端',

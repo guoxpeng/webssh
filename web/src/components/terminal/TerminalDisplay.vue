@@ -18,8 +18,8 @@
         <button class="cmd-act-btn" @click="pasteToTerminal" :title="t('common.paste')">
           <ClipboardPaste :size="12"/> {{ t('common.paste') }}
         </button>
-        <button class="cmd-act-btn" @click="toggleCodeNotes" :title="t('codeNotes.title')">
-          <StickyNote :size="12"/> {{ t('codeNotes.title') }}
+        <button class="cmd-act-btn" @click="toggleSnippets" :title="t('snippets.title')">
+          <Star :size="12"/> {{ t('snippets.title') }}
         </button>
         <span class="cmd-act-sep"></span>
         <button v-for="s in quickSnippets.slice(0, 6)" :key="s.id"
@@ -80,14 +80,14 @@ import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
-import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, StickyNote } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
 const connectionStore = useConnectionStore();
 const snippetStore = useSnippetStore();
 const codeNoteStore = useCodeNoteStore();
-const toggleCodeNotes = inject('toggleCodeNotes', () => {});
+const toggleSnippets = inject('toggleSnippets', () => {});
 const uiStore = useUiStore();
 
 const props = defineProps({
@@ -412,8 +412,14 @@ function closeSearch() {
 }
 
 async function onTerminalContextMenu() {
-  if (!term || !wsService) return;
-  if (term.hasSelection()) return;
+  if (!term) return;
+  if (term.hasSelection()) {
+    const selected = term.getSelection();
+    if (selected) { try { navigator.clipboard.writeText(selected); } catch {} }
+    term.clearSelection();
+    return;
+  }
+  if (!wsService) return;
   try {
     const text = await navigator.clipboard.readText();
     if (text) wsService.sendMessage(text);

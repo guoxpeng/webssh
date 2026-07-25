@@ -26,16 +26,6 @@ function save(notes: CodeNote[]): void {
 
 export const useCodeNoteStore = defineStore('codeNotes', () => {
   const notes = ref<CodeNote[]>(load());
-  const searchQuery = ref('');
-
-  const filteredNotes = computed(() => {
-    const q = searchQuery.value.toLowerCase().trim();
-    if (!q) return notes.value;
-    return notes.value.filter(n =>
-      n.name.toLowerCase().includes(q) ||
-      n.command.toLowerCase().includes(q)
-    );
-  });
 
   const recentNotes = computed(() =>
     [...notes.value].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 50)
@@ -85,7 +75,7 @@ export const useCodeNoteStore = defineStore('codeNotes', () => {
   }
 
   return {
-    notes, searchQuery, filteredNotes, recentNotes,
+    notes, recentNotes,
     addNote, updateName, updateCommand, removeNote, clearAll,
   };
 });

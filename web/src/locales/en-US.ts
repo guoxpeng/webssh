@@ -7,7 +7,7 @@ export default {
     servers: 'Servers',
     terminal: 'Terminal',
     sftp: 'File Manager',
-    snippets: 'Code Notes',
+    snippets: 'Favorites',
     search: 'Macro / Automation',
     disconnected: 'Disconnected',
     backup: 'Backup',
@@ -150,8 +150,8 @@ export default {
     create: 'Create',
   },
   snippets: {
-    title: 'Snippets',
-    searchPlaceholder: 'Search snippets...',
+    title: 'Favorites',
+    searchPlaceholder: 'Search favorites...',
     addSnippet: 'Add snippet',
     titleField: 'Title',
     commandField: 'Command (use {var} for variables)',
@@ -496,7 +496,7 @@ export default {
     testFailed: 'Failed',
   },
   codeNotes: {
-    title: 'Code Notes',
+    title: 'History',
     empty: 'No code notes yet. Commands you type in the terminal will be auto-saved here.',
     nameField: 'Name',
     fromTerminal: 'Terminal',

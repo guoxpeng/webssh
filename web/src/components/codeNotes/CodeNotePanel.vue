@@ -12,13 +12,8 @@
       </div>
     </div>
 
-    <div class="panel-search">
-      <Search :size="13"/>
-      <input type="text" v-model="store.searchQuery" :placeholder="t('common.search')" class="search-input"/>
-    </div>
-
-    <div class="panel-list" v-if="store.filteredNotes.length > 0">
-      <div v-for="note in store.filteredNotes" :key="note.id" class="note-item">
+    <div class="panel-list" v-if="store.notes.length > 0">
+      <div v-for="note in store.notes" :key="note.id" class="note-item">
         <div class="note-top">
           <div class="note-info" @click="toggleExpand(note.id)">
             <span class="note-name">{{ note.name }}</span>
@@ -66,7 +61,7 @@ import { useI18n } from 'vue-i18n';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useSnippetStore } from '@/stores/snippetStore';
-import { TerminalSquare, Search, Play, ClipboardCopy, Edit3, Trash2, X, Star } from 'lucide-vue-next';
+import { TerminalSquare, Play, ClipboardCopy, Edit3, Trash2, X, Star } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const store = useCodeNoteStore();
@@ -148,14 +143,6 @@ function timeAgo(ts) {
   color: var(--bulma-text-light); display: flex; align-items: center;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
   &.is-danger:hover { color: var(--bulma-danger); }
-}
-.panel-search {
-  display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.85rem;
-  border-bottom: 1px solid var(--bulma-border-light); color: var(--bulma-text-light);
-  .search-input {
-    flex: 1; border: none; background: none; outline: none; font-size: 0.78em; color: var(--bulma-text);
-    &::placeholder { color: var(--bulma-text-light); }
-  }
 }
 .panel-list {
   flex: 1; overflow-y: auto; padding: 0.25rem 0;
