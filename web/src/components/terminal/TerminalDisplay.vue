@@ -23,7 +23,7 @@
         </button>
         <div class="cmd-dropdown" @click.stop>
           <button class="cmd-act-btn" @click="showCmdMenu = !showCmdMenu" :title="t('common.more')">
-            <Plus :size="12"/>
+            <Menu :size="12"/>
           </button>
           <div v-if="showCmdMenu" class="cmd-dropdown-menu" @click="showCmdMenu = false">
             <button @click="toggleCodeNotes"><TerminalSquare :size="13"/> {{ t('codeNotes.title') }}</button>
@@ -90,7 +90,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
-import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Plus, TerminalSquare, Settings, PlayCircle } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Menu, TerminalSquare, Settings, PlayCircle } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();

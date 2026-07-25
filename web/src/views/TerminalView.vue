@@ -372,8 +372,9 @@ onBeforeUnmount(() => {
 .conn-picker-overlay {
   position: fixed; inset: 0; z-index: 2000;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,0.3);
+  background: transparent; pointer-events: none;
 }
+.conn-picker-panel { pointer-events: auto; }
 .conn-picker-panel {
   background: var(--bulma-scheme-main); border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.15); overflow: hidden;

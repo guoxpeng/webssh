@@ -231,6 +231,8 @@ function toggleTheme() { uiStore.toggleTheme(); sidebarCollapsed.value = false; 
 
 onMounted(() => {
   document.addEventListener('keydown', onGlobalKeydown);
+  document.addEventListener('open-settings', () => { showSettings.value = true; });
+  document.addEventListener('open-macro', () => { showMacro.value = true; });
   connectionStore.loadCredentialsFromSessionStorage?.()?.catch(() => {});
   // Auto-backup check
   const bakStore = useBackupStore();
@@ -240,7 +242,11 @@ onMounted(() => {
     });
   }
 });
-onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown));
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onGlobalKeydown);
+  document.removeEventListener('open-settings', () => {});
+  document.removeEventListener('open-macro', () => {});
+});
 </script>
 
 <style lang="scss" scoped>
