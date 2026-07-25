@@ -19,40 +19,12 @@ class SftpHttpService {
     this.destroyed = false;
     this.config = config;
     this._error = '';
-
-    this.testConnection(callbacks);
+    this._connected = true;
+    callbacks.onStatus?.('connected');
   }
 
   getConfig() {
     return this.config;
-  }
-
-  private async testConnection(callbacks: Callbacks) {
-    const mySeq = ++this.seq;
-    try {
-      const resp = await apiFetch(`${getApiBaseUrl()}/sftp/list`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...this.config, path: '/' }),
-      });
-
-      if (this.destroyed || mySeq !== this.seq) return;
-
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
-        throw new Error(data.error || `HTTP ${resp.status}`);
-      }
-      const data = await resp.json();
-      if (data.error) throw new Error(data.error);
-
-      this._connected = true;
-      callbacks.onStatus?.('connected');
-    } catch (e: any) {
-      if (this.destroyed || mySeq !== this.seq) return;
-      this._connected = false;
-      this._error = e.message || 'Connection failed';
-      callbacks.onStatus?.('error', this._error);
-    }
   }
 
   async send(action: string, params: Record<string, any> = {}): Promise<any> {

@@ -21,30 +21,86 @@ export function findSession(host, port, username, authValue) {
   return null;
 }
 
-// SFTP: always create a fresh connection (avoids channel conflicts with shell)
+// SFTP connection pool (separate from terminal shell sessions)
+const sftpPool = new Map();
+
+function getPoolKey(body) {
+  return `${body.host}:${body.port || 22}:${body.username}:${hashCreds(body.auth_value || '')}`;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, e] of sftpPool) {
+    if (!e.busy && now - e.lastUsed > 300000) {
+      try { e.conn.end(); } catch {}
+      sftpPool.delete(key);
+    }
+  }
+}, 60000);
+
 export async function withSessionSftp(body, fn, opts = {}) {
+  const key = getPoolKey(body);
+  const idle = sftpPool.get(key);
+
+  if (idle && !idle.busy) {
+    idle.busy = true;
+    const timeout = setTimeout(() => {
+      idle.busy = false;
+    }, opts.timeout || 30000);
+    try {
+      return await fn(idle.sftp, idle.conn);
+    } catch (e) {
+      sftpPool.delete(key);
+      try { idle.conn.end(); } catch {}
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+      idle.busy = false;
+      idle.lastUsed = Date.now();
+    }
+  }
+
   const conn = new Client();
   setupSSHClient(conn, body.auth_value);
+  const cfg = { ...makeSSHConfig(body), keepaliveInterval: 30000, keepaliveCountMax: 3 };
+
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       try { conn.end(); } catch {}
       reject(new Error('SFTP timeout'));
     }, opts.timeout || 30000);
-    const cfg = { ...makeSSHConfig(body), keepaliveInterval: 30000, keepaliveCountMax: 3 };
-    const done = () => { clearTimeout(timeout); };
+    const done = () => clearTimeout(timeout);
+
     conn.on('ready', () => {
       conn.sftp((err, sftp) => {
         if (err) {
           done(); try { conn.end(); } catch {} reject(err);
           return;
         }
-        fn(sftp, conn).then(r => { done(); try { conn.end(); } catch {} resolve(r); })
-          .catch(e => { done(); try { conn.end(); } catch {} reject(e); });
+        const entry = { conn, sftp, busy: true, lastUsed: Date.now() };
+        sftpPool.set(key, entry);
+
+        const exec = () => fn(sftp, conn);
+        exec().then(r => {
+          done();
+          entry.busy = false;
+          entry.lastUsed = Date.now();
+          resolve(r);
+        }).catch(e => {
+          done();
+          sftpPool.delete(key);
+          try { conn.end(); } catch {}
+          reject(e);
+        });
       });
     });
     conn.on('error', e => {
+      sftpPool.delete(key);
       done(); try { conn.end(); } catch {} reject(e);
     });
-    try { conn.connect(cfg); } catch (e) { done(); try { conn.end(); } catch {} reject(e); }
+    try { conn.connect(cfg); } catch (e) {
+      sftpPool.delete(key);
+      done(); try { conn.end(); } catch {} reject(e);
+    }
   });
 }

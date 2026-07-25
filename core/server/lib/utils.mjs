@@ -91,17 +91,26 @@ export function serveStatic(req, res) {
   try {
     let filePath = req.url === '/' ? '/index.html' : req.url.split('?')[0].split('#')[0];
     const fullPath = resolve(join(DIST_DIR, filePath));
-    // Prevent path traversal: fullPath must be within DIST_DIR
     if (!fullPath.startsWith(resolve(DIST_DIR))) return false;
     if (existsSync(fullPath)) {
       const ext = extname(fullPath);
-      res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' });
+      // Hashed assets (content hash in filename) → cache forever
+      const isHashed = /[a-fA-F0-9]{8,}-/.test(filePath);
+      const cacheCtrl = isHashed ? 'public, max-age=31536000, immutable'
+        : 'no-cache, must-revalidate';
+      res.writeHead(200, {
+        'Content-Type': MIME[ext] || 'application/octet-stream',
+        'Cache-Control': cacheCtrl,
+      });
       res.end(readFileSync(fullPath));
       return true;
     }
     const indexPath = join(DIST_DIR, 'index.html');
     if (existsSync(indexPath)) {
-      res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' });
+      res.writeHead(200, {
+        'Content-Type': 'text/html',
+        'Cache-Control': 'no-cache, must-revalidate',
+      });
       res.end(readFileSync(indexPath));
       return true;
     }
