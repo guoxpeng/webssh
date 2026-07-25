@@ -17,7 +17,7 @@
           <Circle :size="14"/>
         </button>
         <div class="dropdown-wrap" @click.stop>
-          <button class="toolbar-btn" :class="{ 'is-active': showSftpPanel }" @click="showSftpPanel = !showSftpPanel" :title="t('sftp.fileManager')">
+          <button class="toolbar-btn" :class="{ 'is-active': showSftpPanel }" @click="toggleSftpPanel" :title="t('sftp.fileManager')">
             <FolderOpen :size="14"/>
             <span>{{ t('sftp.fileManager') }}</span>
           </button>
@@ -115,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onActivated, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, nextTick, onActivated, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
@@ -135,7 +135,7 @@ const router = useRouter();
 const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
 const showSftpPanel = ref(false);
-const sftpWidth = ref(380);
+const sftpWidth = ref(500);
 const dragging = ref(false);
 const connecting = ref(false);
 const progressPct = ref(0);
@@ -224,8 +224,13 @@ const sftpPanelConfig = computed(() => {
 });
 
 function toggleSftpPanel() {
-  if (sftpPanelConfig.value) {
-    showSftpPanel.value = !showSftpPanel.value;
+  if (!sftpPanelConfig.value) return;
+  showSftpPanel.value = !showSftpPanel.value;
+  if (showSftpPanel.value) {
+    nextTick(() => {
+      const container = document.querySelector('.terminal-main-area');
+      if (container) sftpWidth.value = Math.max(250, Math.min(800, Math.round(container.offsetWidth / 2)));
+    });
   }
 }
 
@@ -276,7 +281,7 @@ function startDrag(e) {
   const startW = sftpWidth.value;
   function onMove(ev) {
     const diff = startX - ev.clientX;
-    sftpWidth.value = Math.max(250, Math.min(600, startW + diff));
+    sftpWidth.value = Math.max(250, Math.min(800, startW + diff));
   }
   function onUp() {
     dragging.value = false;
@@ -299,6 +304,10 @@ watch(() => splitPaneRef.value?.panes, (panes) => {
   const connected = panes.some(p => p.status === 'connected');
   if (connected && !showSftpPanel.value) {
     showSftpPanel.value = true;
+    nextTick(() => {
+      const container = document.querySelector('.terminal-main-area');
+      if (container) sftpWidth.value = Math.max(250, Math.min(800, Math.round(container.offsetWidth / 2)));
+    });
   }
 }, { deep: true, immediate: false });
 

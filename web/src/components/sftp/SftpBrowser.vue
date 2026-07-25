@@ -862,7 +862,7 @@ watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
 
 .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 0.9em; }
 .item-size { width: 60px; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
-.item-mtime { width: 70px; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
+.item-mtime { width: 110px; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
 .item-mode { width: 36px; text-align: center; color: var(--bulma-text-light); font-family: monospace; font-size: 0.85em; }
 
 .item-actions {
