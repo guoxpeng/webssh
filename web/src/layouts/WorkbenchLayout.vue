@@ -95,7 +95,7 @@
         <span class="mobile-nav-label">{{ t('nav.sftp') }}</span>
       </router-link>
       <button class="mobile-nav-item mobile-nav-menu-btn" @click="mobileMenuOpen = !mobileMenuOpen" aria-label="Menu">
-        <Search :size="20" stroke-width="1.5"/>
+        <Menu :size="20" stroke-width="1.5"/>
         <span class="mobile-nav-label">{{ t('nav.menu') }}</span>
       </button>
     </nav>
@@ -170,7 +170,7 @@ import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import AuditPanel from '@/components/audit/AuditPanel.vue';
-import { Search, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
+import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const APP_VERSION = '3.0.0';
@@ -300,8 +300,7 @@ onBeforeUnmount(() => {
   to { opacity: 1; }
 }
 .snippet-overlay-backdrop {
-  position: absolute; inset: 0; background: var(--app-overlay);
-  animation: backdropIn 0.2s ease-out;
+  position: absolute; inset: 0; background: transparent;
 }
 @keyframes backdropIn {
   from { opacity: 0; }
@@ -316,7 +315,7 @@ onBeforeUnmount(() => {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 .snippet-overlay-backdrop {
-  position: absolute; inset: 0; background: var(--app-overlay);
+  position: absolute; inset: 0;
 }
 .snippet-overlay-panel {
   position: relative; z-index: 1; max-height: 80vh;

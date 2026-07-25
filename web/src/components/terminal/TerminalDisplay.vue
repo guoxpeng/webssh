@@ -23,7 +23,7 @@
         </button>
         <div class="cmd-dropdown" @click.stop>
           <button class="cmd-act-btn" @click="showCmdMenu = !showCmdMenu" :title="t('common.more')">
-            <Menu :size="12"/>
+            <Plus :size="12"/>
           </button>
           <div v-if="showCmdMenu" class="cmd-dropdown-menu" @click="showCmdMenu = false">
             <button @click="toggleCodeNotes"><TerminalSquare :size="13"/> {{ t('codeNotes.title') }}</button>
@@ -66,6 +66,15 @@
         <button class="mkey" @mousedown.prevent="sendKey('CTRL_W')" title="Ctrl+W (Word)">^W</button>
       </div>
       <div class="mobile-keys-row">
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_R')" title="Ctrl+R (Search)">^R</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_K')" title="Ctrl+K (Cut)">^K</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_Y')" title="Ctrl+Y (Paste)">^Y</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_P')" title="Ctrl+P (Prev)">^P</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_N')" title="Ctrl+N (Next)">^N</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_X')" title="Ctrl+X">^X</button>
+        <button class="mkey" @mousedown.prevent="sendKey('CTRL_Z')" title="Ctrl+Z (Suspend)">^Z</button>
+      </div>
+      <div class="mobile-keys-row">
         <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('LEFT')" title="Left">◀</button>
         <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('DOWN')" title="Down">▼</button>
         <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('UP')" title="Up">▲</button>
@@ -90,7 +99,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
-import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Menu, TerminalSquare, Settings, PlayCircle } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Plus, TerminalSquare, Settings, PlayCircle } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
@@ -468,7 +477,13 @@ const sendKey = (keyType) => {
     case 'CTRL_A': sequence = '\x01'; break;
     case 'CTRL_E': sequence = '\x05'; break;
     case 'CTRL_U': sequence = '\x15'; break;
-    case 'CTRL_W': sequence = '\x17'; break;
+    case 'CTRL_P': sequence = '\x10'; break;
+    case 'CTRL_N': sequence = '\x0E'; break;
+    case 'CTRL_R': sequence = '\x12'; break;
+    case 'CTRL_K': sequence = '\x0B'; break;
+    case 'CTRL_Y': sequence = '\x19'; break;
+    case 'CTRL_X': sequence = '\x18'; break;
+    case 'CTRL_Z': sequence = '\x1A'; break;
     case 'UP': sequence = '\x1B[A'; break;
     case 'DOWN': sequence = '\x1B[B'; break;
     case 'LEFT': sequence = '\x1B[D'; break;
