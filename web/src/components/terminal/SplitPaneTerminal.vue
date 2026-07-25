@@ -25,6 +25,7 @@
           <button class="pane-tab-close" @click.stop="closePane(idx)" v-if="panes.length > 1">&times;</button>
         </button>
         <span v-if="dragOverPaneIndex !== null" class="pane-tab-drop-indicator" :style="{ left: `${dragOverLeft}px` }"/>
+        <button class="pane-tab-add" @click="$emit('addTab')" :title="t('terminal.addTab')">+</button>
       </div>
       <div class="pane-toolbar-actions">
         <button class="pane-hint-btn" :title="t('terminal.tabShortcut')" @click="showTabHint = !showTabHint">
@@ -380,6 +381,12 @@ defineExpose({ panes, activePane, addPane,
 }
 .tab-close-btn { color: var(--bulma-danger); }
 
+.pane-tab-add {
+  background: none; border: 1px dashed var(--bulma-border); border-radius: 6px;
+  padding: 0.25rem 0.5rem; font-size: 0.85em; cursor: pointer;
+  color: var(--bulma-text-light); margin: 2px 1px 0; line-height: 1; flex-shrink: 0;
+  &:hover { border-color: var(--bulma-primary); color: var(--bulma-primary); }
+}
 .pane-tab-rename-input {
   max-width: 120px; border: 1px solid var(--bulma-primary); border-radius: 4px;
   padding: 0.1rem 0.3rem; font-size: 0.75em; background: var(--bulma-input-background-color);

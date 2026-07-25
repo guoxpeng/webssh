@@ -21,6 +21,16 @@
         <button class="cmd-act-btn" @click="toggleSnippets" :title="t('snippets.title')">
           <Star :size="12"/> {{ t('snippets.title') }}
         </button>
+        <div class="cmd-dropdown" @click.stop>
+          <button class="cmd-act-btn" @click="showCmdMenu = !showCmdMenu" :title="t('common.more')">
+            <Plus :size="12"/>
+          </button>
+          <div v-if="showCmdMenu" class="cmd-dropdown-menu" @click="showCmdMenu = false">
+            <button @click="toggleCodeNotes"><TerminalSquare :size="13"/> {{ t('codeNotes.title') }}</button>
+            <button @click="openSettings"><Settings :size="13"/> {{ t('nav.settings') }}</button>
+            <button @click="openMacro"><PlayCircle :size="13"/> {{ t('macro.title') }}</button>
+          </div>
+        </div>
         <span class="cmd-act-sep"></span>
         <button v-for="s in quickSnippets.slice(0, 6)" :key="s.id"
                 class="cmd-act-btn cmd-snippet-btn" :title="s.command" @click="sendQuickSnippet(s)">
@@ -80,7 +90,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
-import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Plus, TerminalSquare, Settings, PlayCircle } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
@@ -88,7 +98,16 @@ const connectionStore = useConnectionStore();
 const snippetStore = useSnippetStore();
 const codeNoteStore = useCodeNoteStore();
 const toggleSnippets = inject('toggleSnippets', () => {});
+const toggleCodeNotes = inject('toggleCodeNotes', () => {});
+const showCmdMenu = ref(false);
 const uiStore = useUiStore();
+
+function openSettings() {
+  window.dispatchEvent(new CustomEvent('open-settings'));
+}
+function openMacro() {
+  window.dispatchEvent(new CustomEvent('open-macro'));
+}
 
 const props = defineProps({
   nodeConfig: { type: Object, required: true },
@@ -558,6 +577,20 @@ onBeforeUnmount(() => {
 }
 .cmd-snippet-btn { background: var(--term-bg2); border-color: var(--term-bg2); max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
 .cmd-act-sep { width: 1px; height: 16px; background: var(--term-border); margin: 0 2px; }
+
+.cmd-dropdown { position: relative; }
+.cmd-dropdown-menu {
+  position: absolute; bottom: 100%; left: 0; z-index: 100; min-width: 140px;
+  background: var(--bulma-scheme-main); border: 1px solid var(--bulma-border-light);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); overflow: hidden;
+  margin-bottom: 4px;
+  button {
+    display: flex; align-items: center; gap: 0.4rem; width: 100%; padding: 0.4rem 0.65rem;
+    border: none; background: none; font-size: 0.75em; cursor: pointer; color: var(--bulma-text);
+    text-align: left; white-space: nowrap;
+    &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-primary); }
+  }
+}
 
 .command-input-bar {
   display: flex; align-items: flex-end; gap: 0.3rem;

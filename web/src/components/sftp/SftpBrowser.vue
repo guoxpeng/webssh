@@ -756,7 +756,7 @@ watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
 <style lang="scss" scoped>
 .sftp-browser {
   height: 100%; display: flex; flex-direction: column;
-  font-size: 0.8em; background: var(--bulma-scheme-main); position: relative;
+  font-size: var(--app-font-size, 0.8em); background: var(--bulma-scheme-main); position: relative;
   &.is-dragover { outline: 3px dashed var(--bulma-primary); outline-offset: -3px; }
   position: relative; overflow: hidden;
 }

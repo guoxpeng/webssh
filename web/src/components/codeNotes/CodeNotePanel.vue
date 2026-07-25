@@ -131,6 +131,12 @@ function timeAgo(ts) {
 <style lang="scss" scoped>
 .codenote-panel {
   display: flex; flex-direction: column; height: 100%; overflow: hidden;
+  background: var(--bulma-box-background-color);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--bulma-border-light);
+  border-radius: 12px;
+  width: 460px;
+  max-width: 95vw;
 }
 .panel-header {
   display: flex; align-items: center; padding: 0.7rem 0.85rem; gap: 0.5rem;

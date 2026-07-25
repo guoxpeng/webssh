@@ -28,7 +28,7 @@
     <div class="terminal-body">
       <div class="terminal-main-area" :class="{ 'has-sftp': showSftpPanel }">
         <div class="terminal-pane" :style="showSftpPanel ? { width: `calc(100% - ${sftpWidth}px)` } : {}">
-          <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }"/>
+          <SplitPaneTerminal ref="splitPaneRef" :style="{ display: paneCount > 0 ? '' : 'none' }" @add-tab="showConnPicker = true"/>
         </div>
         <div v-if="showSftpPanel" class="sftp-divider" @mousedown="startDrag">
           <GripVertical :size="12"/>
@@ -94,6 +94,31 @@
       </div>
     </div>
 
+    <div v-if="showConnPicker" class="conn-picker-overlay" @click.self="showConnPicker = false">
+      <div class="conn-picker-panel">
+        <div class="conn-picker-header">
+          <span>{{ t('terminal.selectConnection') }}</span>
+          <button class="conn-picker-close" @click="showConnPicker = false">&times;</button>
+        </div>
+        <div v-if="savedConns.length > 0" class="history-list">
+          <div v-for="conn in savedConns" :key="conn.id" class="history-item" @click="quickConnect(conn); showConnPicker = false">
+            <div class="history-icon" :class="`proto-${conn.protocol || 'ssh'}`">
+              <Terminal :size="14"/>
+            </div>
+            <div class="history-info">
+              <span class="history-name">{{ conn.name || conn.host }}</span>
+              <span class="history-meta">{{ conn.username }}@{{ conn.host }}:{{ conn.port }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="conn-picker-empty">
+          <router-link to="/" class="btn-primary" @click="showConnPicker = false">
+            <Server :size="16"/> {{ t('sftp.selectConnection') }}
+          </router-link>
+        </div>
+      </div>
+    </div>
+
     <ConfirmDialog
       :visible="showDisconnectDialog"
       :title="t('terminal.disconnectTitle')"
@@ -126,6 +151,7 @@ const router = useRouter();
 
 const splitPaneRef = ref(null);
 const showDisconnectDialog = ref(false);
+const showConnPicker = ref(false);
 const showSftpPanel = ref(false);
 const sftpWidth = ref(500);
 const dragging = ref(false);
@@ -342,6 +368,29 @@ onBeforeUnmount(() => {
   display: flex; align-items: center; justify-content: center;
   color: var(--bulma-text-light); z-index: 1;
   &:hover { background: var(--bulma-border); color: var(--bulma-text); }
+}
+.conn-picker-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.3);
+}
+.conn-picker-panel {
+  background: var(--bulma-scheme-main); border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15); overflow: hidden;
+  width: 400px; max-width: 90vw; max-height: 60vh; display: flex; flex-direction: column;
+}
+.conn-picker-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 0.85rem; border-bottom: 1px solid var(--bulma-border-light);
+  font-size: 0.85em; font-weight: 600;
+}
+.conn-picker-close {
+  background: none; border: none; font-size: 1.3em; cursor: pointer;
+  color: var(--bulma-text-light); padding: 0; line-height: 1;
+  &:hover { color: var(--bulma-danger); }
+}
+.conn-picker-empty {
+  padding: 2rem; display: flex; justify-content: center;
 }
 .sftp-panel :deep(.sftp-browser) { flex: 1; overflow: hidden; border-radius: 0; border: none; }
 .sftp-panel-empty {
