@@ -301,6 +301,7 @@ async function handleTerminalWS(request) {
         conn.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, channel) => {
           if (err) { try { server.send(`\r\n\x1b[31m[Shell Error] ${err.message}\x1b[0m\r\n`); } catch {} cleanup(); return; }
           shell = channel;
+          try { server.send(JSON.stringify({ type: 'ssh_ready' })); } catch {}
           channel.on('data', (data) => { try { if (server.readyState === 1) server.send(typeof data === 'string' ? data : new Uint8Array(data)); } catch {} });
           channel.stderr.on('data', (data) => { try { if (server.readyState === 1) server.send(typeof data === 'string' ? data : new Uint8Array(data)); } catch {} });
           channel.on('close', () => cleanup());
