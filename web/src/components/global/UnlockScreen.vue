@@ -78,8 +78,10 @@ const btnText = computed(() => {
   return isSetup.value ? t('unlock.setPasswordBtn') : t('unlock.unlock');
 });
 
+let _preloaded = false;
 function onInput() {
   error.value = '';
+  if (!_preloaded) { _preloaded = true; import('@/views/TerminalView.vue').catch(() => {}); }
 }
 
 async function trySubmit() {

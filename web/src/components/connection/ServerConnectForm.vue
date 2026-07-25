@@ -123,7 +123,8 @@
                     :placeholder="t('form.keyPlaceholder')" rows="4" :required="authValueRequired"
                     class="key-input"/>
           <input v-else v-model="form.auth_value" type="password"
-                 :placeholder="t('form.passwordPlaceholder')" :required="authValueRequired" autocomplete="new-password"/>
+                 :placeholder="t('form.passwordPlaceholder')" :required="authValueRequired" autocomplete="new-password"
+                 @focus="preloadTerminal"/>
           <div v-if="form.auth_type === 'key'" class="key-actions">
             <button type="button" class="key-upload-btn" @click="triggerKeyFileInput" :title="t('form.keyFileUpload')">
               <Upload :size="14"/>
@@ -290,6 +291,13 @@ function validate() {
   if (form.value.protocol !== 'telnet' && !form.value.username.trim()) { showError(t('form.usernameRequired')); return false; }
   if (authValueRequired.value) { showError(t('form.credentialsRequired')); return false; }
   return true;
+}
+
+let _preloaded = false;
+function preloadTerminal() {
+  if (_preloaded) return;
+  _preloaded = true;
+  import('@/views/TerminalView.vue').catch(() => {});
 }
 
 function submit(action) {
