@@ -1,6 +1,31 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { fileURLToPath, URL } from 'url';
+import { gzipSync } from 'zlib';
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { join, extname } from 'path';
+
+function gzipPlugin() {
+  return {
+    name: 'gzip',
+    closeBundle() {
+      const outDir = join(__dirname, 'dist/client');
+      if (!existsSync(outDir)) return;
+      const walk = (dir) => {
+        for (const entry of readdirSync(dir)) {
+          const full = join(dir, entry);
+          if (statSync(full).isDirectory()) { walk(full); continue; }
+          if (!/\.(js|css|html|svg|json|ico|woff2?)$/i.test(extname(full))) continue;
+          const gzPath = full + '.gz';
+          if (existsSync(gzPath)) continue;
+          writeFileSync(gzPath, gzipSync(readFileSync(full), { level: 6 }));
+        }
+      };
+      walk(outDir);
+      console.log('[gzip] Pre-compressed assets in dist/client/');
+    },
+  };
+}
 
 export default defineConfig({
   root: 'web',
@@ -18,6 +43,7 @@ export default defineConfig({
   },
   plugins: [
     vue(),
+    gzipPlugin(),
   ],
   resolve: {
     alias: {
