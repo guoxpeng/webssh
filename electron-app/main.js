@@ -8,6 +8,7 @@ const kill = require('tree-kill');
 let mainWindow = null;
 let serverProcess = null;
 const PORT = 9627;
+const APP_ROOT = process.resourcesPath;
 
 function waitForPort(port, timeout = 15000) {
   return new Promise((resolve, reject) => {
@@ -60,15 +61,15 @@ function createMainWindow() {
 app.whenReady().then(async () => {
   const loadingWin = createLoadingWindow();
 
-  const serverEntry = path.join(__dirname, '..', 'core', 'server', 'index.mjs');
+  const serverEntry = path.join(APP_ROOT, 'core', 'server', 'index.mjs');
   if (!fs.existsSync(serverEntry)) {
-    dialog.showErrorBox('File Missing', 'core/server/index.mjs not found.');
+    dialog.showErrorBox('File Missing', 'core/server/index.mjs not found.\n\nExpected: ' + serverEntry);
     app.quit();
     return;
   }
 
   serverProcess = spawn(process.execPath, [serverEntry], {
-    cwd: path.join(__dirname, '..'),
+    cwd: APP_ROOT,
     env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production' },
     stdio: 'ignore',
     detached: false,
