@@ -1,0 +1,30 @@
+name: Build Desktop App
+on:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Build frontend
+        run: npm run build
+      - name: Install electron deps and build
+        run: |
+          cd electron-app
+          npm install
+          npm run build
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebSSH-Setup
+          path: electron-app/release/WebSSH Setup.exe
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: electron-app/release/WebSSH Setup.exe

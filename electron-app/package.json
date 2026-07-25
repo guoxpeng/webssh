@@ -1,0 +1,50 @@
+{
+  "name": "webssh-desktop",
+  "version": "1.0.0",
+  "description": "WebSSH Desktop Client",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.webssh.desktop",
+    "productName": "WebSSH",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "../core/**/*",
+      "../dist/**/*",
+      "../node_modules/**/*",
+      "!../node_modules/.cache",
+      "!../node_modules/typescript",
+      "!../node_modules/vue-tsc",
+      "!../node_modules/eslint*",
+      "!../node_modules/prettier",
+      "!../node_modules/vitest",
+      "!../node_modules/jsdom",
+      "!../node_modules/happy-dom",
+      "!../node_modules/wrangler",
+      "!../node_modules/@types*",
+      "!../node_modules/@volar*",
+      "!../node_modules/@vue/eslint*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "tree-kill": "^1.2.2"
+  }
+}
