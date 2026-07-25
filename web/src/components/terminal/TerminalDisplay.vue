@@ -18,6 +18,9 @@
         <button class="cmd-act-btn" @click="pasteToTerminal" :title="t('common.paste')">
           <ClipboardPaste :size="12"/> {{ t('common.paste') }}
         </button>
+        <button class="cmd-act-btn" @click="toggleCodeNotes" :title="t('codeNotes.title')">
+          <StickyNote :size="12"/> {{ t('codeNotes.title') }}
+        </button>
         <span class="cmd-act-sep"></span>
         <button v-for="s in quickSnippets.slice(0, 6)" :key="s.id"
                 class="cmd-act-btn cmd-snippet-btn" :title="s.command" @click="sendQuickSnippet(s)">
@@ -63,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, inject } from 'vue';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
@@ -77,13 +80,14 @@ import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
-import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, StickyNote } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
 const connectionStore = useConnectionStore();
 const snippetStore = useSnippetStore();
 const codeNoteStore = useCodeNoteStore();
+const toggleCodeNotes = inject<() => void>('toggleCodeNotes', () => {});
 const uiStore = useUiStore();
 
 const props = defineProps({
@@ -557,8 +561,8 @@ onBeforeUnmount(() => {
 .cmd-input {
   flex: 1; background: var(--term-bg2); border: 1px solid var(--term-border);
   border-radius: 4px; padding: 0.25rem 0.4rem; font-size: 0.8em;
-  font-family: monospace; color: var(--term-text); outline: none; resize: none; line-height: 1.4;
-  min-width: 80px; field-sizing: content;
+  font-family: monospace; color: var(--term-text); outline: none; resize: vertical;
+  line-height: 1.4; min-width: 80px; min-height: calc(1.4em * 4 + 0.5rem);
   &::placeholder { color: var(--term-text-dim); }
   &:focus { border-color: var(--term-text-dim); }
 }

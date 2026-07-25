@@ -153,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, provide } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppNavbar from '@/components/global/AppNavbar.vue';
 import AppNotification from '@/components/global/AppNotification.vue';
@@ -186,6 +186,7 @@ const showBackup = ref(false);
 const showAudit = ref(false);
 const showCodeNotes = ref(false);
 const showChat = ref(false);
+provide('toggleCodeNotes', () => { showCodeNotes.value = !showCodeNotes.value; });
 
 function closeMobileMenu() { mobileMenuOpen.value = false; }
 function onSidebarNavClick(e) {
