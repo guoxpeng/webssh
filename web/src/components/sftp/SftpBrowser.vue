@@ -222,9 +222,9 @@ import {
   Edit3, Pencil, Shield, Trash2, X,
 } from 'lucide-vue-next';
 import { useConnectionStore } from '@/stores/connectionStore';
-import SftpWsService from '@/services/sftpWsService';
+import SftpHttpService from '@/services/sftpHttpService';
 import JSZip from 'jszip';
-/* WS_SFTP_V1 */
+/* HTTP_SFTP_V2 */
 
 const { t } = useI18n();
 const connStore = useConnectionStore();
@@ -235,7 +235,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-const sftpWs = new SftpWsService();
+const sftp = new SftpHttpService();
 const loading = ref(false);
 const error = ref('');
 const entries = ref([]);
@@ -396,16 +396,8 @@ async function getAuth() {
 }
 
 async function api(action, data = {}) {
-  if (!connected.value) {
-    showMessage(t('sftp.notConnected'), 'is-error');
-    throw new Error('SFTP not connected');
-  }
-  try {
-    const result = await sftpWs.send(action, data);
-    return result;
-  } catch (e) {
-    throw e;
-  }
+  if (!connected.value) throw new Error('SFTP not connected');
+  return await sftp.send(action, data);
 }
 
 async function listDir(path) {
@@ -718,12 +710,12 @@ async function doDelete() {
   }
 }
 
-onMounted(async () => {
+async function connectServer() {
   const auth = await getAuth();
   if (!auth.host) { error.value = t('sftp.notConnected'); return; }
   error.value = '';
   connected.value = false;
-  sftpWs.connect(auth, {
+  sftp.connect(auth, {
     onStatus: (status, err) => {
       if (status === 'connected') {
         connected.value = true;
@@ -741,19 +733,22 @@ onMounted(async () => {
       }
     },
   });
-});
+}
+
+onMounted(() => { connectServer(); });
 
 onBeforeUnmount(() => {
-  sftpWs.disconnect();
+  sftp.disconnect();
   if (showEditor.value) closeEditor();
 });
 
-watch(() => props.nodeConfig, (newCfg, oldCfg) => {
+watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
   if (!newCfg || !oldCfg) { currentPath.value = '/'; refresh(); return; }
   const key = (c) => `${c.host}_${c.port}_${c.username}`;
   if (key(newCfg) !== key(oldCfg)) {
+    sftp.disconnect();
     currentPath.value = '/';
-    refresh();
+    connectServer();
   }
 }, { deep: false });
 </script>
