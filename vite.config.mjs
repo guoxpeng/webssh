@@ -4,7 +4,18 @@ import { fileURLToPath, URL } from 'url';
 
 export default defineConfig({
   root: 'web',
-  build: { outDir: '../dist/client', emptyOutDir: true },
+  build: {
+    outDir: '../dist/client',
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('@xterm/')) return 'xterm';
+          if (id.includes('node_modules/lucide-vue-next') || id.includes('node_modules/vue') || id.includes('node_modules/pinia') || id.includes('node_modules/vue-router') || id.includes('node_modules/vue-i18n')) return 'vendor';
+        },
+      },
+    },
+  },
   plugins: [
     vue(),
   ],

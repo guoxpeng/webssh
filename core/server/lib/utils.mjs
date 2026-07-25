@@ -81,9 +81,10 @@ export function getLocalIP() {
   return fallback;
 }
 
-// Serve static files
-import { readFileSync, existsSync } from 'fs';
+// Serve static files with gzip
+import { createReadStream, existsSync } from 'fs';
 import { join, extname, resolve } from 'path';
+import { createGzip } from 'zlib';
 import { DIST_DIR, MIME } from './config.mjs';
 
 export function serveStatic(req, res) {
@@ -94,24 +95,39 @@ export function serveStatic(req, res) {
     if (!fullPath.startsWith(resolve(DIST_DIR))) return false;
     if (existsSync(fullPath)) {
       const ext = extname(fullPath);
-      // Hashed assets (content hash in filename) → cache forever
       const isHashed = /[a-fA-F0-9]{8,}-/.test(filePath);
-      const cacheCtrl = isHashed ? 'public, max-age=31536000, immutable'
-        : 'no-cache, must-revalidate';
-      res.writeHead(200, {
+      const cacheCtrl = isHashed ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate';
+      const accept = req.headers['accept-encoding'] || '';
+      const useGzip = accept.includes('gzip');
+      const headers = {
         'Content-Type': MIME[ext] || 'application/octet-stream',
         'Cache-Control': cacheCtrl,
-      });
-      res.end(readFileSync(fullPath));
+      };
+      if (useGzip) headers['Content-Encoding'] = 'gzip';
+      res.writeHead(200, headers);
+      const stream = createReadStream(fullPath);
+      if (useGzip) {
+        stream.pipe(createGzip()).pipe(res);
+        stream.on('error', () => { try { res.end(); } catch {} });
+      } else {
+        stream.pipe(res);
+      }
       return true;
     }
     const indexPath = join(DIST_DIR, 'index.html');
     if (existsSync(indexPath)) {
-      res.writeHead(200, {
-        'Content-Type': 'text/html',
-        'Cache-Control': 'no-cache, must-revalidate',
-      });
-      res.end(readFileSync(indexPath));
+      const accept = req.headers['accept-encoding'] || '';
+      const useGzip = accept.includes('gzip');
+      const headers = { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache, must-revalidate' };
+      if (useGzip) headers['Content-Encoding'] = 'gzip';
+      res.writeHead(200, headers);
+      const stream = createReadStream(indexPath);
+      if (useGzip) {
+        stream.pipe(createGzip()).pipe(res);
+        stream.on('error', () => { try { res.end(); } catch {} });
+      } else {
+        stream.pipe(res);
+      }
       return true;
     }
   } catch (e) {
