@@ -13,17 +13,27 @@ setInterval(() => {
 
 export function findSession(host, port, username, authValue) {
   const credHash = authValue ? hashCreds(authValue) : null;
+  const now = Date.now();
+  console.log(`[findSession] looking for ${host}:${port||22}@${username} hash=${credHash}`);
   for (const [id, s] of sessions) {
+    const stale = now - s.createdAt > 1800000;
+    console.log(`[findSession] check: ${s.host}:${s.port}@${s.username} hash=${s.credHash} stale=${stale}`);
     if (s.host === host && s.port === (port || 22) && s.username === username) {
-      if (credHash === null || s.credHash === credHash) return s.client;
+      if (!stale && (credHash === null || s.credHash === credHash)) {
+        console.log('[findSession] ✓ found');
+        return s.client;
+      }
     }
   }
+  console.log('[findSession] ✗ not found, sessions count:', sessions.size);
   return null;
 }
 
 // Session-aware SFTP (reuses existing SSH connections)
 export async function withSessionSftp(body, fn, opts = {}) {
-  let conn = findSession(body.host, body.port, body.username, body.auth_value);
+  const found = findSession(body.host, body.port, body.username, body.auth_value);
+  console.log(`[SFTP] ${body.host}:${body.port || 22} as ${body.username} | session found=${!!found}`);
+  let conn = found;
   let ownsClient = false;
   if (!conn) {
     conn = new Client();
