@@ -34,6 +34,7 @@ export function handleSSH(ws, config) {
     }
     client.shell({ term: 'xterm-256color', cols: 120, rows: 30 }, (err, stream) => {
       if (err) { log('Shell error: ' + err.message); try { ws.send('\r\n\x1b[31m[Shell Error] ' + err.message + '\x1b[0m\r\n'); } catch {} closeAll(); return; }
+      try { ws.send(JSON.stringify({ type: 'ssh_ready' })); } catch {}
       const onWsMsg = (input) => {
         const str = input.toString();
         if (str.startsWith('resize:')) {

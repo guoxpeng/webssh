@@ -58,7 +58,6 @@ class SshWebSocketService {
       this.reconnectAttempts = 0;
       try {
         this.ws!.send(JSON.stringify(this.nodeInfo));
-        if (this.onOpenCallback) this.onOpenCallback();
       } catch (e) {
         if (this.onErrorCallback) this.onErrorCallback(e instanceof Error ? e : new Error('Failed to send node info.'));
         this.disconnect(true);
@@ -66,7 +65,12 @@ class SshWebSocketService {
     };
 
     this.ws.onmessage = (event) => {
-      if (this.onMessageCallback) this.onMessageCallback(event.data);
+      const data = event.data;
+      if (typeof data === 'string' && data.startsWith('{"type":"ssh_ready"')) {
+        if (this.onOpenCallback) this.onOpenCallback();
+        return;
+      }
+      if (this.onMessageCallback) this.onMessageCallback(data);
     };
 
     this.ws.onclose = (event) => {

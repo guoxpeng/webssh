@@ -67,15 +67,7 @@
           </div>
         </div>
       </div>
-      <div v-if="connecting && paneCount === 0" class="connecting-overlay">
-        <div class="connecting-anim">
-          <div class="anim-track"></div>
-          <div class="anim-fill" :style="{ width: progressPct + '%' }"></div>
-          <div class="anim-dot" :style="{ left: progressPct + '%' }"></div>
-        </div>
-        <p class="connecting-text">{{ t('status.connecting') }}</p>
-      </div>
-      <div v-if="paneCount === 0 && !connecting" class="terminal-empty">
+      <div v-if="paneCount === 0" class="terminal-empty">
         <div class="empty-header">
           <Terminal :size="32" class="empty-icon"/>
           <h3>未选择连接</h3>
@@ -137,9 +129,6 @@ const showDisconnectDialog = ref(false);
 const showSftpPanel = ref(false);
 const sftpWidth = ref(500);
 const dragging = ref(false);
-const connecting = ref(false);
-const progressPct = ref(0);
-let progressTimer = null;
 
 const isRecording = ref(false);
 const recordingSteps = ref([]);
@@ -234,26 +223,6 @@ function toggleSftpPanel() {
   }
 }
 
-function startProgress() {
-  connecting.value = true;
-  progressPct.value = 0;
-  let p = 0;
-  const step = () => {
-    if (p >= 85) return;
-    p += Math.random() * 3 + 0.5;
-    if (p > 85) p = 85;
-    progressPct.value = p;
-    progressTimer = setTimeout(step, 200 + Math.random() * 300);
-  };
-  step();
-}
-
-function completeProgress() {
-  if (progressTimer) { clearTimeout(progressTimer); progressTimer = null; }
-  progressPct.value = 100;
-  setTimeout(() => { connecting.value = false; }, 400);
-}
-
 function processPendingConnections() {
   if (connectionStore.pendingConnections.length === 0) return;
   const configs = connectionStore.pendingConnections.splice(0);
@@ -263,10 +232,6 @@ function processPendingConnections() {
     }
     splitPaneRef.value?.addTerminalPane(cfg);
   }
-  startProgress();
-  setTimeout(() => {
-    if (connecting.value) completeProgress();
-  }, 2500);
 }
 
 function onDisconnectConfirmed() {
@@ -313,7 +278,6 @@ watch(() => splitPaneRef.value?.panes, (panes) => {
 
 onBeforeUnmount(() => {
   if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
-  if (progressTimer) clearTimeout(progressTimer);
   terminalStore.clearAll();
 });
 </script>
@@ -385,28 +349,6 @@ onBeforeUnmount(() => {
   justify-content: center; gap: 1rem; padding: 2rem; overflow-y: auto;
   & .history-list { width: 100%; max-width: 320px; }
 }
-
-.connecting-overlay {
-  position: absolute; inset: 0; z-index: 20;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1.5rem; background: var(--bulma-scheme-main);
-}
-.connecting-anim { position: relative; width: 280px; height: 6px; }
-.anim-track {
-  position: absolute; inset: 0; border-radius: 4px;
-  background: var(--bulma-border-light); opacity: 0.3;
-}
-.anim-fill {
-  position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px;
-  background: var(--bulma-success); transition: width 0.15s ease-out;
-}
-.anim-dot {
-  position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%;
-  background: var(--bulma-success); border: 2px solid var(--bulma-success);
-  transform: translate(-50%, -50%); transition: left 0.15s ease-out;
-  box-shadow: 0 0 8px rgba(72,199,142,0.4);
-}
-.connecting-text { font-size: 0.85em; color: var(--bulma-text-light); margin: 0; }
 
 .terminal-empty {
   display: flex; flex-direction: column; align-items: center;
