@@ -8,14 +8,11 @@
 
 ## 🤔 这是什么？
 
-你有很多台服务器要管？
-
-- 以前：装各种客户端、记一堆 IP、切来切去手忙脚乱 😫
-- 现在：**打开浏览器**，所有服务器列在页面上，**点一下就连上**，甚至不用输入密码！
+**打开浏览器管理所有服务器** — 点一下就连 SSH，还能传文件、管理 Docker，无需安装任何客户端。
 
 ---
 
-## 🌟 我们有什么特别的？
+## 🌟 功能对比
 
 | 功能 | 🏆 **WebSSH** | Termius | MobaXterm | PuTTY |
 |------|:-----------:|:-------:|:---------:|:-----:|
@@ -104,13 +101,16 @@ node core/server/index.mjs
 
 打开 `http://localhost:9627`
 
-### Cloudflare Pages 部署（全球加速）⚡
+### Cloudflare Workers / Pages（全球加速）⚡
 
-> ⚠️ **CF Pages 与 VPS/Docker 版本的区别**：CF Pages 部署的是独立精简版（`cf-pages` 分支），基于 v2.2.5 架构，仅支持 **SSH 终端** 和 **SSH 测试**。SFTP 文件管理、Docker 管理、串口、聊天机器人、AI 对话等功能仅 VPS/Docker 部署（`main` 分支 v3.0）支持。
+> ⚠️ **限制**：CF 版本基于 `cf-pages` 分支，仅支持 **SSH 终端** 和 **SSH 测试**。SFTP、Docker、串口、机器人、AI 等需 Docker/VPS 部署（`main` 分支）。
 
-#### Pages 方式
+| 部署方式 | 要求 | 命令 |
+|----------|------|------|
+| **Workers** (需付费计划) | `wrangler.toml` 已配置 | `npm run worker:deploy` |
+| **Pages** | 控制台创建项目 | 见下方 |
 
-路径：Workers & Pages → Pages → 创建项目 → 连接到 Git
+#### Pages 控制台配置
 
 | 字段 | 值 |
 |------|-----|
@@ -119,7 +119,7 @@ node core/server/index.mjs
 | 输出目录 | `dist` |
 | 环境变量 `NODE_VERSION` | `22` |
 
-> **CF Pages 已知限制**：不支持 WebSocket SFTP、Telegram/WeChat/QQ 机器人、AI 对话。如需完整功能请用 Docker/VPS 部署。
+> Workers 使用 `cloudflare:sockets`（需 Workers Paid 计划），Pages 使用 `cf-pages` 分支。
 
 ### 开发模式
 

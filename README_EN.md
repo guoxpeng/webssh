@@ -8,14 +8,11 @@
 
 ## 🤔 What is this?
 
-Managing lots of servers?
-
-- **Before**: Install bloated clients, memorize IPs, juggle windows 😫
-- **Now**: Open a browser. All servers listed. **One click to connect** — no password re-entry needed.
+**Manage all your servers from a browser** — click to SSH, transfer files, manage Docker. No client installation needed.
 
 ---
 
-## 🌟 Why WebSSH?
+## 🌟 Feature Comparison
 
 | Feature | 🏆 **WebSSH** | Termius | MobaXterm | PuTTY |
 |------|:-----------:|:-------:|:---------:|:-----:|
@@ -100,22 +97,25 @@ node core/server/index.mjs
 
 Open `http://localhost:9627`
 
-### Cloudflare Pages (global edge deploy) ⚡
+### Cloudflare Workers / Pages (global edge) ⚡
 
-> ⚠️ **CF Pages vs VPS/Docker**: CF Pages deploys a lightweight version (`cf-pages` branch) based on v2.2.5, supporting **SSH terminal** and **SSH test** only. SFTP file manager, Docker management, serial, chat bots, AI features require VPS/Docker (`main` branch v3.0).
+> ⚠️ **Limitation**: CF deployment is based on `cf-pages` branch (lightweight). Only **SSH terminal** and **SSH test** are supported. SFTP, Docker, serial, bots, AI require Docker/VPS (`main` branch v3.0).
 
-#### Pages
+| Deploy type | Requirement | Command |
+|-------------|------------|---------|
+| **Workers** (Paid plan) | `wrangler.toml` pre-configured | `npm run worker:deploy` |
+| **Pages** | Create project in dashboard | See below |
 
-Workers & Pages → Pages → Create → Connect Git
+#### Pages Dashboard Configuration
 
 | Field | Value |
 |------|-----|
 | Production branch | `cf-pages` |
 | Build command | `npm run build && node build-worker.mjs` |
 | Output directory | `dist` |
-| Env `NODE_VERSION` | `22` |
+| Environment `NODE_VERSION` | `22` |
 
-> **CF Pages limitations**: No WebSocket SFTP, Telegram/WeChat/QQ bots, AI chat. Use Docker/VPS for full features.
+> Workers requires `cloudflare:sockets` (Workers Paid plan). Pages uses `cf-pages` branch.
 
 ### Dev mode
 

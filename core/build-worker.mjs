@@ -94,26 +94,25 @@ await esbuild.build({
           return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
         }
       });
+      // Replace ssh2's SFTP protocol module with stub (not available on Workers)
+      build.onResolve({ filter: /protocol[/\\\\]SFTP/ }, (args) => {
+        if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
+          return { path: join(__dirname, 'worker/shims/sftp-stub.mjs') };
+        }
+      });
     },
   }],
 });
 
 console.log('Worker built to dist/client/_worker.js');
 
-// === Post-build patch for SFTP class extends issue ===
+// Post-build: verify SFTP is properly stubbed
 const workerPath = join(outDir, '_worker.js');
 let code = require('fs').readFileSync(workerPath, 'utf8');
-
-// Mock SFTP to prevent class extends error
-code = code.replace(
-  /class .*SFTPWrapper|SFTP.*extends|from ["']\.\/protocol\/SFTP["']/g,
-  '// SFTP mocked for Cloudflare Workers'
-);
-
-code = code.replace(
-  /SFTPWrapper|new SFTP|require\(.SFTP.\)/g,
-  'class MockSFTP { constructor() {} }'
-);
-
-require('fs').writeFileSync(workerPath, code);
-console.log('Applied post-build SFTP mock patch');
+if (/class\s+SFTPWrapper/.test(code)) {
+  // If stub didn't work, replace any remaining SFTP class with empty stub
+  code = code.replace(/class SFTPWrapper[\s\S]*?(?=\n\s*(?:class|export|const|var|let|async|function|$))/g, 'class SFTPWrapper {}');
+  require('fs').writeFileSync(workerPath, code);
+  console.log('Fallback: SFTP class stubbed via regex');
+}
+console.log('Worker build complete');

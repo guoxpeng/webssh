@@ -3,3 +3,6 @@ compatibility_date = "2026-07-23"
 compatibility_flags = ["nodejs_compat"]
 
 pages_build_output_dir = "dist/client"
+
+# Workers deployment (requires Paid plan for cloudflare:sockets)
+# Deploy: npm run worker:deploy

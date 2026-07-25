@@ -108,7 +108,7 @@ async function createSSHConnection(cfg) {
     });
     conn.on('error', (err) => {
       clearTimeout(timeout);
-      console.error('[Worker SSH] createSSHConnection error:', err.message, err.stack?.split('\n').slice(0, 3).join(' | '));
+      logError('createSSHConnection', err);
       reject(err);
     });
     conn.on('close', () => {
@@ -128,6 +128,10 @@ function json(data, status = 200) {
 
 function parseBody(request) {
   return request.json().catch(() => ({}));
+}
+
+function logError(context, e) {
+  console.error(`[Worker ${context}] ${e.message}${e.stack ? ' | ' + e.stack.split('\n').slice(0, 3).join(' | ') : ''}`);
 }
 
 /* ── API: SSH Test ── */
@@ -150,7 +154,7 @@ async function handleSSHTest(request) {
     });
     return json(result);
   } catch (e) {
-    console.error('[Worker SSH] SSH test error:', e.message);
+    logError('SSH Test', e);
     return json({ success: false, error: [e.message] }, 500);
   }
 }
@@ -238,16 +242,14 @@ async function handleTerminalWS(request) {
         });
       });
       conn.on('error', (err) => {
-        const msg = `\r\n\x1b[31m[SSH Error] ${err.message}\x1b[0m\r\n`;
-        console.error('[Worker SSH] Terminal error:', err.message, err.stack?.split('\n').slice(0, 3).join(' | '));
-        try { server.send(msg); } catch {}
+        logError('Terminal', err);
+        try { server.send(`\r\n\x1b[31m[SSH Error] ${err.message}\x1b[0m\r\n`); } catch {}
       });
       conn.on('close', () => cleanup());
       conn.connect({ ...sshCfg, sock: stream, keepaliveInterval: 15000, keepaliveCountMax: 3 });
     } catch (e) {
-      const msg = `\r\n\x1b[31m[Connection Error] ${e.message}\x1b[0m\r\n`;
-      console.error('[Worker SSH] openSSH error:', e.message, e.stack?.split('\n').slice(0, 3).join(' | '));
-      try { server.send(msg); } catch {}
+      logError('openSSH', e);
+      try { server.send(`\r\n\x1b[31m[Connection Error] ${e.message}\x1b[0m\r\n`); } catch {}
       cleanup();
     }
   }
