@@ -241,22 +241,23 @@ function copyFromTerminal() {
 }
 
 function copyText(text, onSuccess) {
-  try {
-    navigator.clipboard.writeText(text).then(() => onSuccess?.()).catch(() => fallbackExecCopy(text, onSuccess));
-  } catch {
-    fallbackExecCopy(text, onSuccess);
-  }
+  if (tryExecCopy(text)) { onSuccess?.(); return; }
+  try { navigator.clipboard.writeText(text).then(() => onSuccess?.()); } catch {}
 }
 
-function fallbackExecCopy(text, onSuccess) {
+function tryExecCopy(text) {
   const ta = document.createElement('textarea');
   ta.value = text;
   ta.style.position = 'fixed';
-  ta.style.opacity = '0';
+  ta.style.left = '-9999px';
+  ta.style.top = '0';
   document.body.appendChild(ta);
+  ta.focus();
   ta.select();
-  try { document.execCommand('copy'); onSuccess?.(); } catch {}
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
   document.body.removeChild(ta);
+  return ok;
 }
 
 function sendQuickSnippet(s) {
