@@ -1,21 +1,21 @@
 <template>
-  <div class="error-panel">
+    <div class="error-panel">
     <div class="error-card">
       <div class="error-icon-wrap">
-        <div class="error-icon-circle">
+        <div class="error-icon-circle is-warn">
           <AlertTriangle :size="32" stroke-width="1.5"/>
         </div>
       </div>
 
-      <h3 class="error-title">{{ t('status.error') }}</h3>
+      <h3 class="error-title is-warn">{{ t('status.error') }}</h3>
 
       <div class="error-server-info">
         <span class="error-server-name">{{ config?.name || config?.host }}</span>
         <span class="error-server-addr">{{ config?.username }}@{{ config?.host }}:{{ config?.port }}</span>
       </div>
 
-      <div class="error-message-box">
-        <p class="error-message">{{ message || t('terminal.connectionError', { message: t('common.error') }) }}</p>
+      <div class="error-message-box is-warn">
+        <p class="error-message is-warn">{{ message || t('terminal.connectionError', { message: t('common.error') }) }}</p>
       </div>
 
       <div class="error-details" v-if="showDetails">
@@ -41,13 +41,13 @@
       </div>
 
       <div class="error-actions">
-        <button class="error-btn is-primary" @click="$emit('retry')">
+        <button class="error-btn" @click="$emit('retry')">
           <RotateCcw :size="16"/> {{ t('common.retry') }}
         </button>
         <button class="error-btn" @click="$emit('edit')">
           <Settings :size="16"/> {{ t('server.edit') }}
         </button>
-        <button class="error-btn is-ghost" @click="$emit('close')">
+        <button class="error-btn" @click="$emit('close')">
           <X :size="16"/> {{ t('common.close') }}
         </button>
       </div>
@@ -112,10 +112,12 @@ const suggestions = computed(() => {
   width: 64px; height: 64px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: rgba(239, 68, 68, 0.1); color: var(--bulma-danger);
+  &.is-warn { background: rgba(245, 158, 11, 0.15); color: #d97706; }
 }
 .error-title {
   font-size: 1.1em; font-weight: 700; margin: 0;
   color: var(--bulma-text-strong);
+  &.is-warn { color: #d97706; }
 }
 .error-server-info {
   text-align: center; line-height: 1.5;
@@ -131,10 +133,12 @@ const suggestions = computed(() => {
   background: rgba(239, 68, 68, 0.06);
   border: 1px solid rgba(239, 68, 68, 0.15);
   border-radius: 8px; box-sizing: border-box;
+  &.is-warn { background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.2); }
 }
 .error-message {
   margin: 0; font-size: 0.8em; color: var(--bulma-danger);
   text-align: center; word-break: break-word;
+  &.is-warn { color: #b45309; }
 }
 .error-details {
   width: 100%; border: 1px solid var(--bulma-border-light);
@@ -152,26 +156,24 @@ const suggestions = computed(() => {
 }
 .suggestion-item {
   display: flex; align-items: flex-start; gap: 0.4rem;
-  font-size: 0.75em; color: var(--bulma-text-light); line-height: 1.4;
+  font-size: 0.75em; color: #92400e; line-height: 1.4;
 }
+:root.is-dark-mode .suggestion-item { color: #d97706; }
 .suggestion-dot {
   width: 5px; height: 5px; border-radius: 50%;
-  background: var(--bulma-text-light); flex-shrink: 0; margin-top: 0.4em;
+  background: #d97706; flex-shrink: 0; margin-top: 0.4em;
 }
 .error-actions {
   display: flex; gap: 0.5rem; width: 100%; margin-top: 0.5rem;
 }
 .error-btn {
   flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
-  padding: 0.55rem 0.75rem; border-radius: 8px; font-size: 0.8em; font-weight: 500;
-  border: 1px solid var(--bulma-border-light); cursor: pointer;
+  padding: 0.5rem 0.65rem; border-radius: 6px; font-size: 0.8em; font-weight: 500;
+  border: 1px solid transparent; cursor: pointer;
   background: var(--bulma-scheme-main-ter); color: var(--bulma-text);
   transition: all 0.12s; text-decoration: none;
-  &.is-primary {
-    background: var(--bulma-primary); color: white; border-color: transparent;
-    &:hover { opacity: 0.9; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
-  }
-  &.is-ghost { background: none; border-color: transparent; color: var(--bulma-text-light); }
-  &:hover:not(.is-ghost) { background: var(--bulma-scheme-main-bis); }
+  &:hover { background: var(--bulma-scheme-main-bis); }
+  &.is-primary { display: none; }
+  &.is-ghost { display: none; }
 }
 </style>

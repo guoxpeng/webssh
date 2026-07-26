@@ -1,0 +1,31 @@
+{
+  "name": "webssh-desktop",
+  "version": "1.0.0",
+  "description": "WebSSH Desktop Client",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "node build.mjs"
+  },
+  "build": {
+    "appId": "com.webssh.desktop",
+    "productName": "WebSSH",
+    "directories": { "output": "../release" },
+    "files": ["main.js", "package.json"],
+    "extraResources": [
+      { "from": "../core", "to": "core", "filter": ["**/*", "!**/node_modules/**"] },
+      { "from": "../dist", "to": "dist" },
+      { "from": "icon.ico", "to": "icon.ico" }
+    ],
+    "win": {
+      "target": "dir",
+      "icon": "icon.ico",
+      "signDlls": false,
+      "signAndEditExecutable": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

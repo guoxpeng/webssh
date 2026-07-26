@@ -1,7 +1,6 @@
 <template>
   <div class="app-layout">
     <AppNavbar />
-    <AppNotification />
     <main class="section main-content is-flex-grow-1">
       <div class="container">
         <slot></slot> </div>
@@ -12,8 +11,7 @@
 
 <script setup>
 import AppNavbar from '@/components/global/AppNavbar.vue';
-import AppFooter from '@/components/global/AppFooter.vue'; // (稍后创建)
-import AppNotification from '@/components/global/AppNotification.vue';
+import AppFooter from '@/components/global/AppFooter.vue';
 </script>
 
 <style lang="scss" scoped>

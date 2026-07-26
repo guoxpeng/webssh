@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { testSshConnection as apiTestSsh } from '@/services/apiService';
 import SshWebSocketService from '@/services/sshWebSocketService';
-import { ConnectionStatus, SESSION_STORAGE_CRED_PREFIX, SESSION_STORAGE_CONNECTIONS_KEY } from '@/utils/constants';
+import { ConnectionStatus, SESSION_STORAGE_CRED_PREFIX, LOCAL_STORAGE_CRED_PREFIX, SESSION_STORAGE_CONNECTIONS_KEY } from '@/utils/constants';
 import type { ConnectionStatusType } from '@/utils/constants';
 import { encrypt, decrypt } from '@/utils/cryptoService';
 
@@ -50,6 +50,8 @@ function loadJSON(key, fallback) {
   try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch { return fallback; }
 }
 
+const FAILED_GROUP = '未成功连接';
+
 export const useConnectionStore = defineStore('connection', () => {
   const currentNodeDetails = ref<NodeConfig | null>(null);
   const connectionStatus = ref<ConnectionStatusType>(ConnectionStatus.DISCONNECTED);
@@ -75,6 +77,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const groups = computed(() => {
     const gs = new Set<string>();
     gs.add('Ungrouped');
+    gs.add(FAILED_GROUP);
     for (const c of savedConnections.value) {
       if (c.group) gs.add(c.group);
     }
@@ -102,7 +105,7 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   function createGroup(name) {
-    if (!name || name === 'Ungrouped') return false;
+    if (!name || name === 'Ungrouped' || name === FAILED_GROUP) return false;
     if (groups.value.includes(name)) return false;
     groupOrder.value.push(name);
     persistGroupOrder();
@@ -110,7 +113,7 @@ export const useConnectionStore = defineStore('connection', () => {
   }
 
   function renameGroup(oldName, newName) {
-    if (!newName || newName === 'Ungrouped' || oldName === 'Ungrouped') return false;
+    if (!newName || newName === 'Ungrouped' || oldName === 'Ungrouped' || oldName === FAILED_GROUP) return false;
     for (const c of savedConnections.value) {
       if (c.group === oldName) c.group = newName;
     }
@@ -206,6 +209,44 @@ export const useConnectionStore = defineStore('connection', () => {
     return null;
   }
 
+  function _xorObfuscate(text, key) {
+    const buf = new TextEncoder().encode(text);
+    const keyBytes = new TextEncoder().encode(key);
+    for (let i = 0; i < buf.length; i++) buf[i] ^= keyBytes[i % keyBytes.length];
+    return btoa(String.fromCharCode(...buf));
+  }
+  function _xorDeobfuscate(encoded, key) {
+    try {
+      const buf = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+      const keyBytes = new TextEncoder().encode(key);
+      for (let i = 0; i < buf.length; i++) buf[i] ^= keyBytes[i % keyBytes.length];
+      return new TextDecoder().decode(buf);
+    } catch { return null; }
+  }
+
+  function saveCredentialToLocalStorage(serverId, authType, authValue) {
+    if (!serverId || !authValue) return;
+    const encoded = _xorObfuscate(authValue, serverId);
+    localStorage.setItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`, JSON.stringify({ auth_type: authType, auth_value: encoded }));
+  }
+
+  function getCredentialFromLocalStorage(serverId) {
+    if (!serverId) return null;
+    const raw = localStorage.getItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      const decoded = _xorDeobfuscate(parsed.auth_value, serverId);
+      if (decoded) return { auth_type: parsed.auth_type, auth_value: decoded };
+    } catch {}
+    return null;
+  }
+
+  function clearCredentialFromLocalStorage(serverId) {
+    if (!serverId) return;
+    localStorage.removeItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`);
+  }
+
   function clearCredentialFromSessionStorage(serverId) {
     if (!serverId) return;
     sessionStorage.removeItem(`${SESSION_STORAGE_CRED_PREFIX}${serverId}`);
@@ -257,6 +298,7 @@ export const useConnectionStore = defineStore('connection', () => {
       savedConnections.value.splice(idx, 1);
       _saveConnectionsToSessionStorage();
       clearCredentialFromSessionStorage(id);
+      clearCredentialFromLocalStorage(id);
       if (currentNodeDetails.value && currentNodeDetails.value.id === id) currentNodeDetails.value = null;
     }
   }
@@ -264,7 +306,13 @@ export const useConnectionStore = defineStore('connection', () => {
   function loadConnectionForEditing(id) {
     const conn = savedConnections.value.find(c => c.id === id);
     if (conn) {
-      getCredentialFromSessionStorage(id).then(remembered => {
+      getCredentialFromSessionStorage(id).then(async remembered => {
+        if (!remembered?.auth_value) {
+          remembered = getCredentialFromLocalStorage(id);
+          if (remembered?.auth_value) {
+            await saveCredentialToSessionStorage(id, remembered.auth_type, remembered.auth_value);
+          }
+        }
         setCurrentNodeDetails({
           ...conn,
           auth_type: remembered ? remembered.auth_type : (conn.auth_type || 'password'),
@@ -277,6 +325,46 @@ export const useConnectionStore = defineStore('connection', () => {
 
   function setCurrentNodeDetails(details) { currentNodeDetails.value = details; }
   function setConnectionStatus(status) { connectionStatus.value = status; }
+
+  function saveFailedConnection(config: NodeConfig) {
+    if (!config || (!config.host && !config.name)) return;
+    if (!groups.value.includes(FAILED_GROUP)) {
+      createGroup(FAILED_GROUP);
+    }
+    const displayName = config.name || `${config.username || ''}@${config.host || ''}:${config.port || 22}`;
+    const exists = savedConnections.value.find(c =>
+      c.host === config.host && c.port === config.port && c.username === config.username
+    );
+    if (exists) {
+      if ((exists.group || '') !== FAILED_GROUP) {
+        exists.group = FAILED_GROUP;
+        savedConnections.value = [...savedConnections.value];
+        _saveConnectionsToSessionStorage();
+      }
+      return;
+    }
+    const entry: NodeConfig = {
+      id: generateConnectionId(),
+      name: displayName,
+      host: config.host,
+      port: config.port || 22,
+      username: config.username,
+      protocol: config.protocol || 'ssh',
+      group: FAILED_GROUP,
+      auth_type: config.auth_type || 'password',
+    };
+    savedConnections.value.push(entry);
+    _saveConnectionsToSessionStorage();
+  }
+
+  function moveConnectionOutOfFailedGroup(connId: string) {
+    const conn = savedConnections.value.find(c => c.id === connId);
+    if (conn && conn.group === FAILED_GROUP) {
+      conn.group = '';
+      savedConnections.value = [...savedConnections.value];
+      _saveConnectionsToSessionStorage();
+    }
+  }
 
   async function testConnection(nodeConfig, cmds = ["echo 'Connection test OK' && date"]) {
     sshTestLoading.value = true;
@@ -394,7 +482,8 @@ export const useConnectionStore = defineStore('connection', () => {
     addConnection, removeConnection, loadConnectionForEditing,
     getCredentialFromSessionStorage, saveCredentialToSessionStorage, loadCredentialsFromSessionStorage, clearAllSessionCredentials,
     getConnectionsWithCredentials,
-    createGroup, renameGroup, deleteGroup, moveConnectionToGroup,
-    toggleGroupCollapsed, isGroupCollapsed, togglePinConnection,
+    saveCredentialToLocalStorage, getCredentialFromLocalStorage, clearCredentialFromLocalStorage,
+    createGroup, renameGroup, deleteGroup, moveConnectionToGroup, moveConnectionOutOfFailedGroup,
+    saveFailedConnection, toggleGroupCollapsed, isGroupCollapsed, togglePinConnection,
   };
 });

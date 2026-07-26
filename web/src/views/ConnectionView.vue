@@ -1,14 +1,7 @@
 <template>
   <div class="conn-view app-page">
     <div class="conn-header">
-      <div>
-        <h1 class="conn-title"><Server :size="26"/> {{ t('server.title') }}</h1>
-        <p class="conn-subtitle">{{ connectionStore.savedConnections.length }} {{ t('server.total') }}</p>
-      </div>
-      <div class="conn-count">
-        <span class="count-num">{{ connectionStore.savedConnections.length }}</span>
-        <span class="count-label">{{ t('server.total') }}</span>
-      </div>
+      <h1 class="conn-title"><Server :size="26"/> {{ t('server.title') }}</h1>
     </div>
 
     <div class="conn-layout">
@@ -32,7 +25,7 @@
               <button class="header-action-btn" @click="exportConnections" :title="t('server.export')"><Download :size="14"/></button>
               <button class="header-action-btn" @click="triggerImport" :title="t('server.import')"><Upload :size="14"/></button>
             </div>
-            <span class="sidebar-badge">{{ filteredConnections.length }}</span>
+            <span class="sidebar-badge">{{ connectionStore.savedConnections.length }}</span>
             <input type="file" ref="importInputRef" accept=".json" style="display:none" @change="onImportFile"/>
           </div>
 
@@ -42,13 +35,6 @@
                    class="new-group-input" @keydown.enter="confirmCreateGroup" @keydown.escape="cancelCreateGroup"/>
           </div>
 
-          <div class="sidebar-search" v-if="connectionStore.savedConnections.length > 0">
-            <Search :size="14" class="sidebar-search-icon"/>
-            <input type="text" v-model="searchQuery" :placeholder="t('server.searchPlaceholder')"
-                   class="sidebar-search-input" spellcheck="false"/>
-            <button v-if="searchQuery" class="sidebar-search-clear" @click="searchQuery = ''">&times;</button>
-          </div>
-
           <!-- Pinned connections -->
           <div v-if="connectionStore.pinnedConnections.length > 0 && !searchQuery" class="pinned-section">
             <div class="pinned-header">
@@ -56,8 +42,8 @@
             </div>
             <div v-for="conn in connectionStore.pinnedConnections" :key="conn.id"
                  class="saved-item pinned-item"
-                 @click="quickConnect(conn)"
-                 draggable="true" @dragstart="onDragStart($event, conn)"
+                 @click="onSavedItemClick(conn, $event)"
+                 :draggable="conn.group !== '未成功连接'" @dragstart="onDragStart($event, conn)"
                  @dragover.prevent @dragenter.prevent @dragend="onDragEnd">
               <div class="saved-item-left">
                 <ProtocolBadge :protocol="conn.protocol || 'ssh'"/>
@@ -78,9 +64,6 @@
             <p>{{ t('server.noSavedServers') }}</p>
             <p class="is-size-7">{{ t('server.noSavedHint') }}</p>
           </div>
-          <div v-else-if="filteredConnections.length === 0" class="sidebar-empty">
-            <p>{{ t('server.noMatch') }}</p>
-          </div>
           <div v-else class="sidebar-list" ref="sidebarListRef" tabindex="-1" @keydown="onSidebarKeydown">
             <template v-for="(grp, gi) in visibleGroups" :key="grp">
               <div class="group-header" :class="{ 'is-dragover': isDragOverGroup === grp }" @click="connectionStore.toggleGroupCollapsed(grp)" role="button" tabindex="0"
@@ -96,9 +79,9 @@
                 <div v-for="(conn, idx) in groupConnections(grp)" :key="conn.id"
                      :ref="el => setItemRef(el, idx)"
                      class="saved-item" :class="{ 'is-focused': focusedIndex === idx, 'is-dragging': dragConnId === conn.id }"
-                     @click="quickConnect(conn)"
+                     @click="onSavedItemClick(conn, $event)"
                      @keydown.enter="quickConnect(conn)"
-                     draggable="true" @dragstart="onDragStart($event, conn)"
+                     :draggable="conn.group !== '未成功连接'" @dragstart="onDragStart($event, conn)"
                       @dragover.prevent="onDragOver($event, conn, grp)"
                       @dragleave="onDragLeave"
                       @drop.prevent.stop="onDrop($event, conn, grp)"
@@ -133,8 +116,8 @@
 
     <!-- Group context menu -->
     <div v-if="groupMenuVisible" class="context-menu" :style="groupMenuStyle" @click.stop>
-      <div class="context-item" @click="renameGroupAction" v-if="groupMenuTarget !== 'Ungrouped'">{{ t('server.renameGroup') }}</div>
-      <div class="context-item" @click="connectAllInGroup">{{ t('server.connectAll') }}</div>
+      <div class="context-item" @click="renameGroupAction" v-if="groupMenuTarget !== 'Ungrouped' && groupMenuTarget !== '未成功连接'">{{ t('server.renameGroup') }}</div>
+      <div class="context-item" @click="connectAllInGroup" v-if="groupMenuTarget !== '未成功连接'">{{ t('server.connectAll') }}</div>
       <div class="context-item is-danger" @click="deleteGroupAction" v-if="groupMenuTarget !== 'Ungrouped'">{{ t('server.deleteGroup') }}</div>
     </div>
 
@@ -181,7 +164,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ServerConnectForm from '@/components/connection/ServerConnectForm.vue';
 import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
@@ -191,7 +174,7 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
 import {
-  Server, History, Edit3, Trash2, Play, FolderSearch, Search, Download, Upload,
+  Server, History, Edit3, Trash2, Play, FolderSearch, Download, Upload,
   ChevronRight, FolderPlus, Star, MoreHorizontal, AlertTriangle,
 } from 'lucide-vue-next';
 
@@ -203,8 +186,13 @@ const { showSuccess, showError } = useNotifications();
 const groupLabel = (g) => g === 'Ungrouped' ? t('server.ungrouped') : g;
 
 const formInitialData = ref(null);
+
+onMounted(() => {
+  if (connectionStore.currentNodeDetails) {
+    formInitialData.value = { ...connectionStore.currentNodeDetails };
+  }
+});
 const connectionToRemove = ref(null);
-const searchQuery = ref('');
 const importInputRef = ref(null);
 const sidebarListRef = ref(null);
 const itemRefs = ref([]);
@@ -224,27 +212,13 @@ const groupCounts = computed(() => {
 });
 
 function groupConnections(grp) {
-  const q = searchQuery.value.toLowerCase().trim();
-  if (!q) return connectionStore.connectionsByGroup(grp);
-  return connectionStore.connectionsByGroup(grp).filter(c =>
-    (c.name && c.name.toLowerCase().includes(q)) ||
-    (c.host && c.host.toLowerCase().includes(q)) ||
-    (c.username && c.username.toLowerCase().includes(q))
-  );
+  return connectionStore.connectionsByGroup(grp);
 }
-
-watch(searchQuery, () => {
-  if (searchQuery.value.trim()) {
-    connectionStore.groups.forEach(g => {
-      if (connectionStore.isGroupCollapsed(g)) connectionStore.toggleGroupCollapsed(g);
-    });
-  }
-});
 
 function setItemRef(el, idx) { if (el) itemRefs.value[idx] = el; }
 
 function onSidebarKeydown(e) {
-  const all = filteredConnections.value;
+  const all = connectionStore.savedConnections;
   if (all.length === 0) return;
   if (e.key === 'ArrowDown') {
     e.preventDefault();
@@ -257,15 +231,7 @@ function onSidebarKeydown(e) {
   }
 }
 
-const filteredConnections = computed(() => {
-  const q = searchQuery.value.toLowerCase().trim();
-  if (!q) return connectionStore.savedConnections;
-  return connectionStore.savedConnections.filter(c =>
-    (c.name && c.name.toLowerCase().includes(q)) ||
-    (c.host && c.host.toLowerCase().includes(q)) ||
-    (c.username && c.username.toLowerCase().includes(q))
-  );
-});
+ 
 
 const removeDialogMessage = computed(() =>
   connectionToRemove.value ? t('server.removeConfirm', { name: connectionToRemove.value.name }) : ''
@@ -311,6 +277,7 @@ async function handleFormSave(nodeConfig) {
   const saved = connectionStore.addConnection(nodeConfig);
   if (nodeConfig.auth_value) {
     await connectionStore.saveCredentialToSessionStorage(saved.id, nodeConfig.auth_type || 'password', nodeConfig.auth_value);
+    connectionStore.saveCredentialToLocalStorage(saved.id, nodeConfig.auth_type || 'password', nodeConfig.auth_value);
   }
   showSuccess(t('form.saved', { name: saved.name }));
 }
@@ -329,16 +296,31 @@ function loadForEditing(id) {
   }
 }
 
+function onSavedItemClick(conn, event) {
+  const target = event.target;
+  if (target.closest('.icon-btn, .saved-item-actions')) return;
+  quickConnect(conn);
+}
 async function quickConnect(conn) {
-  const remembered = await connectionStore.getCredentialFromSessionStorage(conn.id);
-  if (remembered?.auth_value) {
-    doConnect(conn, remembered.auth_type, remembered.auth_value);
-  } else {
-    connectionStore.loadConnectionForEditing(conn.id);
-    if (connectionStore.currentNodeDetails) {
-      formInitialData.value = { ...connectionStore.currentNodeDetails };
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  try {
+    let remembered = await connectionStore.getCredentialFromSessionStorage(conn.id);
+    if (!remembered?.auth_value) {
+      remembered = connectionStore.getCredentialFromLocalStorage(conn.id);
+      if (remembered?.auth_value) {
+        connectionStore.saveCredentialToSessionStorage(conn.id, remembered.auth_type, remembered.auth_value);
+      }
     }
+    if (remembered?.auth_value) {
+      doConnect(conn, remembered.auth_type, remembered.auth_value);
+    } else {
+      connectionStore.loadConnectionForEditing(conn.id);
+      if (connectionStore.currentNodeDetails) {
+        formInitialData.value = { ...connectionStore.currentNodeDetails };
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  } catch (e) {
+    showError(t('server.quickConnectError'));
   }
 }
 
@@ -376,7 +358,15 @@ const showExportWarning = ref(false);
 
 function showGroupContextMenu(e, grp) {
   groupMenuTarget.value = grp;
-  groupMenuStyle.value = { top: e.clientY + 'px', left: e.clientX + 'px' };
+  const menuWidth = 180;
+  const menuHeight = 110;
+  let left = e.clientX;
+  let top = e.clientY;
+  if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 8;
+  if (top + menuHeight > window.innerHeight) top = window.innerHeight - menuHeight - 8;
+  if (left < 8) left = 8;
+  if (top < 8) top = 8;
+  groupMenuStyle.value = { top: top + 'px', left: left + 'px' };
   groupMenuVisible.value = true;
   setTimeout(() => {
     document.addEventListener('click', closeGroupMenu, { once: true });
@@ -473,7 +463,7 @@ function onDrop(e, conn, targetGroup) {
 .conn-count { display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%)); color: white; padding: 0.4rem 0.8rem; border-radius: 10px; line-height: 1.2; }
 .count-num { font-size: 1.4em; font-weight: 700; }
 .count-label { font-size: 0.6em; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8; }
-.conn-layout { display: grid; grid-template-columns: 1fr minmax(300px, 420px); gap: 1.5rem; align-items: start; }
+.conn-layout { display: grid; grid-template-columns: 1fr minmax(260px, 360px); gap: 1.5rem; align-items: start; }
 .conn-main { min-width: 0; }
 .test-progress { margin-top: 0.75rem; height: 3px; border-radius: 2px; overflow: hidden; background: var(--bulma-border-light); }
 .test-bar { height: 100%; width: 30%; background: var(--bulma-primary); border-radius: 2px; animation: testSlide 1.2s ease-in-out infinite; }
@@ -535,7 +525,7 @@ function onDrop(e, conn, targetGroup) {
 .saved-item-info { min-width: 0; }
 .saved-item-name { display: block; font-size: 0.8em; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
 .saved-item-desc { display: block; font-size: 0.65em; color: var(--bulma-text-light); overflow: hidden; text-overflow: ellipsis; }
-.saved-item-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s; flex-shrink: 0; .saved-item:hover & { opacity: 1; } .pinned-item & { opacity: 1; } }
+.saved-item-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s; flex-shrink: 0; .saved-item:hover & { opacity: 1; } .pinned-item & { opacity: 1; } @media (hover: none) { opacity: 1; } }
 
 .icon-btn { background: none; border: none; padding: 0.25rem; border-radius: 6px; cursor: pointer; color: var(--bulma-text-light); display: flex; transition: all 0.1s; &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); } &.is-primary:hover { color: var(--bulma-primary); } &.is-danger:hover { color: var(--bulma-danger); } &.is-pinned { color: var(--bulma-warning); } &.is-pinned:hover { color: var(--bulma-text-light); } }
 

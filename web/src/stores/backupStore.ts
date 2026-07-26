@@ -5,6 +5,9 @@ import { useConnectionStore } from './connectionStore';
 import { useSnippetStore } from './snippetStore';
 import { useUiStore } from './uiStore';
 import { useTerminalStore } from './terminalStore';
+import { useMacroStore } from './macroStore';
+import { useCodeNoteStore } from './codeNoteStore';
+import { useChatStore } from './chatStore';
 
 export const BACKUP_VERSION = 2;
 
@@ -12,6 +15,8 @@ export interface BackupInventory {
   connectionCount: number;
   credentialCount: number;
   snippetCount: number;
+  macroCount: number;
+  codeNoteCount: number;
   hasCredentials: boolean;
   encrypted: boolean;
 }
@@ -28,6 +33,11 @@ export interface BackupEntry {
   connections: NodeConfig[];
   credentials: Record<string, string>;
   snippets: any[];
+  macros: any[];
+  codeNotes: any[];
+  chatConfig: any;
+  groupOrder: string[];
+  groupCollapsed: string[];
   settings: {
     themePreset: string;
     recentCommands: string[];
@@ -84,16 +94,20 @@ export const useBackupStore = defineStore('backup', () => {
 
   const inventory = computed<BackupInventory>(() => {
     try {
-      const connStore = (window as any).__app_connStore;
-      const snipStore = (window as any).__app_snipStore;
+      const connStore = useConnectionStore();
+      const snipStore = useSnippetStore();
+      const macroStore = useMacroStore();
+      const codeNoteStore = useCodeNoteStore();
       return {
-        connectionCount: connStore?.savedConnections?.length || 0,
-        credentialCount: connStore ? Object.keys(connStore.sessionRememberedCredentials || {}).length : 0,
-        snippetCount: snipStore?.snippets?.length || 0,
-        hasCredentials: connStore ? Object.keys(connStore.sessionRememberedCredentials || {}).length > 0 : false,
+        connectionCount: connStore.savedConnections.length,
+        credentialCount: Object.keys(connStore.sessionRememberedCredentials).length,
+        snippetCount: snipStore.snippets.length,
+        macroCount: macroStore.macros?.length || 0,
+        codeNoteCount: codeNoteStore.notes?.length || 0,
+        hasCredentials: Object.keys(connStore.sessionRememberedCredentials).length > 0,
         encrypted: !!sessionStorage.getItem('webssh_master'),
       };
-    } catch { return { connectionCount: 0, credentialCount: 0, snippetCount: 0, hasCredentials: false, encrypted: false }; }
+    } catch { return { connectionCount: 0, credentialCount: 0, snippetCount: 0, macroCount: 0, codeNoteCount: 0, hasCredentials: false, encrypted: false }; }
   });
 
   function persist() { saveBackups(backups.value); }
@@ -126,6 +140,9 @@ export const useBackupStore = defineStore('backup', () => {
       const snipStore = useSnippetStore();
       const uiStore = useUiStore();
       const termStore = useTerminalStore();
+      const macroStore = useMacroStore();
+      const codeNoteStore = useCodeNoteStore();
+      const chatStore = useChatStore();
 
       const rawConns = JSON.parse(JSON.stringify(connStore.savedConnections));
       const connections = rawConns.map(c => { delete c.auth_value; return c; });
@@ -142,11 +159,24 @@ export const useBackupStore = defineStore('backup', () => {
       }
 
       const snippets = JSON.parse(JSON.stringify(snipStore.snippets));
+      const macros = JSON.parse(JSON.stringify(macroStore.macros || []));
+      const codeNotes = JSON.parse(JSON.stringify(codeNoteStore.notes || []));
+      let chatConfig = {};
+      try {
+        chatConfig = JSON.parse(JSON.stringify({
+          ai: chatStore.config.ai,
+        }));
+      } catch {}
 
       const backupData = {
         connections,
         credentials,
         snippets,
+        macros,
+        codeNotes,
+        chatConfig,
+        groupOrder: [...connStore.groupOrder],
+        groupCollapsed: Array.from(connStore.groupCollapsed || []),
         settings: {
           themePreset: uiStore.currentPreset || 'light',
           recentCommands: [...termStore.recentCommands],
@@ -169,6 +199,8 @@ export const useBackupStore = defineStore('backup', () => {
           connectionCount: connections.length,
           credentialCount: Object.keys(credentials).length,
           snippetCount: snippets.length,
+          macroCount: macros.length,
+          codeNoteCount: codeNotes.length,
           hasCredentials: Object.keys(credentials).length > 0,
           encrypted: isEncrypted,
         },
@@ -212,11 +244,18 @@ export const useBackupStore = defineStore('backup', () => {
         });
         if (currentChecksum !== entry.checksum) {
           console.warn('Backup checksum mismatch - data may be tampered');
+          try {
+            const uiStore = useUiStore();
+            uiStore.addNotification({ type: 'warning', message: 'Backup checksum mismatch - data may be tampered', duration: 0 });
+          } catch {}
         }
       }
 
       const connStore = useConnectionStore();
       const snipStore = useSnippetStore();
+      const macroStore = useMacroStore();
+      const codeNoteStore = useCodeNoteStore();
+      const chatStore = useChatStore();
 
       const existingIds = connStore.savedConnections.map(c => c.id);
       const existingNames = connStore.savedConnections.map(c => c.name);
@@ -253,6 +292,29 @@ export const useBackupStore = defineStore('backup', () => {
         }
       }
 
+      if (entry.macros && entry.macros.length > 0) {
+        for (const m of entry.macros) {
+          try { macroStore.addMacro(m); } catch {}
+        }
+      }
+
+      if (entry.codeNotes && entry.codeNotes.length > 0) {
+        for (const n of entry.codeNotes) {
+          try { codeNoteStore.addNote(n.content, n.source || 'terminal'); } catch {}
+        }
+      }
+
+      if (entry.chatConfig?.ai) {
+        try { chatStore.config.ai = { ...chatStore.config.ai, ...entry.chatConfig.ai }; } catch {}
+      }
+
+      if (entry.groupOrder && entry.groupOrder.length > 0) {
+        connStore.groupOrder = [...entry.groupOrder];
+      }
+      if (entry.groupCollapsed && entry.groupCollapsed.length > 0) {
+        connStore.groupCollapsed = new Set(entry.groupCollapsed);
+      }
+
       if (entry.settings) {
         const uiStore = useUiStore();
         uiStore.setThemePreset(entry.settings.themePreset);
@@ -283,6 +345,15 @@ export const useBackupStore = defineStore('backup', () => {
     try {
       const data = JSON.parse(jsonStr);
       if (!data.connections && !data.snippets) return false;
+      const inv = data.inventory || {
+        connectionCount: (data.connections || []).length,
+        credentialCount: Object.keys(data.credentials || {}).length,
+        snippetCount: (data.snippets || []).length,
+        macroCount: (data.macros || []).length,
+        codeNoteCount: (data.codeNotes || []).length,
+        hasCredentials: Object.keys(data.credentials || {}).length > 0,
+        encrypted: !!data.encrypted,
+      };
       const entry: BackupEntry = {
         id: generateId(),
         label: data.label || `Imported ${new Date().toLocaleDateString()}`,
@@ -291,10 +362,15 @@ export const useBackupStore = defineStore('backup', () => {
         encrypted: !!data.encrypted,
         version: data.version || 1,
         checksum: data.checksum || '',
-        inventory: data.inventory || { connectionCount: 0, credentialCount: 0, snippetCount: 0, hasCredentials: false, encrypted: false },
+        inventory: inv,
         connections: data.connections || [],
         credentials: data.credentials || {},
         snippets: data.snippets || [],
+        macros: data.macros || [],
+        codeNotes: data.codeNotes || [],
+        chatConfig: data.chatConfig || null,
+        groupOrder: data.groupOrder || [],
+        groupCollapsed: data.groupCollapsed || [],
         settings: data.settings || { themePreset: 'light', recentCommands: [] },
       };
       backups.value.push(entry);

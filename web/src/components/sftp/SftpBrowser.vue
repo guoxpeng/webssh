@@ -28,6 +28,13 @@
         <span class="sftp-path">{{ displayPath }}</span>
       </div>
       <div class="sftp-toolbar-right">
+        <div class="sftp-search">
+          <Search :size="13" class="sftp-search-icon"/>
+          <input ref="searchInputRef" type="text" v-model="searchQuery"
+                 :placeholder="t('sftp.searchPlaceholder')"
+                 class="sftp-search-input"/>
+          <button v-if="searchQuery" class="sftp-search-clear" @click="searchQuery = ''">&times;</button>
+        </div>
       </div>
     </div>
 
@@ -47,7 +54,8 @@
     <div v-else-if="connected && entries.length === 0" class="sftp-empty">{{ t('sftp.empty') }}</div>
     <div v-else-if="!connected && entries.length === 0" class="sftp-error">{{ t('sftp.notConnected') }}</div>
     <div v-else class="sftp-list">
-      <div v-for="entry in entries" :key="entry.name"
+      <div v-if="filteredEntries.length === 0 && searchQuery" class="sftp-empty">{{ t('sftp.noMatch') }}</div>
+      <div v-for="entry in filteredEntries" :key="entry.name"
            class="sftp-item" :class="{ 'is-selected': selected.has(entry.name), 'is-dir': entry.type === 'dir' }"
            @click="toggleSelect(entry)" @dblclick="enterDir(entry)"
            @contextmenu.prevent="onContextMenu($event, entry)">
@@ -60,9 +68,8 @@
           <File :size="18" v-else class="icon-file"/>
         </div>
         <div class="item-name">{{ entry.name }}</div>
-        <div class="item-size">{{ entry.type === 'dir' ? '—' : formatSize(entry.size) }}</div>
-        <div class="item-mtime">{{ entry.mtime ? formatTime(entry.mtime) : '—' }}</div>
-        <div class="item-mode">{{ formatMode(entry.mode) }}</div>
+        <div class="item-size">{{ entry.type === 'dir' ? '' : formatSize(entry.size) }}</div>
+        <div class="item-mtime">{{ entry.mtime ? formatTime(entry.mtime) : '' }}</div>
         <div class="item-actions">
           <button class="item-action-btn" @click.stop="downloadFile(entry)" :title="t('sftp.download')" v-if="entry.type === 'file'">
             <Download :size="13"/>
@@ -84,6 +91,9 @@
     </div>
 
     <div v-if="contextEntry" class="sftp-context-menu" :style="contextStyle">
+      <div class="ctx-item" @click="copyPath(contextEntry); contextEntry = null">
+        <ClipboardCopy :size="13"/> {{ t('sftp.copyPath') }}
+      </div>
       <div class="ctx-item" @click="downloadFile(contextEntry); contextEntry = null" v-if="contextEntry.type === 'file'">
         <Download :size="13"/> {{ t('sftp.download') }}
       </div>
@@ -206,7 +216,6 @@
       </div>
     </div>
 
-    <div v-if="message" class="sftp-toast" :class="messageType">{{ message }}</div>
   </div>
 </template>
 
@@ -216,15 +225,17 @@ import { useI18n } from 'vue-i18n';
 import {
   Folder, FolderPlus, FileText, FileCode, FileImage,
   FileArchive, File, ArrowLeft, RefreshCw, Upload, Download,
-  Edit3, Pencil, Shield, Trash2, X,
+  Edit3, Pencil, Shield, Trash2, X, ClipboardCopy, Search,
 } from 'lucide-vue-next';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { useUiStore } from '@/stores/uiStore';
 import SftpHttpService from '@/services/sftpHttpService';
 import JSZip from 'jszip';
 /* HTTP_SFTP_V2 */
 
 const { t } = useI18n();
 const connStore = useConnectionStore();
+const uiStore = useUiStore();
 
 const props = defineProps({
   nodeConfig: { type: Object, default: null },
@@ -239,8 +250,6 @@ const entries = ref([]);
 const currentPath = ref('/');
 const connected = ref(false);
 const selected = ref(new Set());
-const message = ref('');
-const messageType = ref('is-info');
 const uploadInputRef = ref(null);
 const uploadProgress = ref(null);
 const uploadFileName = ref('');
@@ -263,6 +272,14 @@ const deleteTarget = ref(null);
 
 const contextEntry = ref(null);
 const contextStyle = ref({});
+
+const searchQuery = ref('');
+const searchInputRef = ref(null);
+const filteredEntries = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return entries.value;
+  return entries.value.filter(e => e.name.toLowerCase().includes(q));
+});
 
 const showEditor = ref(false);
 const editFilePath = ref('');
@@ -357,9 +374,8 @@ watch(showNewFolder, (v) => { if (v) nextTick(() => folderInputRef.value?.focus(
 watch(showRename, (v) => { if (v) nextTick(() => renameInputRef.value?.focus()); });
 
 function showMessage(msg, type = 'is-info') {
-  message.value = msg;
-  messageType.value = type;
-  setTimeout(() => { message.value = ''; }, 3000);
+  const typeMap = { 'is-success': 'success', 'is-error': 'danger', 'is-info': 'info' };
+  uiStore.addNotification({ type: typeMap[type] || 'info', message: msg, duration: 3000 });
 }
 
 function friendlyError(msg) {
@@ -459,7 +475,7 @@ function formatSize(bytes) {
 }
 
 function formatTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return '';
   const d = new Date(iso);
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
@@ -469,7 +485,7 @@ function formatTime(iso) {
 }
 
 function formatMode(mode) {
-  if (!mode) return '—';
+  if (!mode) return '';
   const s = mode.toString(8);
   return s.slice(-3);
 }
@@ -707,6 +723,16 @@ async function doDelete() {
   }
 }
 
+async function copyPath(entry) {
+  const full = fullPath(entry.name);
+  try {
+    await navigator.clipboard.writeText(full);
+    showMessage(t('sftp.copied', { path: full }), 'is-success');
+  } catch {
+    showMessage(t('sftp.copyFailed'), 'is-error');
+  }
+}
+
 async function connectServer() {
   const auth = await getAuth();
   if (!auth.host) { error.value = t('sftp.notConnected'); return; }
@@ -797,6 +823,21 @@ watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
   display: flex; align-items: center; gap: 0.2rem;
 }
 
+.sftp-search { display: flex; align-items: center; gap: 0.2rem; }
+.sftp-search-icon { flex-shrink: 0; color: var(--bulma-text-light); }
+.sftp-search-input {
+  width: 100px; border: none; background: none; outline: none;
+  font-size: 0.75em; color: var(--bulma-text); padding: 2px 0;
+  &::placeholder { color: var(--bulma-text-light); opacity: 0.6; }
+  &:focus { width: 140px; }
+  transition: width 0.15s;
+}
+.sftp-search-clear {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.9em; line-height: 1; color: var(--bulma-text-light);
+  padding: 0 2px; &:hover { color: var(--bulma-text); }
+}
+
 .toolbar-btn {
   display: flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border: none; border-radius: 6px;
@@ -857,10 +898,9 @@ watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
 .icon-archive { color: var(--icon-archive); }
 .icon-file { color: var(--bulma-text-light); }
 
-.item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 0.9em; }
-.item-size { width: 60px; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
-.item-mtime { width: 110px; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
-.item-mode { width: 36px; text-align: center; color: var(--bulma-text-light); font-family: monospace; font-size: 0.85em; }
+.item-name { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 0.9em; }
+.item-size { flex: 0 0 auto; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
+.item-mtime { flex: 0 0 auto; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; color: var(--bulma-text-light); font-size: 0.85em; }
 
 .item-actions {
   display: none; gap: 1px;
@@ -957,16 +997,7 @@ watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
 
 .upload-bar-fill { height: 100%; background: var(--bulma-primary); transition: width 0.2s; }
 
-.sftp-toast {
-  position: absolute; top: 2.5rem; right: 0.5rem; z-index: 400;
-  padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.8em;
-  animation: fadeIn 0.2s ease;
-  &.is-success { background: color-mix(in srgb, var(--bulma-success) 15%, transparent); color: var(--bulma-success); }
-  &.is-error { background: color-mix(in srgb, var(--bulma-danger) 15%, transparent); color: var(--bulma-danger); }
-  &.is-info { background: color-mix(in srgb, var(--bulma-info) 15%, transparent); color: var(--bulma-info); }
-}
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 .is-spinning { animation: spin 1s linear infinite; }
 

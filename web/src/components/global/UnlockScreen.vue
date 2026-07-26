@@ -7,6 +7,10 @@
       </div>
       <h2 class="unlock-title">{{ isSetup ? t('unlock.setPassword') : t('unlock.enterPassword') }}</h2>
       <p class="unlock-desc" v-if="isSetup">{{ t('unlock.description') }}</p>
+      <div v-if="isSetup && isElectron" class="unlock-exe-warn">
+        <Info :size="16"/>
+        <span>{{ t('unlock.exePasswordWarn') }}</span>
+      </div>
 
       <div class="unlock-form">
         <div class="unlock-input-wrap">
@@ -42,11 +46,12 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { setupMasterPassword, verifyMasterPassword, STORAGE_VERIFY_KEY } from '@/utils/crypto';
-import { KeyRound, Lock, Eye, EyeOff } from 'lucide-vue-next';
+import { KeyRound, Lock, Eye, EyeOff, Info } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const emit = defineEmits(['unlocked']);
 
+const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
 const locked = ref(true);
 const isSetup = ref(!localStorage.getItem(STORAGE_VERIFY_KEY));
 const password = ref('');
@@ -55,6 +60,16 @@ const showPw = ref(false);
 const error = ref('');
 const loading = ref(false);
 const inputRef = ref(null);
+
+// Electron: auto-unlock if master password was persisted
+if (isElectron) {
+  const storedMaster = localStorage.getItem('webssh_exe_master');
+  if (storedMaster) {
+    sessionStorage.setItem('webssh_master', storedMaster);
+    locked.value = false;
+    emit('unlocked', storedMaster);
+  }
+}
 
 const canSubmit = computed(() => {
   if (isSetup.value) return password.value.length >= 4 && password.value === confirmPw.value;
@@ -92,12 +107,14 @@ async function trySubmit() {
     if (isSetup.value) {
       await setupMasterPassword(password.value);
       sessionStorage.setItem('webssh_master', password.value);
+      if (isElectron) localStorage.setItem('webssh_exe_master', password.value);
       locked.value = false;
       emit('unlocked', password.value);
     } else {
       const ok = await verifyMasterPassword(password.value);
       if (ok) {
         sessionStorage.setItem('webssh_master', password.value);
+        if (isElectron) localStorage.setItem('webssh_exe_master', password.value);
         locked.value = false;
         emit('unlocked', password.value);
       } else {
@@ -127,6 +144,14 @@ async function trySubmit() {
 }
 .unlock-title { font-size: 1.3em; font-weight: 700; margin: 0 0 0.35rem; }
 .unlock-desc { font-size: 0.8em; color: var(--bulma-text-light); margin-bottom: 1rem; }
+.unlock-exe-warn {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.5rem 0.65rem; margin-bottom: 0.75rem;
+  border-radius: 8px; font-size: 0.78em;
+  background: rgba(245, 158, 11, 0.12); color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  text-align: left; line-height: 1.4;
+}
 .unlock-form { display: flex; flex-direction: column; gap: 0.5rem; }
 .unlock-input-wrap {
   display: flex; align-items: center;

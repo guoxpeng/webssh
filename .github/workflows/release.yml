@@ -1,7 +1,8 @@
 name: Build Desktop App
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v[0-9]*.[0-9]*.0'
 jobs:
   build:
     runs-on: windows-latest
@@ -16,15 +17,15 @@ jobs:
         run: npm run build
       - name: Install electron deps and build
         run: |
-          cd electron-app
+          cd win
           npm install
           npm run build
-      - name: Upload installer
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WebSSH-Setup
-          path: electron-app/release/WebSSH Setup.exe
+          name: WebSSH-portable
+          path: release/WebSSH-portable.zip
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: electron-app/release/WebSSH Setup.exe
+          files: release/WebSSH-portable.zip

@@ -18,13 +18,16 @@
         <button class="cmd-act-btn" @click="pasteToTerminal" :title="t('common.paste')">
           <ClipboardPaste :size="12"/> {{ t('common.paste') }}
         </button>
+        <button class="cmd-act-btn" @click="clearTerminal" :title="t('terminal.clear')">
+          <Trash2 :size="12"/> {{ t('terminal.clear') }}
+        </button>
         <button class="cmd-act-btn" @click="toggleSnippets" :title="t('snippets.title')">
           <Star :size="12"/> {{ t('snippets.title') }}
         </button>
         <button class="cmd-act-btn" @click="toggleChat" :title="t('chat.title')">
           <Bot :size="12"/> AI
         </button>
-        <div class="cmd-dropdown" @click.stop>
+        <div class="cmd-dropdown" ref="cmdDropdownRef">
           <button class="cmd-act-btn" @click="showCmdMenu = !showCmdMenu" :title="t('common.more')">
             <Menu :size="12"/>
           </button>
@@ -43,11 +46,11 @@
       </div>
       <div class="command-input-bar">
         <span class="cmd-prefix">$</span>
-        <textarea ref="cmdInputRef" v-model="commandInput"
-                  :placeholder="t('terminal.commandPlaceholder')"
-                  class="cmd-input" rows="4"
-                  @keydown.enter.prevent="sendCommand"
-                  @keydown.escape="commandInput = ''; term?.focus()"/>
+            <textarea ref="cmdInputRef" v-model="commandInput"
+                      :placeholder="t('terminal.commandPlaceholder')"
+                      class="cmd-input" rows="4"
+                      @keydown.enter="onCmdEnter"
+                      @keydown.escape="commandInput = ''; term?.focus()"/>
         <button class="cmd-send-btn" @click="sendCommand" :disabled="!commandInput.trim()" :title="t('terminal.sendCommand')">
           <Send :size="15"/>
         </button>
@@ -55,35 +58,33 @@
     </div>
 
     <div class="mobile-keys-toolbar is-hidden-tablet">
-      <div class="mobile-keys-row">
-        <button class="mkey" @mousedown.prevent="sendKey('ESC')" title="Escape">ESC</button>
-        <button class="mkey" @mousedown.prevent="sendKey('TAB')" title="Tab">TAB</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_C')" title="Ctrl+C">^C</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_D')" title="Ctrl+D">^D</button>
-      </div>
-      <div class="mobile-keys-row">
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_A')" title="Ctrl+A (Home)">^A</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_E')" title="Ctrl+E (End)">^E</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_L')" title="Ctrl+L (Clear)">^L</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_U')" title="Ctrl+U (Kill)">^U</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_W')" title="Ctrl+W (Word)">^W</button>
-      </div>
-      <div class="mobile-keys-row">
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_R')" title="Ctrl+R (Search)">^R</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_K')" title="Ctrl+K (Cut)">^K</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_Y')" title="Ctrl+Y (Paste)">^Y</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_P')" title="Ctrl+P (Prev)">^P</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_N')" title="Ctrl+N (Next)">^N</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_X')" title="Ctrl+X">^X</button>
-        <button class="mkey" @mousedown.prevent="sendKey('CTRL_Z')" title="Ctrl+Z (Suspend)">^Z</button>
-      </div>
-      <div class="mobile-keys-row">
-        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('LEFT')" title="Left">◀</button>
-        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('DOWN')" title="Down">▼</button>
+      <div class="mobile-keys-row mobile-keys-row-main">
+        <button class="mkey mkey-sm" @mousedown.prevent="sendKey('ESC')" title="Escape">ESC</button>
+        <button class="mkey mkey-sm" @mousedown.prevent="sendKey('TAB')" title="Tab">TAB</button>
+        <span class="mkey-sep"></span>
         <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('UP')" title="Up">▲</button>
+        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('DOWN')" title="Down">▼</button>
+        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('LEFT')" title="Left">◀</button>
         <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('RIGHT')" title="Right">▶</button>
+        <span class="mkey-sep"></span>
         <button class="mkey" @mousedown.prevent="sendKey('ENTER')" title="Enter">↵</button>
-        <button class="mkey" @mousedown.prevent="sendKey('SPACE')" title="Space">␣</button>
+        <button class="mkey mkey-wider" @mousedown.prevent="sendKey('SPACE')" title="Space">␣</button>
+      </div>
+      <div class="mobile-keys-row mobile-keys-row-ctrl">
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_C')" title="Ctrl+C (Break)">^C</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_D')" title="Ctrl+D (EOF)">^D</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_Z')" title="Ctrl+Z (Suspend)">^Z</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_X')" title="Ctrl+X">^X</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_L')" title="Ctrl+L (Clear)">^L</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_U')" title="Ctrl+U (Kill)">^U</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_A')" title="Ctrl+A (Home)">^A</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_E')" title="Ctrl+E (End)">^E</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_W')" title="Ctrl+W (Word)">^W</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_K')" title="Ctrl+K (Cut)">^K</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_R')" title="Ctrl+R (Search)">^R</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_Y')" title="Ctrl+Y (Paste)">^Y</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_P')" title="Ctrl+P (Prev)">^P</button>
+        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_N')" title="Ctrl+N (Next)">^N</button>
       </div>
     </div>
   </div>
@@ -104,7 +105,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
-import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Menu, Bot, TerminalSquare, Settings, PlayCircle } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Menu, Bot, TerminalSquare, Settings, PlayCircle, Trash2 } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
@@ -115,6 +116,7 @@ const toggleSnippets = inject('toggleSnippets', () => {});
 const toggleCodeNotes = inject('toggleCodeNotes', () => {});
 const toggleChat = inject('toggleChat', () => {});
 const showCmdMenu = ref(false);
+const cmdDropdownRef = ref(null);
 const uiStore = useUiStore();
 
 function openSettings() {
@@ -157,12 +159,34 @@ function sendCommand() {
   commandInput.value = '';
   term?.focus();
 }
+function onCmdEnter(e) {
+  e.preventDefault();
+  if (e.shiftKey) {
+    const ta = cmdInputRef.value;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const val = commandInput.value;
+    commandInput.value = val.substring(0, start) + '\n' + val.substring(end);
+    nextTick(() => { ta.selectionStart = ta.selectionEnd = start + 1; });
+  } else {
+    sendCommand();
+  }
+}
+
+function clearTerminal() {
+  if (term) {
+    term.clear();
+    term.focus();
+  }
+}
 
 async function pasteToTerminal() {
   if (!wsService) return;
   try {
     const text = await navigator.clipboard.readText();
     if (text) wsService.sendMessage(text);
+    uiStore.addNotification({ message: t('terminal.pasted'), type: 'info', duration: 2000 });
   } catch {}
   term?.focus();
 }
@@ -171,6 +195,7 @@ function copyFromTerminal() {
   if (term?.hasSelection()) {
     const selected = term.getSelection();
     if (selected) { try { navigator.clipboard.writeText(selected); } catch {} }
+    uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 });
   }
 }
 
@@ -351,6 +376,10 @@ const callbacks = {
       if (cfg?.id && cfg?.auth_value) {
         connectionStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value);
       }
+      // Move out of "未成功连接" group on successful connection
+      if (cfg?.id) {
+        connectionStore.moveConnectionOutOfFailedGroup(cfg.id);
+      }
   term?.writeln(`\r\n\x1b[32m${t('terminal.connected')}\x1b[0m`);
       term?.focus();
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
@@ -358,7 +387,21 @@ const callbacks = {
     // ⚠ DO NOT intercept/filter onMessage — terminal data must pass through as-is.
     // Any JSON parsing here will break SSH when shell outputs JSON-like text.
     onMessage: (data) => {
-      if (!destroyed) term?.write(typeof data === 'string' ? data : new Uint8Array(data));
+      if (!destroyed) {
+        term?.write(typeof data === 'string' ? data : new Uint8Array(data));
+      }
+    },
+    onServerError: (rawMsg) => {
+      const friendly = friendlyError(rawMsg);
+      uiStore.addNotification({ message: friendly, type: 'danger', duration: 5000 });
+      emit('status-change', 'error');
+      emit('error-message', friendly);
+      // Write translated error to terminal instead of raw [Error] text
+      term?.writeln(`\r\n\x1b[31m${friendly}\x1b[0m\r\n`);
+      const cfg = props.nodeConfig;
+      if (cfg && (cfg.host || cfg.name)) {
+        connectionStore.saveFailedConnection(cfg);
+      }
     },
     onClose: (event, manual) => {
       if (destroyed) return;
@@ -376,9 +419,14 @@ const callbacks = {
       emit('status-change', 'error');
       emit('error-message', errorMessage);
       terminalStore.setActiveSendFunction(null);
-      term?.writeln(`\r\n\x1b[31m┌─────────────────────────────────────┐\x1b[0m`);
-      term?.writeln(`\x1b[31m│  ❌ ${errorMessage.padEnd(32)}\x1b[31m│\x1b[0m`);
-      term?.writeln(`\x1b[31m└─────────────────────────────────────┘\x1b[0m`);
+      term?.writeln(`\r\n\x1b[33m┌─────────────────────────────────────┐\x1b[0m`);
+      term?.writeln(`\x1b[33m│  ⚠ ${errorMessage.padEnd(32)}\x1b[33m│\x1b[0m`);
+      term?.writeln(`\x1b[33m└─────────────────────────────────────┘\x1b[0m`);
+      uiStore.addNotification({ message: errorMessage, type: 'danger', duration: 5000 });
+      const cfg = props.nodeConfig;
+      if (cfg && (cfg.host || cfg.name)) {
+        connectionStore.saveFailedConnection(cfg);
+      }
     }
   };
 
@@ -451,12 +499,14 @@ async function onTerminalContextMenu() {
     const selected = term.getSelection();
     if (selected) { try { navigator.clipboard.writeText(selected); } catch {} }
     term.clearSelection();
+    uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 });
     return;
   }
   if (!wsService) return;
   try {
     const text = await navigator.clipboard.readText();
     if (text) wsService.sendMessage(text);
+    uiStore.addNotification({ message: t('terminal.pasted'), type: 'info', duration: 2000 });
   } catch {}
   term.focus();
 }
@@ -523,6 +573,19 @@ function onTermSettingsChange(e) {
   if (detail.fontSize) { term.options.fontSize = detail.fontSize; fitAddon?.fit(); }
 }
 
+function onDocClickForMenu(e) {
+  if (showCmdMenu.value && cmdDropdownRef.value && !cmdDropdownRef.value.contains(e.target)) {
+    showCmdMenu.value = false;
+  }
+}
+watch(showCmdMenu, (val) => {
+  if (val) {
+    nextTick(() => document.addEventListener('click', onDocClickForMenu, { capture: true }));
+  } else {
+    document.removeEventListener('click', onDocClickForMenu, { capture: true });
+  }
+});
+
 onMounted(() => {
   initializeTerminal();
   window.addEventListener('term-settings-change', onTermSettingsChange);
@@ -530,6 +593,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   destroyed = true;
+  document.removeEventListener('click', onDocClickForMenu, { capture: true });
   window.removeEventListener('resize', handleResize);
   window.removeEventListener('term-settings-change', onTermSettingsChange);
   terminalStore.setActiveSendFunction(null);
@@ -550,22 +614,27 @@ onBeforeUnmount(() => {
   :deep(.xterm-rows) { will-change: transform; }
 }
 .mobile-keys-toolbar {
-  flex: 0 0 auto; padding: 0.35rem; display: none; flex-direction: column; gap: 0.25rem;
+  flex: 0 0 auto; padding: 0.2rem; display: none; flex-direction: column; gap: 0.15rem;
   justify-content: center; background-color: var(--term-bg); border-top: 1px solid var(--term-border);
   @media screen and (max-width: 768px) { display: flex; }
 }
 .mobile-keys-row {
-  display: flex; justify-content: center; gap: 0.3rem;
+  display: flex; justify-content: center; gap: 0.2rem; flex-wrap: wrap;
 }
+.mobile-keys-row-main { gap: 0.15rem; }
+.mobile-keys-row-ctrl { gap: 0.15rem; }
 .mkey {
   background-color: var(--term-border); color: var(--term-text); border: 1px solid var(--term-text-dim);
-  border-radius: 6px; padding: 0.35rem 0.5rem; min-width: 2.2rem;
-  font-size: 0.7rem; font-family: inherit; cursor: pointer; user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  &:hover { background-color: var(--term-text-dim); border-color: var(--term-text-dim); }
-  &:active { background-color: var(--term-border); transform: scale(0.95); }
+  border-radius: 5px; padding: 0.25rem 0.45rem; min-width: 2rem;
+  font-size: 0.65rem; font-family: inherit; cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent; line-height: 1.2;
+  &:active { background-color: var(--term-bg2); transform: scale(0.92); }
 }
-.mkey-arrow { background-color: var(--term-bg2); min-width: 2.5rem; }
+.mkey-sm { padding: 0.15rem 0.35rem; min-width: 1.8rem; font-size: 0.6rem; }
+.mkey-xs { padding: 0.12rem 0.25rem; min-width: 1.5rem; font-size: 0.55rem; }
+.mkey-wider { min-width: 3rem; }
+.mkey-arrow { background-color: var(--term-bg2); min-width: 2rem; }
+.mkey-sep { width: 1px; background: var(--term-text-dim); opacity: 0.2; margin: 0 0.1rem; }
 
 .quick-snippets-bar {
   display: flex; align-items: center; gap: 3px; padding: 2px 0.35rem;

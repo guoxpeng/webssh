@@ -82,12 +82,28 @@
           </div>
 
           <div class="settings-section">
-            <h4 class="settings-section-title">{{ t('settings.session') }}</h4>
-            <div class="settings-row">
-              <span>{{ t('settings.rememberCredentials') }}</span>
-              <button class="button is-small is-danger is-light" @click="clearCredentials">{{ t('settings.clearCredentials') }}</button>
+            <h4 class="settings-section-title">{{ t('settings.changePassword') }}</h4>
+            <div class="pw-change-form">
+              <input :type="pwShow ? 'text' : 'password'" v-model="pwCurrent"
+                     :placeholder="t('settings.currentPassword')" class="pw-input"
+                     autocomplete="off" @keydown.enter="changePassword"/>
+              <input :type="pwShow ? 'text' : 'password'" v-model="pwNew"
+                     :placeholder="t('settings.newPassword')" class="pw-input"
+                     autocomplete="off" @keydown.enter="changePassword"/>
+              <input :type="pwShow ? 'text' : 'password'" v-model="pwConfirm"
+                     :placeholder="t('settings.confirmNewPassword')" class="pw-input"
+                     autocomplete="off" @keydown.enter="changePassword"/>
+              <div class="pw-actions">
+                <label class="pw-show-label">
+                  <input type="checkbox" v-model="pwShow"/> {{ t('unlock.show') }}
+                </label>
+                <button class="pw-btn" :disabled="!pwCanSubmit" @click="changePassword">
+                  {{ t('settings.changePasswordBtn') }}
+                </button>
+              </div>
             </div>
           </div>
+
         </div>
 
         <div class="settings-footer">
@@ -102,12 +118,11 @@
 import { ref, watch, nextTick, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useUiStore } from '@/stores/uiStore';
-import { useConnectionStore } from '@/stores/connectionStore';
 import { setLocale } from '@/i18n';
 import { useNotifications } from '@/composables/useNotifications';
-
+import { verifyMasterPassword, setupMasterPassword } from '@/utils/crypto';
 const { t, locale } = useI18n();
-const { showSuccess, showWarning } = useNotifications();
+const { showSuccess, showError } = useNotifications();
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -115,7 +130,6 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const uiStore = useUiStore();
-const connectionStore = useConnectionStore();
 
 const panelRef = ref(null);
 
@@ -181,11 +195,6 @@ function adjustFontSize(delta) {
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { fontSize: newSize } }));
 }
 
-function clearCredentials() {
-  connectionStore.clearAllSessionCredentials();
-  showSuccess(t('settings.credentialsCleared'));
-}
-
 function onLocaleChange() {
   locale.value = currentLocale.value;
   setLocale(currentLocale.value);
@@ -202,6 +211,42 @@ watch(cursorStyle, (val) => {
 });
 watch(scrollback, (val) => localStorage.setItem('termScrollback', String(val)));
 
+// ── Change Password ──
+const pwCurrent = ref('');
+const pwNew = ref('');
+const pwConfirm = ref('');
+const pwShow = ref(false);
+const pwLoading = ref(false);
+
+const pwCanSubmit = computed(() =>
+  pwCurrent.value.length > 0 && pwNew.value.length >= 4 && pwNew.value === pwConfirm.value && !pwLoading.value
+);
+
+async function changePassword() {
+  if (!pwCanSubmit.value) return;
+  pwLoading.value = true;
+  try {
+    const ok = await verifyMasterPassword(pwCurrent.value);
+    if (!ok) {
+      showError(t('settings.incorrectCurrentPassword'));
+      pwLoading.value = false;
+      return;
+    }
+    await setupMasterPassword(pwNew.value);
+    sessionStorage.setItem('webssh_master', pwNew.value);
+    const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
+    if (isElectron) localStorage.setItem('webssh_exe_master', pwNew.value);
+    pwCurrent.value = '';
+    pwNew.value = '';
+    pwConfirm.value = '';
+    showSuccess(t('settings.passwordChanged'));
+  } catch (e) {
+    showError(t('settings.passwordChangeFailed') + ' ' + (e.message || ''));
+  } finally {
+    pwLoading.value = false;
+  }
+}
+
 function close() { emit('close'); }
 </script>
 
@@ -216,8 +261,8 @@ function close() { emit('close'); }
 }
 
 .settings-panel {
-  width: 320px;
-  max-width: 90vw;
+  width: 200px;
+  max-width: 200px;
   height: 100vh;
   background: var(--bulma-scheme-main);
   display: flex;
@@ -240,7 +285,7 @@ function close() { emit('close'); }
 .settings-body {
   flex: 1;
   overflow-y: auto;
-  padding: 0.85rem 1rem;
+  padding: 0.5rem 0.6rem;
   scrollbar-width: thin;
 }
 
@@ -274,8 +319,8 @@ function close() { emit('close'); }
 
 .theme-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
 }
 
 .theme-card {
@@ -371,13 +416,38 @@ function close() { emit('close'); }
 }
 
 .btn-confirm {
-  display: block; width: 100%;
-  padding: 0.65rem; border: none; border-radius: 10px;
-  font-size: 0.9em; font-weight: 600;
+  display: block; width: auto; margin: 0 auto; min-width: 80px;
+  padding: 0.4rem 1rem; border: none; border-radius: 8px;
+  font-size: 0.85em; font-weight: 600;
   background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%));
   color: white; cursor: pointer; transition: all 0.15s;
   &:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.35); transform: translateY(-1px); }
   &:active { transform: scale(0.98); }
+}
+
+.pw-change-form {
+  display: flex; flex-direction: column; gap: 0.4rem; padding-top: 0.25rem;
+}
+.pw-input {
+  width: 100%; padding: 0.4rem 0.5rem; border: 1.5px solid var(--bulma-border);
+  border-radius: 6px; font-size: 0.78em; outline: none; box-sizing: border-box;
+  background: var(--bulma-input-background-color); color: var(--bulma-text);
+  &:focus { border-color: var(--bulma-primary); }
+}
+.pw-actions {
+  display: flex; align-items: center; justify-content: space-between; margin-top: 0.15rem;
+}
+.pw-show-label {
+  display: flex; align-items: center; gap: 0.3rem; font-size: 0.72em; color: var(--bulma-text-light); cursor: pointer;
+  input { accent-color: var(--bulma-primary); }
+}
+.pw-btn {
+  padding: 0.35rem 0.75rem; border: none; border-radius: 6px;
+  font-size: 0.78em; font-weight: 600; cursor: pointer;
+  background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%));
+  color: white; transition: all 0.12s;
+  &:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(99,102,241,0.3); }
+  &:disabled { opacity: 0.5; cursor: default; }
 }
 
 @media (max-width: 480px) {

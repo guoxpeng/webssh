@@ -12,7 +12,7 @@
         <button class="panel-action-btn" @click="$emit('close')" :title="t('common.close')">
           <X :size="14"/>
         </button>
-        <input type="file" ref="importInput" accept=".json" style="display:none" @change="onImportFile"/>
+        <input type="file" ref="importInput" accept=".json,.enc" style="display:none" @change="onImportFile"/>
       </div>
     </div>
 
@@ -255,6 +255,13 @@ async function createNew() {
 
 async function doRestore(bak) {
   const credInfo = bak.inventory?.credentialCount ? t('backup.restoreCredInfo', { count: bak.inventory.credentialCount }) : '';
+  if (bak.encrypted && bak.inventory?.credentialCount > 0) {
+    const masterPwd = sessionStorage.getItem('webssh_master');
+    if (!masterPwd) {
+      showError(t('backup.setMasterPasswordHint'));
+      return;
+    }
+  }
   if (!confirm(t('backup.restoreConfirm', { label: bak.label, connCount: bak.connections.length }))) return;
   restoringId.value = bak.id;
   try {

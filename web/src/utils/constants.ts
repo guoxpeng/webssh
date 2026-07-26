@@ -15,6 +15,7 @@ export const AuthType = Object.freeze({
 export type AuthTypeType = (typeof AuthType)[keyof typeof AuthType];
 
 export const SESSION_STORAGE_CRED_PREFIX = 'sshWebAppCred_';
+export const LOCAL_STORAGE_CRED_PREFIX = 'sshWebAppCredLocal_';
 export const SESSION_STORAGE_CONNECTIONS_KEY = 'sshWebAppConnections_configs';
 
 export function getWsBaseUrl(): string {

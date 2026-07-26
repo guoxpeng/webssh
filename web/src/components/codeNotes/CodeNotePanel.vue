@@ -19,10 +19,10 @@
             <span class="note-name">{{ note.name }}</span>
             <span class="note-meta">{{ note.command.substring(0, 50) }}{{ note.command.length > 50 ? '...' : '' }}</span>
           </div>
+          <button class="note-fav-btn" :class="{ 'is-saved': isSaved(note) }" @click="saveToSnippet(note)" :title="t('snippets.addToFavorites')">
+            <ArrowUpRight :size="13"/>
+          </button>
           <div class="note-actions">
-            <button class="note-btn" :class="{ 'is-saved': isSaved(note) }" @click="saveToSnippet(note)" :title="t('snippets.addToSnippets')">
-              <Star :size="13" :fill="isSaved(note) ? 'currentColor' : 'none'"/>
-            </button>
             <button class="note-btn" @click="runNote(note)" :title="t('snippets.sendToTerminal')"><Play :size="13"/></button>
             <button class="note-btn" @click="copyNote(note)" :title="t('common.copy')"><ClipboardCopy :size="12"/></button>
             <button class="note-btn" @click="startEdit(note)" :title="t('common.edit')"><Edit3 :size="12"/></button>
@@ -61,7 +61,7 @@ import { useI18n } from 'vue-i18n';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useSnippetStore } from '@/stores/snippetStore';
-import { TerminalSquare, Play, ClipboardCopy, Edit3, Trash2, X, Star } from 'lucide-vue-next';
+import { TerminalSquare, Play, ClipboardCopy, Edit3, Trash2, X, ArrowUpRight } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const store = useCodeNoteStore();
@@ -155,10 +155,20 @@ function timeAgo(ts) {
 }
 .note-item {
   border-bottom: 1px solid var(--bulma-border-light);
+  position: relative;
   &:last-child { border-bottom: none; }
 }
 .note-top {
   display: flex; align-items: center; padding: 0.45rem 0.85rem; gap: 0.4rem;
+}
+.note-fav-btn {
+  position: absolute; top: 2px; right: 2px;
+  background: none; border: none; cursor: pointer;
+  padding: 0.15rem; border-radius: 3px;
+  color: var(--bulma-text-light); display: flex; align-items: center;
+  opacity: 0.5; z-index: 1;
+  &:hover { opacity: 1; color: var(--bulma-primary); }
+  &.is-saved { opacity: 1; color: var(--bulma-success); }
 }
 .note-info {
   flex: 1; min-width: 0; cursor: pointer;
@@ -171,7 +181,7 @@ function timeAgo(ts) {
   background: none; border: none; cursor: pointer; padding: 0.25rem; border-radius: 3px;
   color: var(--bulma-text-light); display: flex; align-items: center;
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-primary); }
-  &.is-saved { color: var(--bulma-warning); }
+  &.is-saved { color: var(--bulma-success); }
   &.is-danger:hover { color: var(--bulma-danger); }
 }
 .note-edit-form {

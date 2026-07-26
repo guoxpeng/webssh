@@ -182,9 +182,13 @@ function retryPane(idx) {
 function editPane(idx) {
   const pane = panes.value[idx];
   if (!pane || !pane.config) return;
-  const host = pane.config.host || '';
-  const { showInfo } = useNotifications();
-  showInfo(t('form.loadedForEditing', { name: pane.config.name || host }));
+  const connId = pane.config.id;
+  if (connId) {
+    connStore.loadConnectionForEditing(connId);
+  } else {
+    connStore.setCurrentNodeDetails({ ...pane.config });
+  }
+  router.push({ name: 'ConnectionHome' });
 }
 
 function onShellExit(idx) {

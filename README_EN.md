@@ -1,4 +1,4 @@
-# 🚀 WebSSH v3.0 — All Your Servers in One Browser Tab
+# WebSSH v3.1 — SSH Client in Your Browser
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
@@ -6,49 +6,47 @@
 
 ---
 
-## 🤔 What is this?
+## Overview
 
-**Manage all your servers from a browser** — click to SSH, transfer files, manage Docker. No client installation needed.
-
----
-
-## 🌟 Feature Comparison
-
-| Feature | 🏆 **WebSSH** | Termius | MobaXterm | PuTTY |
-|------|:-----------:|:-------:|:---------:|:-----:|
-| 100% Free | ✅ **Completely free** | ❌ Premium $$ | ❌ Premium $$ | ✅ |
-| Browser-based | ✅ **No install** | ❌ | ❌ | ❌ |
-| Works on phone/tablet | ✅ **All devices** | App required | ❌ | ❌ |
-| AES-256 encrypted storage | ✅ **Military-grade** | ✅ | ❌ | ❌ |
-| Master password | ✅ **Double encryption** | ✅ | ✅ | ❌ |
-| **Standalone file manager** | ✅ **SFTP without SSH session** | ❌ | ❌ | ❌ |
-| **Inline file editor** | ✅ **Double-click to edit remote files** | ❌ | ❌ | ❌ |
-| **Macro: record + batch + schedule** | ✅ **Automate everything** | ❌ | ✅ | ❌ |
-| **Docker management** | ✅ **View/start/stop/logs via web** 🐳 | ❌ | ❌ | ❌ |
-| **Snippet pin-to-top & drag** | ✅ **Reorder favorite commands** | ✅ | ❌ | ❌ |
-| Serial/UART | ✅ **COM port support** | ✅ | ✅ | ❌ |
-| SSH tunneling (3 modes) | ✅ **Local / Remote / Dynamic** | ✅ | ✅ | ✅ |
-| **Group drag-drop** | ✅ **Right-click full menu** | ✅ | ❌ | ❌ |
-| Multi-tab terminal | ✅ **Drag reorder + color + rename** | ✅ | ✅ | ❌ |
-| **Terminal search** | ✅ **Ctrl+F live search** | ❌ | ✅ | ❌ |
-| 4 themes | ✅ **One click switch** | ✅ | ✅ | ❌ |
-| i18n (English/Chinese) | ✅ **Built-in** | ❌ | ❌ | ❌ |
-| **PWA desktop install** | ✅ **Like a native app** | ❌ | ❌ | ❌ |
-| **Smart error messages** | ✅ **"Check IP / Verify password"** | ✅ | ❌ | ❌ |
-| Cloudflare Workers | ✅ **Global edge deploy** | ❌ | ❌ | ❌ |
-| Encrypted backup + sync | ✅ **Restore on any device** | ✅ | ❌ | ❌ |
+WebSSH is a web-based SSH client that runs in your browser. No local terminal emulator required. Connect to servers, transfer files, manage Docker containers, and automate batch operations — all from a browser tab. Supports Docker deployment, Windows desktop client, and Cloudflare Workers.
 
 ---
 
-## 🚀 Quick Start
+## Feature Comparison
 
-### Docker (fastest)
+| Feature | WebSSH | Termius | MobaXterm | PuTTY |
+|---|---|---|---|---|
+| License | Free (no limitations) | Subscription (Premium required) | Shareware (Premium required) | Free |
+| Runtime | Browser / Desktop app | Native client required | Native client required | Native client required |
+| Cross-platform | Desktop, mobile, tablet | Separate apps per platform | Windows only | Windows only |
+| Credential encryption | AES-256-GCM | Supported | Not supported | Not supported |
+| Master password | Supported | Supported | Supported | Not supported |
+| File manager (SFTP) | Independent of SSH session | Requires SSH connection | Requires SSH connection | Third-party tool required |
+| Remote file editing | In-browser inline editor | Not supported | Supported | Not supported |
+| Batch execution & scheduling | Record → Replay → Batch → Schedule | Not supported | Supported (scripting) | Not supported |
+| Docker management | In-browser container management | Not supported | Not supported | Not supported |
+| SSH tunneling | Local / Remote / Dynamic forwarding | Supported | Supported | Supported |
+| Group management | Drag & drop, context menu | Supported | Not supported | Not supported |
+| Multi-tab terminal | Drag reorder, color, rename | Supported | Supported | Not supported |
+| Terminal search (Ctrl+F) | Supported | Not supported | Supported | Not supported |
+| Theme system | 4 presets | Supported | Supported | Not supported |
+| Multi-language UI | English / Chinese | English | English | English |
+| PWA desktop install | Supported | Not supported | Not supported | Not supported |
+| Error diagnostics | Human-readable messages | Supported | Not supported | Not supported |
+| Encrypted backup & sync | Supported | Supported | Not supported | Not supported |
+| AI command generation | OpenAI API integration | Not supported | Not supported | Not supported |
+
+---
+
+## Deployment
+
+### Docker (recommended)
 
 ```bash
 docker run -d --name webssh -p 9627:9627 --restart=unless-stopped nameguoguo/webssh
 ```
 
-Or with docker-compose:
+Docker Compose:
 
 ```yaml
 services:
@@ -60,12 +58,13 @@ services:
       - "9627:9627"
 ```
 
-#### Advanced Docker (RDP/VNC + Docker management)
+For RDP/VNC proxy and Docker socket access:
 
 ```yaml
 services:
   webssh:
     image: nameguoguo/webssh
+    container_name: webssh
     restart: unless-stopped
     ports:
       - "9627:9627"
@@ -76,18 +75,17 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
   guacd:
     image: guacamole/guacd
+    container_name: guacd
     restart: unless-stopped
 ```
 
-> guacd and docker.sock are optional. SSH/Telnet/Serial work without them.
-
-### One-liner
+### One-click script
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/scripts/deploy.sh | bash
 ```
 
-### Manual
+### Manual installation
 
 ```bash
 git clone https://github.com/guoxpeng/webssh.git
@@ -95,115 +93,62 @@ cd webssh && npm install && npm run build
 node core/server/index.mjs
 ```
 
-Open `http://localhost:9627`
+Open `http://localhost:9627` in your browser.
 
-### Cloudflare Workers / Pages (global edge) ⚡
+### Windows Desktop Client
 
-> ⚠️ **Limitation**: CF deployment is based on `cf-pages` branch (lightweight). Only **SSH terminal** and **SSH test** are supported. SFTP, Docker, serial, bots, AI require Docker/VPS (`main` branch v3.0).
+#### System Requirements
 
-| Deploy type | Requirement | Command |
-|-------------|------------|---------|
-| **Workers** (Paid plan) | `wrangler.toml` pre-configured | `npm run worker:deploy` |
-| **Pages** | Create project in dashboard | See below |
+- Windows 10 64-bit or later
+- No Node.js or additional runtime required — the executable is self-contained.
 
-#### Pages Dashboard Configuration
+#### Download
 
-| Field | Value |
-|------|-----|
-| Production branch | `cf-pages` |
-| Build command | `npm run build && node build-worker.mjs` |
-| Output directory | `dist` |
-| Environment `NODE_VERSION` | `22` |
+| Package | Location |
+|---|---|
+| Portable (zip) | `win/release2/WebSSH-portable.zip` — extract and run `WebSSH.exe` |
+| Full (directory) | `win/release2/win-unpacked/` — run `WebSSH.exe` directly |
 
-> Workers requires `cloudflare:sockets` (Workers Paid plan). Pages uses `cf-pages` branch.
-
-### Dev mode
+#### Build from source
 
 ```bash
-# Terminal 1: backend
+npm run build && npm run icons && cd win && node build.mjs
+```
+
+---
+
+## Cloudflare Version
+
+> **Status: Under optimization.** The Cloudflare Workers/Pages variant is still being stabilized. Not recommended for production use at this time.
+
+---
+
+## Getting Started
+
+1. After deployment, set a **master password** on first launch. All stored credentials are encrypted with this password.
+2. Fill in the server details (name, host, username, password or private key) and click Connect.
+3. Saved servers can be recalled without re-entering credentials.
+4. Use drag-and-drop and the right-click context menu to organize server groups. A "Connect All" option is available per group.
+5. Record a macro once, then replay it across multiple servers or schedule it for later execution.
+
+---
+
+## Development
+
+```bash
+# Terminal 1: start backend
 node core/server/index.mjs
 
-# Terminal 2: frontend (hot reload)
+# Terminal 2: start frontend dev server (hot reload)
 npm run dev
 ```
 
 ---
 
-## 📖 How to Use
+## Tech Stack
 
-### 1. Set master password 🔐
-
-First visit sets a master password to encrypt all stored server credentials.
-
-### 2. Add a server
-
-Fill hostname, username, password (or key), click **Connect**. Save it to skip password next time.
-
-### 3. Organize groups
-
-- Group servers (production / staging)
-- **Drag** to reorder
-- Right-click group: rename / delete / **connect all**
-- **Pin** frequently used servers
-
-### 4. Macros 🤖
-
-Record commands → replay → **batch** across multiple servers → schedule
-
-### 5. Shortcuts
-
-- `Ctrl+F` search in terminal · `Ctrl+Tab` switch tabs
+Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Docker · Electron
 
 ---
 
-## 🤖 AI SSH Commands
-
-Configure OpenAI API key in the chat panel to let AI generate and execute shell commands:
-
-> Sidebar chat icon → switch to AI tab → fill API key + model → type "check disk usage"
-
----
-
-## 🏗 Architecture
-
-```
-webssh/
-├── web/                # Vue 3 + xterm.js frontend
-├── core/
-│   ├── server/          # Node.js backend
-│   │   ├── index.mjs    # Routes, middleware, startup
-│   │   └── lib/         # ssh / telnet / serial / sftp / chat / docker / session
-│   ├── worker/          # Cloudflare Workers
-│   └── build-worker.mjs
-├── android/             # Android shell (source tracked)
-├── docker/              # Docker configs
-└── scripts/             # Deploy & icon utilities
-```
-
----
-
-## ⚙ Environment Variables
-
-| Variable | Default | Description |
-|------|------|------|
-| `PORT` | `9627` | HTTP port |
-| `AUTH_TOKEN` | (empty) | API auth token |
-| `GUACD_HOST` | `127.0.0.1` | RDP/VNC proxy |
-| `GUACD_PORT` | `4822` | guacd port |
-| `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker socket |
-
-### Uninstall
-
-```bash
-cd webssh && bash scripts/uninstall.sh
-```
-
----
-
-## 🛠 Tech Stack
-
-Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Capacitor · dockerode · guacd
-
----
-
-> ⚠️ **Security**: Use inside intranet/VPN. For public access, set `AUTH_TOKEN` and enable HTTPS via reverse proxy.
+> **Security:** WebSSH is designed for intranet or VPN use. For public-facing deployments, set the `AUTH_TOKEN` environment variable and configure an HTTPS reverse proxy.

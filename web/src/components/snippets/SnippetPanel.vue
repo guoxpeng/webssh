@@ -23,9 +23,12 @@
     </div>
 
     <div v-if="showAddForm" class="add-form">
-      <input type="text" v-model="newTitle" :placeholder="t('snippets.titleField')" class="form-input" ref="titleInput"/>
-      <textarea v-model="newCommand" :placeholder="t('snippets.commandField')" class="form-textarea" rows="2"></textarea>
-      <input type="text" v-model="newTags" :placeholder="t('snippets.tagsField')" class="form-input"/>
+      <input type="text" v-model="newTitle" :placeholder="t('snippets.titleField')" class="form-input" ref="titleInput"
+             @keydown.enter.prevent="addNew"/>
+      <textarea v-model="newCommand" :placeholder="t('snippets.commandField')" class="form-textarea" rows="2"
+                @keydown.enter.ctrl="addNew" @keydown.enter.meta="addNew"></textarea>
+      <input type="text" v-model="newTags" :placeholder="t('snippets.tagsField')" class="form-input"
+             @keydown.enter.prevent="addNew"/>
       <div class="add-form-actions">
         <button class="add-btn" @click="addNew">{{ t('snippets.add') }}</button>
         <button class="cancel-btn" @click="showAddForm = false">{{ t('snippets.cancel') }}</button>

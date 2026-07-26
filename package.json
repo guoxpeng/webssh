@@ -1,7 +1,7 @@
 {
   "name": "webssh",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,7 +24,9 @@
     "cap:open:android": "npx cap open android",
     "cap:build:android": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug && echo 'APK: android/app/build/outputs/apk/debug/app-debug.apk'",
     "cap:open:ios": "npx cap open ios",
-    "cap:open:electron": "npx cap open @capacitor-community/electron"
+    "cap:open:electron": "npx cap open @capacitor-community/electron",
+    "icons": "node scripts/gen-icons.mjs",
+    "desktop": "npm run build && npm run icons && cd win && node build.mjs"
   },
   "dependencies": {
     "@capacitor-community/electron": "^5.0.1",
@@ -64,6 +66,7 @@
     "eslint-plugin-vue": "^10.10.0",
     "happy-dom": "^20.11.0",
     "jsdom": "^29.1.1",
+    "png-to-ico": "^3.0.2",
     "prettier": "^3.9.6",
     "sass": "^1.89.0",
     "typescript": "^5.8.3",

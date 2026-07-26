@@ -1,8 +1,7 @@
 <template>
-  <div class="workbench-layout" @keydown="onGlobalKeydown">
+  <div class="workbench-layout" :class="{ 'is-electron': isElectron }" @keydown="onGlobalKeydown">
     <SkipToContent />
-    <AppNavbar />
-    <AppNotification />
+    <AppNavbar v-if="!isElectron" />
     <div id="main-content" class="workbench-body" role="main" aria-label="Main content">
       <aside class="workbench-sidebar" :class="{ 'is-collapsed': sidebarCollapsed, 'is-mobile-open': mobileMenuOpen }"
              role="navigation" aria-label="Sidebar navigation">
@@ -28,7 +27,7 @@
           </router-link>
           <div class="sidebar-spacer"></div>
           <a class="sidebar-item" @click="showSnippets = !showSnippets; closeMobileMenu()" :title="t('nav.snippets')" role="button" tabindex="0">
-            <TerminalSquare :size="22" stroke-width="1.5"/>
+            <Star :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
           </a>
           <a class="sidebar-item" @click="showCodeNotes = !showCodeNotes; closeMobileMenu()" :title="t('codeNotes.title')" role="button" tabindex="0">
@@ -101,6 +100,7 @@
     </nav>
     <footer class="workbench-statusbar" role="contentinfo" aria-label="Status bar">
       <div class="statusbar-left">
+        <AppNotification />
       </div>
       <div class="statusbar-right">
         <span class="statusbar-item">{{ t('terminal.sessions', { count: terminalStore.sessionCount }) }}</span>
@@ -170,7 +170,7 @@ import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import AuditPanel from '@/components/audit/AuditPanel.vue';
-import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, TerminalSquare, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
+import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const APP_VERSION = '3.0.0';
@@ -179,6 +179,7 @@ const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
 const sidebarCollapsed = ref(false);
 const mobileMenuOpen = ref(false);
+const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
 const showMacro = ref(false);
 const showSettings = ref(false);
 const showSnippets = ref(false);
@@ -252,9 +253,11 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .workbench-layout { display: flex; flex-direction: column; height: 100dvh; max-height: 100dvh; overflow: hidden; background: var(--bulma-body-background-color); }
-.workbench-body { display: flex; flex: 1; margin-top: 3.25rem; min-height: 0; max-height: 100%; overflow: hidden; }
+.workbench-body { display: flex; flex: 1; min-height: 0; max-height: 100%; overflow: hidden; }
+.is-electron .workbench-body { margin-top: 0; }
 .workbench-sidebar {
   position: fixed; top: 3.25rem; left: 0; bottom: 24px; z-index: 100;
+  .is-electron & { top: 0; }
   width: 200px; background: var(--app-surface);
   border-right: 1px solid var(--app-border); padding: 1.5rem 0 0.75rem;
   display: flex; flex-direction: column; overflow-y: auto;

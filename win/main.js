@@ -1,9 +1,8 @@
-const { app, BrowserWindow, dialog } = require('electron');
-const { spawn } = require('child_process');
+const { app, BrowserWindow, dialog, Menu } = require('electron');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
-const kill = require('tree-kill');
 
 let mainWindow = null;
 let serverProcess = null;
@@ -25,31 +24,10 @@ function waitForPort(port, timeout = 15000) {
   });
 }
 
-function createLoadingWindow() {
-  const win = new BrowserWindow({
-    width: 420, height: 220,
-    frame: false, transparent: true, alwaysOnTop: true,
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
-    show: false,
-  });
-  win.loadURL(`data:text/html;charset=utf-8,
-    <html style="background:transparent;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui;">
-    <div style="background:rgba(255,255,255,0.95);padding:40px 60px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.3);text-align:center;">
-      <h2 style="margin:0 0 12px 0;color:#2c3e50;">WebSSH</h2>
-      <div style="width:40px;height:40px;margin:16px auto;border:4px solid #e0e0e0;border-top-color:#3498db;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-      <p style="margin:16px 0 0 0;color:#7f8c8d;font-size:14px;">Starting SSH service...</p>
-    </div>
-    <style>@keyframes spin{to{transform:rotate(360deg);}}</style>
-    </html>
-  `);
-  win.once('ready-to-show', () => win.show());
-  return win;
-}
-
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 800,
-    icon: path.join(__dirname, 'icon.ico'),
+    icon: path.join(APP_ROOT, 'icon.ico'),
     webPreferences: { nodeIntegration: false, contextIsolation: true },
     show: false,
   });
@@ -59,7 +37,12 @@ function createMainWindow() {
 }
 
 app.whenReady().then(async () => {
-  const loadingWin = createLoadingWindow();
+  // Electron 25+ no longer includes "Electron" in userAgent by default
+  // Restore it so our renderer can detect Electron context
+  if (!app.userAgentFallback.includes('Electron')) {
+    app.userAgentFallback += ' Electron';
+  }
+  Menu.setApplicationMenu(null); // Remove default menu bar
 
   const serverEntry = path.join(APP_ROOT, 'core', 'server', 'index.mjs');
   if (!fs.existsSync(serverEntry)) {
@@ -70,7 +53,7 @@ app.whenReady().then(async () => {
 
   serverProcess = spawn(process.execPath, [serverEntry], {
     cwd: APP_ROOT,
-    env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production' },
+    env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production', ELECTRON_RUN_AS_NODE: '1' },
     stdio: 'ignore',
     detached: false,
   });
@@ -90,14 +73,22 @@ app.whenReady().then(async () => {
     return;
   }
 
-  loadingWin.close();
   createMainWindow();
 });
 
+function killProcessTree(pid) {
+  try {
+    if (process.platform === 'win32') {
+      execSync(`taskkill /f /t /pid ${pid}`, { stdio: 'ignore', timeout: 3000 });
+    } else {
+      try { process.kill(-pid, 'SIGTERM'); } catch {}
+      try { process.kill(pid, 'SIGTERM'); } catch {}
+    }
+  } catch {}
+}
+
 app.on('window-all-closed', () => {
-  if (serverProcess && serverProcess.pid) {
-    kill(serverProcess.pid, 'SIGTERM', () => {});
-  }
+  if (serverProcess && serverProcess.pid) killProcessTree(serverProcess.pid);
   if (process.platform !== 'darwin') app.quit();
 });
 

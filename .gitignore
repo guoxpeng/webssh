@@ -104,8 +104,11 @@ android/.cxx/
 # =============================================
 # Electron desktop app
 # =============================================
-electron-app/node_modules/
-electron-app/release/
+win/node_modules/
+win/rcedit-x64.exe
+win/icon.png
+win/logo256.png
+release/win-unpacked/
 
 # =============================================
 # Misc

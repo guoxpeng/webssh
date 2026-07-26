@@ -26,8 +26,11 @@ const { showInstall, promptInstall, dismissInstall } = usePwaInstall();
 const uiStore = useUiStore();
 const unlocked = ref(false);
 
+const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
+
 function onUnlocked(masterPassword) {
   sessionStorage.setItem('webssh_master', masterPassword);
+  if (isElectron) localStorage.setItem('webssh_exe_master', masterPassword);
   unlocked.value = true;
 }
 
@@ -35,6 +38,12 @@ onMounted(() => {
   const stored = sessionStorage.getItem('webssh_master');
   if (stored) {
     unlocked.value = true;
+  } else if (isElectron) {
+    const exeMaster = localStorage.getItem('webssh_exe_master');
+    if (exeMaster) {
+      sessionStorage.setItem('webssh_master', exeMaster);
+      unlocked.value = true;
+    }
   }
   uiStore.initializeTheme();
 });

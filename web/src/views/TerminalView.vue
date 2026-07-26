@@ -245,7 +245,7 @@ function toggleSftpPanel() {
   if (showSftpPanel.value) {
     nextTick(() => {
       const container = document.querySelector('.terminal-main-area');
-      if (container) sftpWidth.value = Math.max(250, Math.min(800, Math.round(container.offsetWidth / 2)));
+      if (container) sftpWidth.value = Math.min(500, Math.max(180, Math.round(container.offsetWidth / 3)));
     });
   }
 }
@@ -273,7 +273,7 @@ function startDrag(e) {
   const startW = sftpWidth.value;
   function onMove(ev) {
     const diff = startX - ev.clientX;
-    sftpWidth.value = Math.max(250, Math.min(800, startW + diff));
+    sftpWidth.value = Math.max(180, Math.min(500, startW + diff));
   }
   function onUp() {
     dragging.value = false;
@@ -289,14 +289,18 @@ onMounted(() => {
   const area = document.querySelector('.terminal-main-area');
   if (area) {
     sftpResizeObserver = new ResizeObserver(() => {
-      if (!showSftpPanel.value) return;
       const avail = area.offsetWidth;
-      const maxW = Math.round(avail * 0.45);
-      const ideal = Math.min(sftpWidth.value, maxW);
-      if (ideal < 250) {
+      const oneThird = Math.round(avail / 3);
+      const thresholdShow = oneThird >= 200;
+      const thresholdHide = oneThird < 180;
+      const hasConnected = splitPaneRef.value?.panes?.some(p => p.status === 'connected');
+      if (thresholdHide && showSftpPanel.value) {
         showSftpPanel.value = false;
-      } else {
-        sftpWidth.value = Math.max(250, Math.min(800, ideal));
+      } else if (thresholdShow && !showSftpPanel.value && hasConnected) {
+        showSftpPanel.value = true;
+        sftpWidth.value = Math.min(500, Math.max(180, oneThird));
+      } else if (showSftpPanel.value) {
+        sftpWidth.value = Math.min(500, Math.max(180, oneThird));
       }
     });
     sftpResizeObserver.observe(area);
@@ -309,11 +313,12 @@ onActivated(() => {
 watch(() => splitPaneRef.value?.panes, (panes) => {
   if (!panes) return;
   const connected = panes.some(p => p.status === 'connected');
-  if (connected && !showSftpPanel.value) {
+  const container = document.querySelector('.terminal-main-area');
+  const oneThird = container ? Math.round(container.offsetWidth / 3) : 0;
+  if (connected && !showSftpPanel.value && oneThird >= 200) {
     showSftpPanel.value = true;
     nextTick(() => {
-      const container = document.querySelector('.terminal-main-area');
-      if (container) sftpWidth.value = Math.max(250, Math.min(800, Math.round(container.offsetWidth / 2)));
+      if (container) sftpWidth.value = Math.min(500, Math.max(180, oneThird));
     });
   }
 }, { deep: true, immediate: false });
@@ -343,8 +348,8 @@ onBeforeUnmount(() => {
 .toolbar-right { display: flex; align-items: center; gap: 0.5rem; }
 .toolbar-btn {
   background: none; border: 1px solid var(--bulma-border-light); border-radius: 6px;
-  padding: 0.3rem; cursor: pointer; color: var(--bulma-text-light); display: flex;
-  transition: all 0.12s;
+  padding: 0.3rem 0.5rem; cursor: pointer; color: var(--bulma-text-light); display: flex;
+  align-items: center; gap: 0.3rem; transition: all 0.12s;
   &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); }
   &.is-danger:hover { color: var(--bulma-danger); border-color: var(--bulma-danger); }
 }
