@@ -51,16 +51,22 @@ app.whenReady().then(async () => {
     return;
   }
 
+  const logPath = path.join(app.getPath('userData'), 'server.log');
+  const logStream = fs.createWriteStream(logPath, { flags: 'a' });
   serverProcess = spawn(process.execPath, [serverEntry], {
     cwd: APP_ROOT,
     env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production', ELECTRON_RUN_AS_NODE: '1' },
-    stdio: 'ignore',
+    stdio: ['ignore', logStream, logStream],
     detached: false,
   });
 
   serverProcess.on('exit', (code) => {
+    logStream.end();
     if (mainWindow) {
-      dialog.showErrorBox('Service Stopped', `SSH service exited (code ${code}).`);
+      if (code !== 0) {
+        const log = fs.readFileSync(logPath, 'utf8').trim().split('\n').slice(-10).join('\n');
+        dialog.showErrorBox('Service Stopped', `SSH service exited (code ${code}).\n\nLast logs:\n${log}`);
+      }
       app.quit();
     }
   });
