@@ -110,6 +110,8 @@ win/icon.png
 win/logo256.png
 release/win-unpacked/
 release[0-9]*/
+public/
+logo.png.backup
 
 # =============================================
 # Misc
