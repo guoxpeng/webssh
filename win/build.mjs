@@ -55,8 +55,9 @@ function patchIcon(rceditPath) {
   console.log('  Icon patched');
 }
 
-// Clean
+// Clean — kill processes on port 9627, then remove old build
 try { execSync('powershell -Command "Get-Process -Name WebSSH -ErrorAction SilentlyContinue | Stop-Process -Force"', { stdio: 'ignore' }); } catch {}
+try { execSync('powershell -Command "Get-NetTCPConnection -LocalPort 9627 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }"', { stdio: 'ignore' }); } catch {}
 if (existsSync(releaseDir)) {
   try { rmSync(releaseDir, { recursive: true }); } catch {
     execSync(`powershell -Command "Remove-Item -LiteralPath '${releaseDir}' -Recurse -Force"`, { stdio: 'ignore' });

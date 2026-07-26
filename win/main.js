@@ -93,10 +93,25 @@ function killProcessTree(pid) {
   } catch {}
 }
 
-app.on('window-all-closed', () => {
-  if (serverProcess && serverProcess.pid) killProcessTree(serverProcess.pid);
-  if (process.platform !== 'darwin') app.quit();
-});
+function cleanupPort(port) {
+  try {
+    if (process.platform === 'win32') {
+      execSync(`powershell -Command "Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }"`, { stdio: 'ignore', timeout: 3000 });
+    }
+  } catch {}
+}
 
+function cleanup() {
+  if (serverProcess && serverProcess.pid) killProcessTree(serverProcess.pid);
+  cleanupPort(PORT);
+}
+
+app.on('before-quit', () => cleanup());
+app.on('window-all-closed', () => { cleanup(); app.quit(); });
+process.on('exit', () => cleanup());
+
+// Ensure only one instance
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) app.quit();
+// Kill any leftover process on our port before starting
+cleanupPort(PORT);
