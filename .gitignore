@@ -12,6 +12,11 @@ dist-ssr/
 *.tsbuildinfo
 *.apk
 *.aab
+web/public/icon-*.png
+web/public/icon.svg
+web/public/apple-touch-icon.png
+web/public/logo.jpg
+web/public/manifest.json
 
 # =============================================
 # Runtime logs & debug artifacts
