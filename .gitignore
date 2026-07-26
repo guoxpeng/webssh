@@ -109,8 +109,7 @@ win/rcedit-x64.exe
 win/icon.png
 win/logo256.png
 release/win-unpacked/
-release4/
-release5/
+release[0-9]*/
 
 # =============================================
 # Misc
