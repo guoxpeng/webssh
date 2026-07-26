@@ -234,9 +234,29 @@ function cancelPasteFallback() {
 function copyFromTerminal() {
   if (term?.hasSelection()) {
     const selected = term.getSelection();
-    if (selected) { try { navigator.clipboard.writeText(selected); } catch {} }
-    uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 });
+    if (selected) {
+      copyText(selected, () => uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
+    }
   }
+}
+
+function copyText(text, onSuccess) {
+  try {
+    navigator.clipboard.writeText(text).then(() => onSuccess?.()).catch(() => fallbackExecCopy(text, onSuccess));
+  } catch {
+    fallbackExecCopy(text, onSuccess);
+  }
+}
+
+function fallbackExecCopy(text, onSuccess) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); onSuccess?.(); } catch {}
+  document.body.removeChild(ta);
 }
 
 function sendQuickSnippet(s) {
@@ -537,9 +557,10 @@ async function onTerminalContextMenu() {
   if (!term) return;
   if (term.hasSelection()) {
     const selected = term.getSelection();
-    if (selected) { try { navigator.clipboard.writeText(selected); } catch {} }
-    term.clearSelection();
-    uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 });
+    if (selected) {
+      term.clearSelection();
+      copyText(selected, () => uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
+    }
     return;
   }
   if (!wsService) return;
