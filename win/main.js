@@ -52,16 +52,16 @@ app.whenReady().then(async () => {
   }
 
   const logPath = path.join(app.getPath('userData'), 'server.log');
-  const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+  const logFd = fs.openSync(logPath, 'a');
   serverProcess = spawn(process.execPath, [serverEntry], {
     cwd: APP_ROOT,
     env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production', ELECTRON_RUN_AS_NODE: '1' },
-    stdio: ['ignore', logStream, logStream],
+    stdio: ['ignore', logFd, logFd],
     detached: false,
   });
 
   serverProcess.on('exit', (code) => {
-    logStream.end();
+    try { fs.closeSync(logFd); } catch {}
     if (mainWindow) {
       if (code !== 0) {
         const log = fs.readFileSync(logPath, 'utf8').trim().split('\n').slice(-10).join('\n');
