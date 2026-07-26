@@ -61,12 +61,14 @@ import { useI18n } from 'vue-i18n';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useSnippetStore } from '@/stores/snippetStore';
+import { useUiStore } from '@/stores/uiStore';
 import { TerminalSquare, Play, ClipboardCopy, Edit3, Trash2, X, ArrowUpRight } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const store = useCodeNoteStore();
 const terminalStore = useTerminalStore();
 const snippetStore = useSnippetStore();
+const uiStore = useUiStore();
 
 const editingId = ref(null);
 const editName = ref('');
@@ -81,6 +83,8 @@ function runNote(note) {
   if (terminalStore.activeSendFunction) {
     terminalStore.activeSendFunction(note.command + '\n');
     store.addNote(note.command, 'terminal');
+  } else {
+    uiStore.addNotification({ message: t('terminal.connectFirst'), type: 'warning', duration: 3000 });
   }
 }
 

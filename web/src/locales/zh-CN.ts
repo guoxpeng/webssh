@@ -138,6 +138,8 @@ export default {
     connected: '连接成功',
     copied: '已复制',
     pasted: '已粘贴',
+    pasteHere: '请在此粘贴文本',
+    pastePlaceholder: '在此粘贴 (Ctrl+V)，按 Enter 确认',
   },
   tunnel: {
     title: '隧道管理',

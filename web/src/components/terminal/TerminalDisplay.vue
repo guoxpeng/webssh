@@ -87,6 +87,20 @@
         <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_N')" title="Ctrl+N (Next)">^N</button>
       </div>
     </div>
+
+    <div v-if="showPasteFallback" class="paste-fallback-overlay" @click.self="cancelPasteFallback">
+      <div class="paste-fallback-box" @keydown.escape="cancelPasteFallback">
+        <p class="paste-fallback-label">{{ t('terminal.pasteHere') }}</p>
+        <textarea ref="pasteFallbackRef" v-model="pasteFallbackText"
+                  class="paste-fallback-textarea" rows="6"
+                  @keydown.enter.prevent="confirmPasteFallback"
+                  :placeholder="t('terminal.pastePlaceholder')"></textarea>
+        <div class="paste-fallback-actions">
+          <button class="button is-small" @click="cancelPasteFallback">{{ t('common.cancel') }}</button>
+          <button class="button is-small is-primary" @click="confirmPasteFallback" :disabled="!pasteFallbackText.trim()">{{ t('common.paste') }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -181,13 +195,39 @@ function clearTerminal() {
   }
 }
 
+const showPasteFallback = ref(false);
+const pasteFallbackText = ref('');
+const pasteFallbackRef = ref(null);
+
 async function pasteToTerminal() {
   if (!wsService) return;
   try {
     const text = await navigator.clipboard.readText();
-    if (text) wsService.sendMessage(text);
-    uiStore.addNotification({ message: t('terminal.pasted'), type: 'info', duration: 2000 });
+    if (text) {
+      wsService.sendMessage(text);
+      uiStore.addNotification({ message: t('terminal.pasted'), type: 'info', duration: 2000 });
+      term?.focus();
+      return;
+    }
   } catch {}
+  showPasteFallback.value = true;
+  nextTick(() => pasteFallbackRef.value?.focus());
+}
+
+function confirmPasteFallback() {
+  const text = pasteFallbackText.value;
+  if (text && wsService) {
+    wsService.sendMessage(text);
+    uiStore.addNotification({ message: t('terminal.pasted'), type: 'info', duration: 2000 });
+  }
+  pasteFallbackText.value = '';
+  showPasteFallback.value = false;
+  term?.focus();
+}
+
+function cancelPasteFallback() {
+  pasteFallbackText.value = '';
+  showPasteFallback.value = false;
   term?.focus();
 }
 
@@ -505,10 +545,15 @@ async function onTerminalContextMenu() {
   if (!wsService) return;
   try {
     const text = await navigator.clipboard.readText();
-    if (text) wsService.sendMessage(text);
-    uiStore.addNotification({ message: t('terminal.pasted'), type: 'info', duration: 2000 });
+    if (text) {
+      wsService.sendMessage(text);
+      uiStore.addNotification({ message: t('terminal.pasted'), type: 'info', duration: 2000 });
+      term.focus();
+      return;
+    }
   } catch {}
-  term.focus();
+  showPasteFallback.value = true;
+  nextTick(() => pasteFallbackRef.value?.focus());
 }
 
 function findNext() {
@@ -725,5 +770,29 @@ onBeforeUnmount(() => {
   padding: 0.2rem; cursor: pointer; color: var(--term-text); display: flex;
   &:hover { background: var(--term-border); color: var(--term-text); }
   &:disabled { opacity: 0.3; cursor: default; }
+}
+
+.paste-fallback-overlay {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.paste-fallback-box {
+  background: var(--bulma-scheme-main); border-radius: 8px;
+  padding: 1rem; width: 90%; max-width: 480px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+.paste-fallback-label {
+  font-size: 0.85em; color: var(--bulma-text); margin-bottom: 0.5rem;
+}
+.paste-fallback-textarea {
+  width: 100%; border: 1px solid var(--bulma-border);
+  border-radius: 6px; padding: 0.5rem; font-family: monospace;
+  font-size: 0.8em; background: var(--bulma-scheme-main-ter);
+  color: var(--bulma-text); outline: none; resize: vertical;
+  &:focus { border-color: var(--bulma-primary); }
+}
+.paste-fallback-actions {
+  display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;
 }
 </style>

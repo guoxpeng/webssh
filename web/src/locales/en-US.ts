@@ -138,6 +138,8 @@ export default {
     connected: 'Connection established',
     copied: 'Copied',
     pasted: 'Pasted',
+    pasteHere: 'Paste text here',
+    pastePlaceholder: 'Paste here (Ctrl+V), press Enter to confirm',
   },
   tunnel: {
     title: 'Tunnels',
