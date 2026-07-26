@@ -13,8 +13,9 @@ ios/
 electron/
 .wrangler/
 public/
-scripts/
+scripts/*
 *.md
 *.log
 *.env
 build.log
+!scripts/deploy.sh

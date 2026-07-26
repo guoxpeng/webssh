@@ -51,24 +51,21 @@ app.whenReady().then(async () => {
     return;
   }
 
-  const logPath = path.join(app.getPath('userData'), 'server.log');
-  const logFd = fs.openSync(logPath, 'a');
+  let serverLog = '';
   serverProcess = spawn(process.execPath, [serverEntry], {
     cwd: APP_ROOT,
     env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production', ELECTRON_RUN_AS_NODE: '1' },
-    stdio: ['ignore', logFd, logFd],
+    stdio: ['ignore', 'pipe', 'pipe'],
     detached: false,
   });
+  serverProcess.stdout.on('data', (d) => { serverLog += d; if (serverLog.length > 8000) serverLog = serverLog.slice(-6000); });
+  serverProcess.stderr.on('data', (d) => { serverLog += d; if (serverLog.length > 8000) serverLog = serverLog.slice(-6000); });
 
   serverProcess.on('exit', (code) => {
-    try { fs.closeSync(logFd); } catch {}
-    if (mainWindow) {
-      if (code !== 0) {
-        const log = fs.readFileSync(logPath, 'utf8').trim().split('\n').slice(-10).join('\n');
-        dialog.showErrorBox('Service Stopped', `SSH service exited (code ${code}).\n\nLast logs:\n${log}`);
-      }
-      app.quit();
+    if (code !== 0) {
+      dialog.showErrorBox('Service Stopped', `SSH service exited (code ${code}).\n\nLast logs:\n${serverLog.trim().split('\n').slice(-10).join('\n')}`);
     }
+    app.quit();
   });
 
   try {

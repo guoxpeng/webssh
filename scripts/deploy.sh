@@ -12,7 +12,7 @@ err()   { echo -e "  ${RED}[ER]${NC} $1"; exit 1; }
 clear
 echo ""
 echo -e "  ${BOLD}${CYAN}╔══════════════════════════════════════╗${NC}"
-echo -e "  ${BOLD}${CYAN}║        WebSSH · 一键部署              ║${NC}"
+echo -e "  ${BOLD}${CYAN}║        WebSSH · 一键部署                                             ║${NC}"
 echo -e "  ${BOLD}${CYAN}╚══════════════════════════════════════╝${NC}"
 echo ""
 

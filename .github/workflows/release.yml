@@ -17,6 +17,8 @@ jobs:
         run: npm install
       - name: Build frontend
         run: npm run build
+      - name: Generate icons
+        run: npm run icons
       - name: Install electron deps and build
         run: |
           cd win
