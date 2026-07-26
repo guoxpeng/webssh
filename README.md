@@ -106,13 +106,13 @@ node core/server/index.mjs
 
 | 版本 | 下载地址 |
 |---|---|
-| 便携版（zip） | `win/release2/WebSSH-portable.zip` — 解压后运行 `WebSSH.exe` |
-| 完整版（目录） | `win/release2/win-unpacked/` — 直接运行 `WebSSH.EXE` |
+| 便携版（zip） | `release/WebSSH-portable.zip` — 解压后运行 `WebSSH.exe` |
+| 完整版（目录） | `release/win-unpacked/` — 直接运行 `WebSSH.exe` |
 
 #### 构建
 
 ```bash
-npm run build && npm run icons && cd win && node build.mjs
+npm run desktop
 ```
 
 ---

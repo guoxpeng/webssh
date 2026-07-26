@@ -106,13 +106,13 @@ Open `http://localhost:9627` in your browser.
 
 | Package | Location |
 |---|---|
-| Portable (zip) | `win/release2/WebSSH-portable.zip` — extract and run `WebSSH.exe` |
-| Full (directory) | `win/release2/win-unpacked/` — run `WebSSH.exe` directly |
+| Portable (zip) | `release/WebSSH-portable.zip` — extract and run `WebSSH.exe` |
+| Full (directory) | `release/win-unpacked/` — run `WebSSH.exe` directly |
 
 #### Build from source
 
 ```bash
-npm run build && npm run icons && cd win && node build.mjs
+npm run desktop
 ```
 
 ---
