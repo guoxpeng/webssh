@@ -586,6 +586,22 @@ async function handleCloudBackup(request, env) {
     return json({ ok: true });
   }
 
+  if (action === 'saveVerify') {
+    const { verifyKey, salt } = body;
+    if (!verifyKey || !salt) return json({ error: 'Missing verifyKey or salt' }, 400);
+    await bucket.put('_master_verify', JSON.stringify({ verifyKey, salt }), {
+      customMetadata: { type: 'master_verify' },
+    });
+    return json({ ok: true });
+  }
+
+  if (action === 'getVerify') {
+    const obj = await bucket.get('_master_verify');
+    if (!obj) return json({ exists: false });
+    const text = await obj.text();
+    return json({ exists: true, ...JSON.parse(text) });
+  }
+
   return json({ error: 'Unknown action: ' + action }, 400);
 }
 

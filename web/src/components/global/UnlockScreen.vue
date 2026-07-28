@@ -1,6 +1,10 @@
 <template>
-  <div v-if="locked" class="unlock-overlay">
+    <div v-if="locked" class="unlock-overlay">
     <div class="unlock-card">
+      <div v-if="checking" class="unlock-loading">
+        <div class="btn-loading"></div>
+      </div>
+      <template v-else>
       <div class="unlock-icon">
         <KeyRound v-if="isSetup" :size="48"/>
         <Lock v-else :size="48"/>
@@ -44,6 +48,7 @@
           </button>
         </div>
       </div>
+    </template>
     </div>
   </div>
 
@@ -59,9 +64,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { setupMasterPassword, verifyMasterPassword, STORAGE_VERIFY_KEY } from '@/utils/crypto';
+import { setupMasterPassword, verifyMasterPassword, STORAGE_VERIFY_KEY, STORAGE_SALT_KEY } from '@/utils/crypto';
 import { KeyRound, Lock, Eye, EyeOff, Info } from 'lucide-vue-next';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 
@@ -70,7 +75,8 @@ const emit = defineEmits(['unlocked']);
 
 const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
 const locked = ref(true);
-const isSetup = ref(!localStorage.getItem(STORAGE_VERIFY_KEY));
+const isSetup = ref(false);
+const checking = ref(true);  // true while checking R2 for existing verify data
 const password = ref('');
 const confirmPw = ref('');
 const showPw = ref(false);
@@ -79,17 +85,62 @@ const loading = ref(false);
 const inputRef = ref(null);
 const clearConfirmVisible = ref(false);
 
-// Electron: auto-unlock if master password was persisted
-if (isElectron) {
-  const storedMaster = localStorage.getItem('webssh_exe_master');
-  if (storedMaster) {
-    sessionStorage.setItem('webssh_master', storedMaster);
-    locked.value = false;
-    emit('unlocked', storedMaster);
+async function cloudApi(action, payload = {}) {
+  try {
+    const resp = await fetch('/api/cloud/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload }),
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch { return null; }
+}
+
+async function pullVerifyFromCloud() {
+  const data = await cloudApi('getVerify');
+  if (data && data.exists && data.verifyKey && data.salt) {
+    localStorage.setItem(STORAGE_VERIFY_KEY, data.verifyKey);
+    localStorage.setItem(STORAGE_SALT_KEY, data.salt);
+    return true;
+  }
+  return false;
+}
+
+async function pushVerifyToCloud() {
+  const verifyKey = localStorage.getItem(STORAGE_VERIFY_KEY);
+  const salt = localStorage.getItem(STORAGE_SALT_KEY);
+  if (verifyKey && salt) {
+    await cloudApi('saveVerify', { verifyKey, salt });
   }
 }
 
+// Determine if password needs to be set up or entered
+onMounted(async () => {
+  // Electron: auto-unlock if master password was persisted
+  if (isElectron) {
+    const storedMaster = localStorage.getItem('webssh_exe_master');
+    if (storedMaster) {
+      sessionStorage.setItem('webssh_master', storedMaster);
+      locked.value = false;
+      checking.value = false;
+      emit('unlocked', storedMaster);
+      return;
+    }
+  }
+
+  // Check localStorage first, then fall back to R2
+  if (localStorage.getItem(STORAGE_VERIFY_KEY)) {
+    isSetup.value = false;
+  } else {
+    const found = await pullVerifyFromCloud();
+    isSetup.value = !found;
+  }
+  checking.value = false;
+});
+
 const canSubmit = computed(() => {
+  if (checking.value) return false;
   if (isSetup.value) return password.value.length >= 4 && password.value === confirmPw.value;
   return password.value.length > 0;
 });
@@ -126,6 +177,8 @@ async function trySubmit() {
       await setupMasterPassword(password.value);
       sessionStorage.setItem('webssh_master', password.value);
       if (isElectron) localStorage.setItem('webssh_exe_master', password.value);
+      // Sync verify data to R2 so it persists across deployments
+      pushVerifyToCloud().catch(() => {});
       locked.value = false;
       emit('unlocked', password.value);
     } else {
@@ -189,6 +242,7 @@ function clearAllData() {
   border: 1px solid rgba(245, 158, 11, 0.25);
   text-align: left; line-height: 1.4;
 }
+.unlock-loading { display: flex; align-items: center; justify-content: center; min-height: 200px; }
 .unlock-form { display: flex; flex-direction: column; gap: 0.5rem; }
 .unlock-input-wrap {
   display: flex; align-items: center;
