@@ -383,11 +383,17 @@ function adjustColor(hex, amount) {
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
-
+function injectSelectionStyles(container) {
+  const s = document.createElement('style');
+  s.textContent = `.xterm-selection div { opacity: 0.55 !important; }`;
+  container.appendChild(s);
+}
 
 const initializeTerminal = async () => {
   if (!xtermContainerRef.value || !props.nodeConfig || destroyed) return;
   await nextTick();
+
+  injectSelectionStyles(xtermContainerRef.value);
 
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
   const fitWidth = xtermContainerRef.value?.offsetWidth || 800;
