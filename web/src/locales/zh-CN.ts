@@ -131,6 +131,7 @@ export default {
     connected: '连接成功',
     copied: '已复制',
     pasted: '已粘贴',
+    pasteDisconnected: '终端未连接，已切换至命令输入框',
     pasteHere: '请在此粘贴文本',
     pastePlaceholder: '在此粘贴 (Ctrl+V)，按 Enter 确认',
   },

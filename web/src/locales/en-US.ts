@@ -131,6 +131,7 @@ export default {
     connected: 'Connection established',
     copied: 'Copied',
     pasted: 'Pasted',
+    pasteDisconnected: 'Terminal disconnected, switched to command input',
     pasteHere: 'Paste text here',
     pastePlaceholder: 'Paste here (Ctrl+V), press Enter to confirm',
   },

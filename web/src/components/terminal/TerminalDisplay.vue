@@ -211,7 +211,12 @@ async function pasteToTerminal() {
   }
   const tag = document.activeElement?.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  if (!wsService) return;
+  if (!wsService || wsService.getReadyState() !== WebSocket.OPEN) {
+    // WebSocket not available — paste into command input bar instead
+    nextTick(() => cmdInputRef.value?.focus());
+    uiStore.addNotification({ message: t('terminal.pasteDisconnected'), type: 'warning', duration: 4000 });
+    return;
+  }
   try {
     const text = await navigator.clipboard.readText();
     if (text) {
@@ -227,7 +232,7 @@ async function pasteToTerminal() {
 
 function confirmPasteFallback() {
   const text = pasteFallbackText.value;
-  if (text && wsService) {
+  if (text && wsService && wsService.getReadyState() === WebSocket.OPEN) {
     wsService.sendMessage(text);
     uiStore.addNotification({ message: t('terminal.pasted'), type: 'info', duration: 2000 });
   }
