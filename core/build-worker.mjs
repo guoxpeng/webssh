@@ -39,12 +39,18 @@ globalThis.Readable = __shim_stream.Readable;
 globalThis.Writable = __shim_stream.Writable;
 globalThis.Transform = __shim_stream.Transform;
 
+var __shim_events_emitter = __shim_events.EventEmitter;
+for (var __k in __shim_events) {
+  if (__k !== 'default') __shim_events_emitter[__k] = __shim_events[__k];
+}
+__shim_events_emitter.EventEmitter = __shim_events_emitter;
+
 var __CF_nodeModules = {
   'assert': __shim_assert, 'node:assert': __shim_assert,
   'buffer': { Buffer, ...__shim_buffer },
   'node:buffer': { Buffer, ...__shim_buffer },
   'crypto': __shim_crypto, 'node:crypto': __shim_crypto,
-  'events': __shim_events, 'node:events': __shim_events,
+  'events': __shim_events_emitter, 'node:events': __shim_events_emitter,
   'path': __shim_path, 'node:path': __shim_path,
   'stream': __shim_stream, 'node:stream': __shim_stream,
   'string_decoder': __shim_string_decoder, 'node:string_decoder': __shim_string_decoder,
