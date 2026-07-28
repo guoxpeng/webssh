@@ -490,11 +490,13 @@ async function handleDiagnostic() {
   test('ecdh_p256', () => { const e = crypto.createECDH('prime256v1'); e.generateKeys(); return 'OK'; });
   test('dh_group14', () => { const d = crypto.createDiffieHellman('modp14'); d.generateKeys(); return 'OK'; });
 
-  test('verify_create_and_hash', () => {
-    // Test that createVerify + createHash don't throw
+  test('verify_rsa_sha256', () => {
     const v = crypto.createVerify('sha256');
-    v.update(Buffer.from('test'));
-    return 'OK (no crash)';
+    v.update(Buffer.from('SGVsbG8gV29ybGQgU1NI', 'base64'));
+    const pub = '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6eBbE5kYs2HMJ9mS0eiF\nMk04LgUn0xGz4ZCPS5lJRaPNrYb4E2NcDbGvgnGRl0wlfo5Oji0AaJFqcO8R/xiq\n1WI/3C+YuM7hVEiQdA8btCNmOeQkukUBPJdyLDTEcU3L8zv1b7Qw2/peiJP9IGH3\ni9sLueT3cm5z57+vyvIGGIvoWT74Ij3GIriGUn5S7oe4sOV4o7ufPRj54RYkGZ3g\ndhmNVbSmnJbXAcy6Wlqc8q4JsGyN+agDpzGJYoGPjHLyNPSzKzA2KDIvzrHikw03\na5god9Q0Veb9fqxwDwyF6ApA7UD6G6xBp4ULDoEUaR7I1mLT+Y2Eh133ZG32PTZR\nywIDAQAB\n-----END PUBLIC KEY-----';
+    const sig = Buffer.from('K+9Sy1uckYmfw76r8m5SF9gTaVmG95mkZhrJQCv3S2Be3KGpo+U84pYTOiMT5xoBw5pY9yge48S3B9rvFThen4rzzYb0aHDKICqqeMK6tsRxJQSwRsVPkSVSuuxl2Iw+UEg5jguDq7JBwFAd0FIVgZjuivSX7TWUWcvohRiFbh8RlASBrV/LM39SD4IYHvIvPFRoglArgsucN7C/tsWoA69gWh7VTou/kBUwl4LouQCVObEnpYfM9J5HjGdDj2KdQAvoo/G8CME8VBB1uKInaqZuxou9V+kwGuOeQBhP4lkjkZU3pgLCWCuZTo8+Tgf4OcLX+kECx/35/5OKUOQ/mw==', 'base64');
+    const result = v.verify(pub, sig);
+    return result ? 'OK' : 'FAIL (verify returned false)';
   });
 
   test('ssh2_import', () => {
