@@ -490,6 +490,13 @@ async function handleDiagnostic() {
   test('ecdh_p256', () => { const e = crypto.createECDH('prime256v1'); e.generateKeys(); return 'OK'; });
   test('dh_group14', () => { const d = crypto.createDiffieHellman('modp14'); d.generateKeys(); return 'OK'; });
 
+  test('verify_create_and_hash', () => {
+    // Test that createVerify + createHash don't throw
+    const v = crypto.createVerify('sha256');
+    v.update(Buffer.from('test'));
+    return 'OK (no crash)';
+  });
+
   test('ssh2_import', () => {
     try { const { Client } = require('ssh2'); return Client ? 'OK' : 'NULL'; }
     catch (ee) { return `FAIL: ${ee.message}`; }
