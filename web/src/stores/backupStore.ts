@@ -50,13 +50,19 @@ export interface SchedulerConfig {
 }
 
 export interface CloudTarget {
-  url: string;
-  token: string;
   enabled: boolean;
   autoSync: boolean;
   syncInterval: number;
   lastSyncAt: number;
   lastSyncOk: boolean;
+}
+
+export interface CloudBackupMeta {
+  id: string;
+  label: string;
+  createdAt: number;
+  size: number;
+  inventory: BackupInventory;
 }
 
 const STORAGE_KEY = 'webssh_backups';
@@ -78,6 +84,7 @@ export const useBackupStore = defineStore('backup', () => {
   const backups = ref<BackupEntry[]>(loadBackups());
   const scheduler = ref<SchedulerConfig>(loadScheduler());
   const cloud = ref<CloudTarget>(loadCloudTarget());
+  const cloudBackups = ref<CloudBackupMeta[]>([]);
   const creating = ref(false);
   const restoring = ref(false);
 
@@ -180,7 +187,7 @@ export const useBackupStore = defineStore('backup', () => {
       scheduler.value.lastBackupAt = Date.now();
       persistScheduler();
 
-      if (cloud.value.enabled && cloud.value.autoSync && cloud.value.url) {
+      if (cloud.value.enabled && cloud.value.autoSync) {
         uploadToCloud(entry.id).then(ok => {
           if (ok) { cloud.value.lastSyncAt = Date.now(); cloud.value.lastSyncOk = true; persistCloud(); }
         }).catch(() => {});
@@ -343,49 +350,67 @@ export const useBackupStore = defineStore('backup', () => {
     persistCloud();
   }
 
+  function cloudApi(action: string, payload: any = {}): Promise<Response> {
+    return fetch('/api/cloud/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload }),
+    });
+  }
+
+  async function listCloudBackups(): Promise<boolean> {
+    if (!cloud.value.enabled) return false;
+    try {
+      const resp = await cloudApi('list');
+      if (!resp.ok) return false;
+      const data = await resp.json();
+      cloudBackups.value = data.backups || [];
+      return true;
+    } catch { return false; }
+  }
+
   async function uploadToCloud(backupId: string): Promise<boolean> {
-    if (!cloud.value.url || !cloud.value.enabled) return false;
+    if (!cloud.value.enabled) return false;
     const entry = backups.value.find(b => b.id === backupId);
     if (!entry) return false;
     try {
-      const resp = await fetch(cloud.value.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(cloud.value.token ? { Authorization: `Bearer ${cloud.value.token}` } : {}),
-          'X-Backup-Id': entry.id,
-          'X-Backup-Label': encodeURIComponent(entry.label),
-        },
-        body: JSON.stringify(entry),
-      });
-      if (resp.ok) { cloud.value.lastSyncAt = Date.now(); persistCloud(); return true; }
+      const resp = await cloudApi('upload', { backup: entry });
+      if (resp.ok) {
+        cloud.value.lastSyncAt = Date.now(); cloud.value.lastSyncOk = true; persistCloud();
+        listCloudBackups();
+        return true;
+      }
       return false;
     } catch { return false; }
   }
 
-  async function downloadFromCloud(): Promise<boolean> {
-    if (!cloud.value.url || !cloud.value.enabled) return false;
+  async function downloadFromCloud(cloudId: string): Promise<boolean> {
+    if (!cloud.value.enabled) return false;
     try {
-      const resp = await fetch(cloud.value.url, {
-        method: 'GET',
-        headers: { ...(cloud.value.token ? { Authorization: `Bearer ${cloud.value.token}` } : {}) },
-      });
+      const resp = await cloudApi('download', { id: cloudId });
       if (!resp.ok) return false;
       const data = await resp.json();
-      if (Array.isArray(data)) { for (const item of data) importBackup(JSON.stringify(item)); }
-      else importBackup(JSON.stringify(data));
-      cloud.value.lastSyncAt = Date.now(); persistCloud();
-      return true;
+      const ok = importBackup(JSON.stringify(data));
+      if (ok) { cloud.value.lastSyncAt = Date.now(); persistCloud(); }
+      return ok;
+    } catch { return false; }
+  }
+
+  async function deleteFromCloud(cloudId: string): Promise<boolean> {
+    try {
+      const resp = await cloudApi('delete', { id: cloudId });
+      if (resp.ok) { cloudBackups.value = cloudBackups.value.filter(b => b.id !== cloudId); return true; }
+      return false;
     } catch { return false; }
   }
 
   return {
     backups, sortedBackups, totalSize, inventory, creating, restoring,
-    scheduler, cloud,
+    scheduler, cloud, cloudBackups,
     createBackup, decryptBackup, restoreBackup, deleteBackup,
     exportBackup, importBackup,
     updateScheduler, shouldAutoBackup, cleanupOldBackups,
-    updateCloud, uploadToCloud, downloadFromCloud,
+    updateCloud, listCloudBackups, uploadToCloud, downloadFromCloud, deleteFromCloud,
   };
 });
 
@@ -399,6 +424,6 @@ function loadScheduler(): SchedulerConfig {
 function loadCloudTarget(): CloudTarget {
   try {
     const raw = localStorage.getItem(CLOUD_KEY);
-    return raw ? { url: '', token: '', enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true, ...JSON.parse(raw) } : { url: '', token: '', enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true };
-  } catch { return { url: '', token: '', enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true }; }
+    return raw ? { enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true, ...JSON.parse(raw) } : { enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true };
+  } catch { return { enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true }; }
 }

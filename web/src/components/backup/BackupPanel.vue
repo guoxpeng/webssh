@@ -104,8 +104,6 @@
       <div v-if="showCloudForm" class="section-body">
         <label class="toggle-label"><input type="checkbox" v-model="cloudEnabled" @change="updateCloudCfg"/><span>{{ t('backup.enableCloud') }}</span></label>
         <div v-if="cloudEnabled" class="cloud-fields">
-          <input type="url" v-model="cloudUrl" :placeholder="t('backup.url')" class="form-input" @change="updateCloudCfg"/>
-          <input type="password" v-model="cloudToken" :placeholder="t('backup.authToken')" class="form-input" @change="updateCloudCfg"/>
           <label class="toggle-label"><input type="checkbox" v-model="cloudAutoSync" @change="updateCloudCfg"/><span>{{ t('backup.autoSync') }}</span></label>
           <div v-if="cloudAutoSync" class="field-row">
             <label class="field-label">{{ t('backup.syncEvery') }}</label>
@@ -115,13 +113,33 @@
             </select>
           </div>
           <div class="cloud-actions">
+            <button class="cloud-btn" @click="refreshCloudList" :disabled="syncDownloading"><RotateCcw :size="12"/> {{ t('backup.refreshList') }}</button>
             <button class="cloud-btn" @click="syncToCloud" :disabled="syncUploading"><Upload :size="12"/> {{ syncUploading ? '...' : t('backup.uploadLatest') }}</button>
-            <button class="cloud-btn" @click="syncFromCloud" :disabled="syncDownloading"><Download :size="12"/> {{ syncDownloading ? '...' : t('backup.downloadFromCloud') }}</button>
           </div>
           <p class="info-text" v-if="store.cloud.lastSyncAt" :class="store.cloud.lastSyncOk ? 'is-ok' : 'is-err'">
             <span class="sync-indicator" :class="store.cloud.lastSyncOk ? 'is-ok' : 'is-err'"></span>
             {{ store.cloud.lastSyncOk ? t('backup.lastSyncOk', { time: formatTime(store.cloud.lastSyncAt) }) : t('backup.lastSyncFail', { time: formatTime(store.cloud.lastSyncAt) }) }}
           </p>
+        </div>
+      </div>
+      <div v-if="cloudEnabled && store.cloudBackups.length > 0" class="panel-section">
+        <div class="section-header">
+          <Archive :size="14"/> {{ t('backup.cloudBackupList') }}
+          <span class="section-badge">{{ store.cloudBackups.length }}</span>
+        </div>
+        <div class="backup-list">
+          <div v-for="bak in store.cloudBackups" :key="bak.id" class="backup-item">
+            <div class="backup-top">
+              <div class="backup-info">
+                <span class="backup-label">{{ bak.label }}</span>
+                <span class="backup-meta">{{ formatTime(bak.createdAt) }} &middot; {{ t('backup.connections', { count: bak.inventory?.connectionCount || 0 }) }}</span>
+              </div>
+              <div class="backup-actions">
+                <button class="bak-btn is-restore" @click="downloadCloud(bak)" :title="t('backup.download')"><Download :size="13"/></button>
+                <button class="bak-btn is-danger" @click="deleteCloud(bak)" :title="t('common.delete')"><Trash2 :size="13"/></button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -162,7 +180,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useBackupStore } from '@/stores/backupStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
@@ -198,8 +216,6 @@ const scheduleInterval = ref(store.scheduler.interval);
 const scheduleMax = ref(store.scheduler.maxBackups);
 
 const cloudEnabled = ref(store.cloud.enabled);
-const cloudUrl = ref(store.cloud.url);
-const cloudToken = ref(store.cloud.token);
 const cloudAutoSync = ref(store.cloud.autoSync);
 const cloudSyncInterval = ref(store.cloud.syncInterval);
 
@@ -318,27 +334,44 @@ async function doUpload(bak) {
   if (ok) showSuccess(t('backup.uploaded')); else showError(t('backup.uploadFailed'));
 }
 
+async function refreshCloudList() {
+  syncDownloading.value = true;
+  try {
+    const ok = await store.listCloudBackups();
+    if (ok) showSuccess(t('backup.listRefreshed')); else showError(t('backup.listFailed'));
+  } catch { showError(t('backup.listFailed')); } finally { syncDownloading.value = false; }
+}
+
 async function syncToCloud() {
   syncUploading.value = true;
   try {
     const latest = store.sortedBackups[0];
     if (!latest) { showError(t('backup.noBackupsToUpload')); return; }
-    await store.uploadToCloud(latest.id);
-    showSuccess(t('backup.uploaded'));
+    const ok = await store.uploadToCloud(latest.id);
+    if (ok) showSuccess(t('backup.uploaded')); else showError(t('backup.uploadFailed'));
   } catch { showError(t('backup.uploadFailed')); } finally { syncUploading.value = false; }
 }
 
-async function syncFromCloud() {
+async function downloadCloud(bak) {
   syncDownloading.value = true;
   try {
-    await store.downloadFromCloud();
-    showSuccess(t('backup.downloaded'));
+    const ok = await store.downloadFromCloud(bak.id);
+    if (ok) showSuccess(t('backup.downloaded')); else showError(t('backup.downloadFailed'));
   } catch { showError(t('backup.downloadFailed')); } finally { syncDownloading.value = false; }
 }
 
-function updateCloudCfg() {
-  store.updateCloud({ enabled: cloudEnabled.value, url: cloudUrl.value, token: cloudToken.value, autoSync: cloudAutoSync.value, syncInterval: cloudSyncInterval.value });
+async function deleteCloud(bak) {
+  const ok = await store.deleteFromCloud(bak.id);
+  if (ok) showSuccess(t('backup.cloudDeleted')); else showError(t('backup.deleteFailed'));
 }
+
+function updateCloudCfg() {
+  store.updateCloud({ enabled: cloudEnabled.value, autoSync: cloudAutoSync.value, syncInterval: cloudSyncInterval.value });
+}
+
+onMounted(() => {
+  if (store.cloud.enabled) store.listCloudBackups();
+});
 </script>
 
 <style lang="scss" scoped>

@@ -528,6 +528,67 @@ async function handleDiagnostic() {
   return json(results);
 }
 
+/* ── Cloud Backup (R2) ── */
+async function handleCloudBackup(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const { action, id, backup } = body;
+  const bucket = env.BACKUP_BUCKET;
+  if (!bucket) return json({ error: 'R2 bucket not configured' }, 500);
+
+  if (action === 'list') {
+    const objects = [];
+    for await (const obj of bucket.list()) {
+      objects.push({
+        id: obj.key.replace(/^backup_/, ''),
+        label: obj.customMetadata?.label || '',
+        createdAt: parseInt(obj.customMetadata?.createdAt || '0'),
+        size: obj.size,
+        inventory: {
+          connectionCount: parseInt(obj.customMetadata?.connectionCount || '0'),
+          snippetCount: parseInt(obj.customMetadata?.snippetCount || '0'),
+          hasPassword: obj.customMetadata?.hasPassword === 'true',
+        },
+      });
+    }
+    objects.sort((a, b) => b.createdAt - a.createdAt);
+    return json({ backups: objects });
+  }
+
+  if (action === 'upload') {
+    if (!backup || !backup.id) return json({ error: 'Missing backup data' }, 400);
+    const payload = JSON.stringify(backup);
+    const inv = backup.inventory || {};
+    await bucket.put('backup_' + backup.id, payload, {
+      customMetadata: {
+        label: String(backup.label || ''),
+        createdAt: String(backup.createdAt || Date.now()),
+        connectionCount: String(inv.connectionCount || 0),
+        snippetCount: String(inv.snippetCount || 0),
+        hasPassword: inv.hasPassword ? 'true' : 'false',
+      },
+    });
+    return json({ ok: true });
+  }
+
+  if (action === 'download') {
+    if (!id) return json({ error: 'Missing backup id' }, 400);
+    const obj = await bucket.get('backup_' + id);
+    if (!obj) return json({ error: 'Backup not found' }, 404);
+    const text = await obj.text();
+    return new Response(text, {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'X-Content-Type-Options': 'nosniff' },
+    });
+  }
+
+  if (action === 'delete') {
+    if (!id) return json({ error: 'Missing backup id' }, 400);
+    await bucket.delete('backup_' + id);
+    return json({ ok: true });
+  }
+
+  return json({ error: 'Unknown action: ' + action }, 400);
+}
+
 /* ── Main fetch handler ── */
 export default {
   async fetch(request, env, ctx) {
@@ -556,6 +617,11 @@ export default {
     /* SFTP HTTP API (returns 501 — use WebSocket instead) */
     if (url.pathname.startsWith('/api/sftp/') && request.method === 'POST') {
       return handleSFTP(request, url);
+    }
+
+    /* Cloud backup (R2) */
+    if (url.pathname === '/api/cloud/backup' && request.method === 'POST') {
+      return handleCloudBackup(request, env);
     }
 
     /* Docker */

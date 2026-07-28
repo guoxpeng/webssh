@@ -4,5 +4,9 @@ compatibility_flags = ["nodejs_compat"]
 
 pages_build_output_dir = "dist/client"
 
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "webssh-backups"
+
 # Workers deployment (requires Paid plan for cloudflare:sockets)
 # Deploy: npm run worker:deploy
