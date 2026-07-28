@@ -161,7 +161,7 @@ export const useBackupStore = defineStore('backup', () => {
 
       const entry: BackupEntry = {
         id: generateId(),
-        label: label || `Backup ${new Date().toLocaleDateString()}`,
+        label: label || (() => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `webssh-backup-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}`; })(),
         createdAt: Date.now(),
         size: estimateDataSize(allData),
         version: BACKUP_VERSION,
