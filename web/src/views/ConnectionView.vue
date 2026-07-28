@@ -265,7 +265,15 @@ function onImportFile(e) {
       const imported = JSON.parse(ev.target?.result || '[]');
       if (!Array.isArray(imported)) throw new Error('Invalid format');
       let count = 0;
-      for (const conn of imported) { if (conn.name && conn.host) { connectionStore.addConnection(conn); count++; } }
+      for (const conn of imported) {
+        if (conn.name && conn.host) {
+          const added = connectionStore.addConnection(conn);
+          if (conn.auth_value && added?.id) {
+            connectionStore.saveCredentialToSessionStorage(added.id, conn.auth_type || 'password', conn.auth_value);
+          }
+          count++;
+        }
+      }
       showSuccess(t('server.exported', { count }));
     } catch { showError(t('server.importFailed')); }
   };
