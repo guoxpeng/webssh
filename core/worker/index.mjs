@@ -451,7 +451,7 @@ async function handleTerminalWS(request) {
 /* ── Crypto Diagnostic ── */
 async function handleDiagnostic() {
   const results = {};
-  const crypto = await import('node:crypto').then(m => m.default || m).catch(() => null);
+  const crypto = require('crypto');
 
   function test(name, fn) {
     try { results[name] = fn(); } catch (e) { results[name] = `FAIL: ${e.message}`; }

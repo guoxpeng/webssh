@@ -77,10 +77,14 @@ globalThis.require = function require(id) {
 
 // Override unenv crypto stubs with pure JS implementations
 ${CRYPTO_POLYFILL}
-Object.defineProperties(__shim_crypto, {
-  createECDH: { configurable:true, writable:true, value: createECDH },
-  createDiffieHellman: { configurable:true, writable:true, value: createDiffieHellman },
+__CF_nodeModules['crypto'] = new Proxy(__shim_crypto, {
+  get(t, p) {
+    if (p === 'createECDH') return createECDH;
+    if (p === 'createDiffieHellman') return createDiffieHellman;
+    return t[p];
+  },
 });
+__CF_nodeModules['node:crypto'] = __CF_nodeModules['crypto'];
 `;
 
 await esbuild.build({
