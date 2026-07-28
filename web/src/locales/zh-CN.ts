@@ -225,6 +225,7 @@ export default {
     exported: '备份已导出。',
     imported: '备份已导入。',
     importFailed: '无效的备份文件。',
+    importPasswordPrompt: '请输入加密密码以解密备份文件：',
     uploadFailed: '上传失败，请检查 URL 和令牌。',
     downloadFailed: '下载失败。',
     created: '备份已创建：{label}',

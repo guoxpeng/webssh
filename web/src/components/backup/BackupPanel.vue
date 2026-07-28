@@ -296,7 +296,16 @@ async function onImportFile(e) {
   if (!file) return;
   const text = await file.text();
   e.target.value = '';
+  // Try direct JSON import (new .json format)
   if (store.importBackup(text)) { showSuccess(t('backup.imported')); return; }
+  // Fallback: try decryption (old .enc format)
+  const pwd = prompt(t('backup.importPasswordPrompt'));
+  if (!pwd) { showError(t('backup.importFailed')); return; }
+  const { decryptBackupData } = await import('@/utils/crypto');
+  const decrypted = await decryptBackupData(text.trim(), pwd);
+  if (decrypted?.data && store.importBackup(JSON.stringify(decrypted.data))) {
+    showSuccess(t('backup.imported')); return;
+  }
   showError(t('backup.importFailed'));
 }
 

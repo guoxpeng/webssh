@@ -3,7 +3,7 @@ import { Client } from 'ssh2';
 import { Duplex } from 'stream';
 
 const SSH_ALGORITHMS = {
-  // Prefer ECDH/Curve25519 (Web Crypto native); fallback to DH group14 (workerd polyfill)
+  // Pure JS polyfill enables ECDH + DH group14
   kex: ['ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group14-sha256'],
   // CTR/CBC handled by Web Crypto AES; GCM may work on newer workerd; ChaCha20-Poly1305 as last resort
   cipher: ['aes256-gcm@openssh.com', 'aes128-gcm@openssh.com', 'aes256-ctr', 'aes192-ctr', 'aes128-ctr', 'aes256-cbc', 'aes128-cbc'],

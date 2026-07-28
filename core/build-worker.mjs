@@ -1,9 +1,11 @@
 import * as esbuild from 'esbuild';
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const CRYPTO_POLYFILL = readFileSync(join(__dirname, 'worker/shims/crypto-polyfill.mjs'), 'utf-8').replace(/export\s+\{[\s\S]*?\}\s*;?/, '');
 
 const outDir = join('dist', 'client');
 if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
@@ -72,6 +74,13 @@ globalThis.require = function require(id) {
   if (__CF_nodeModules[id] !== undefined) return __CF_nodeModules[id];
   throw new Error('[webssh worker] Cannot require("' + id + '") in CF Workers');
 };
+
+// Override unenv crypto stubs with pure JS implementations
+${CRYPTO_POLYFILL}
+Object.defineProperties(__shim_crypto, {
+  createECDH: { configurable:true, writable:true, value: createECDH },
+  createDiffieHellman: { configurable:true, writable:true, value: createDiffieHellman },
+});
 `;
 
 await esbuild.build({

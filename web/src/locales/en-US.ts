@@ -225,6 +225,7 @@ export default {
     exported: 'Backup exported.',
     imported: 'Backup imported.',
     importFailed: 'Invalid backup file.',
+    importPasswordPrompt: 'Enter encryption password to decrypt backup file:',
     uploadFailed: 'Upload failed. Check URL and token.',
     downloadFailed: 'Download failed.',
     created: 'Backup created: {label}',
