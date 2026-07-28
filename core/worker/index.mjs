@@ -390,7 +390,10 @@ async function handleTerminalWS(request) {
   async function openSSH() {
     try {
       const tcpSocket = connect(`${cfgData.host}:${cfgData.port || 22}`);
-      await tcpSocket.opened;
+      await Promise.race([
+        tcpSocket.opened,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TCP connection timeout')), 15000)),
+      ]);
       stream = new CloudflareSocketDuplex(tcpSocket);
       conn = new Client();
       setupSSHClient(conn, cfgData.auth_value);
@@ -403,6 +406,7 @@ async function handleTerminalWS(request) {
           channel.on('data', (data) => { try { if (server.readyState === 1) server.send(typeof data === 'string' ? data : new Uint8Array(data)); } catch {} });
           channel.stderr.on('data', (data) => { try { if (server.readyState === 1) server.send(typeof data === 'string' ? data : new Uint8Array(data)); } catch {} });
           channel.on('close', () => cleanup());
+          try { server.send('{"type":"ssh_ready"}'); } catch {}
         });
       });
       conn.on('error', (err) => {
