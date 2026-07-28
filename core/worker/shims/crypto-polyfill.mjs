@@ -101,8 +101,12 @@ function parseDER(buf, offset) {
   if (buf[offset] === 0x02) { // INTEGER
     const len = parseDERLen(buf, offset + 1);
     const start = offset + 2 + (buf[offset+1] >= 0x80 ? (buf[offset+1] & 0x7f) : 0);
-    let val = buf.subarray(start, start + len);
-    return { tag: 0x02, length: len, value: val, next: start + len };
+    return { tag: 0x02, length: len, value: buf.subarray(start, start + len), next: start + len };
+  }
+  if (buf[offset] === 0x03) { // BIT STRING
+    const len = parseDERLen(buf, offset + 1);
+    const start = offset + 2 + (buf[offset+1] >= 0x80 ? (buf[offset+1] & 0x7f) : 0);
+    return { tag: 0x03, length: len, data: buf.subarray(start, start + len), next: start + len };
   }
   throw new Error('Unknown DER tag: ' + buf[offset]);
 }
@@ -129,7 +133,7 @@ const DIGEST_INFO = {
   'sha1':   [0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14],
 };
 const HASH_FNS = {
-  'sha256': (d) => sha256(d),
+  'sha256': (d) => { const B = getBuf(); return B.from(require('crypto').createHash('sha256').update(d).digest()); },
   'sha384': (d) => { const B = getBuf(); return B.from(require('crypto').createHash('sha384').update(d).digest()); },
   'sha512': (d) => { const B = getBuf(); return B.from(require('crypto').createHash('sha512').update(d).digest()); },
   'sha1':   (d) => { const B = getBuf(); return B.from(require('crypto').createHash('sha1').update(d).digest()); },
@@ -190,7 +194,30 @@ function rsaVerify(hashName, data, sigBuf, nBI, eBI) {
 function rsaKeyFromPEM(pem) {
   try {
     const der = parsePEM(pem);
-    const seq = parseDER(der, 0);
+    let data = der;
+    // If SPKI format: SEQUENCE { SEQUENCE { OID, NULL }, BIT STRING { PKCS1_DER } }
+    // Check if the inner element is a SEQUENCE (not INTEGER) → SPKI
+    const outer = parseDER(data, 0);
+    if (outer.tag !== 0x30) throw new Error('Expected SEQUENCE');
+    // Try to parse first inner element
+    const inner0 = parseDER(outer.data, 0);
+    if (inner0.tag === 0x30) {
+      // SPKI format: unwrap BIT STRING payload
+      // Skip algorithm identifier SEQUENCE, read BIT STRING
+      const algoSeq = inner0;
+      const bitStr = parseDER(outer.data, algoSeq.next);
+      if (bitStr.tag !== 0x03) throw new Error('Expected BIT STRING in SPKI');
+      // BIT STRING: first byte is unused bits count, then raw DER follows
+      const rawInner = bitStr.data.subarray(1);
+      data = rawInner;
+    } else if (inner0.tag === 0x02) {
+      // PKCS#1 format: data is already correct
+      data = der;
+    } else {
+      throw new Error('Unexpected DER structure');
+    }
+    // Parse PKCS1: SEQUENCE { INTEGER n, INTEGER e }
+    const seq = parseDER(data, 0);
     if (seq.tag !== 0x30) throw new Error('Expected SEQUENCE');
     const nInt = parseDER(seq.data, 0);
     if (nInt.tag !== 0x02) throw new Error('Expected INTEGER');
@@ -448,4 +475,4 @@ function createDiffieHellmanGroup(groupName) {
   return createDiffieHellman(groupName);
 }
 
-export { createECDH, createDiffieHellman, createDiffieHellmanGroup };
+export { createECDH, createDiffieHellman, createDiffieHellmanGroup, createVerify };
