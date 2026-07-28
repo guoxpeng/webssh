@@ -24,7 +24,7 @@ export function handleSFTP(ws, config) {
       send({ type: 'status', status: 'connecting' });
       try {
         console.log('[SFTP] calling withSessionSftp');
-        await withSessionSftp(config, { timeout: 1800000 }, async (sftp, client) => {
+        await withSessionSftp(config, async (sftp, client) => {
           if (closed) return;
           sftpSession = sftp;
           send({ type: 'status', status: 'connected' });
