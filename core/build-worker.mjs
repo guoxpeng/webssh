@@ -70,10 +70,11 @@ var __CF_nodeModules = {
   'http': { Agent: class Agent {} }, 'https': { Agent: class Agent {} },
 };
 
-globalThis.require = function require(id) {
+var require = function(id) {
   if (__CF_nodeModules[id] !== undefined) return __CF_nodeModules[id];
   throw new Error('[webssh worker] Cannot require("' + id + '") in CF Workers');
 };
+globalThis.require = require;
 
 // Override unenv crypto stubs with pure JS implementations
 ${CRYPTO_POLYFILL}
@@ -82,6 +83,8 @@ __CF_nodeModules['crypto'] = new Proxy(__shim_crypto, {
     if (p === 'createECDH') return createECDH;
     if (p === 'createDiffieHellman' || p === 'createDiffieHellmanGroup') return createDiffieHellmanGroup;
     if (p === 'createVerify') return createVerify;
+    if (p === 'createCipheriv') return createCipheriv;
+    if (p === 'createDecipheriv') return createDecipheriv;
     // These convenience functions (crypto.sign / crypto.verify) may be unenv stubs in workerd.
     // Returning undefined forces ssh2 to use the createSign/createVerify path (which are polyfilled).
     if (p === 'sign' || p === 'verify') return undefined;

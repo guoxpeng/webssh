@@ -1,6 +1,6 @@
 name = "webssh"
 compatibility_date = "2026-07-23"
-compatibility_flags = ["nodejs_compat_v2"]
+compatibility_flags = ["nodejs_compat"]
 
 pages_build_output_dir = "dist/client"
 
