@@ -240,23 +240,32 @@ function cancelPasteFallback() {
   term?.focus();
 }
 
+function copyToClipboard(text, done) {
+  navigator.clipboard.writeText(text).then(done).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    done();
+  });
+}
+
 function copyFromTerminal() {
   const cmdInput = cmdInputRef.value;
   if (cmdInput && document.activeElement === cmdInput) {
     const start = cmdInput.selectionStart;
     const end = cmdInput.selectionEnd;
     if (start !== end) {
-      const text = commandInput.value.substring(start, end);
-      navigator.clipboard.writeText(text);
-      uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 });
+      copyToClipboard(commandInput.value.substring(start, end), () =>
+        uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
     }
     return;
   }
   if (term?.hasSelection()) {
     const selected = term.getSelection();
     if (selected) {
-      navigator.clipboard.writeText(selected);
-      uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 });
+      copyToClipboard(selected, () =>
+        uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
     }
   }
 }
@@ -547,7 +556,7 @@ async function onTerminalContextMenu() {
     const selected = term.getSelection();
     if (selected) {
       term.clearSelection();
-      copyText(selected, () => uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
+      copyToClipboard(selected, () => uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
     }
     return;
   }

@@ -1,7 +1,8 @@
 export default {
   app: {
     name: 'WebSSH',
-    tagline: 'Easy remote server management',
+    tagline: 'A simple and powerful remote server management tool',
+    cfBackupWarning: '⚠️ Deployed on Cloudflare Workers. All connection configs, credentials, snippets and other data are stored in browser local storage only. Please regularly use the "Backup" feature to export your data.',
   },
   nav: {
     servers: 'Servers',

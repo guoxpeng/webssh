@@ -46,6 +46,20 @@ onMounted(() => {
     }
   }
   uiStore.initializeTheme();
+
+  // Detect CF Workers deployment and warn about browser-only storage
+  if (!localStorage.getItem('webssh_cf_backup_warned')) {
+    fetch('/health').then(r => r.json()).then(data => {
+      if (data.uptime === 'worker') {
+        uiStore.addNotification({
+          message: t('app.cfBackupWarning'),
+          type: 'warning',
+          duration: 0,
+        });
+        localStorage.setItem('webssh_cf_backup_warned', '1');
+      }
+    }).catch(() => {});
+  }
 });
 </script>
 
