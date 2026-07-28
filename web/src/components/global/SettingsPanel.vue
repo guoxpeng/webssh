@@ -79,6 +79,15 @@
                 </select>
               </div>
             </div>
+            <div class="settings-row">
+              <span>{{ t('settings.bgColor') }}</span>
+              <div class="settings-bg-ctrl">
+                <input type="color" v-model="termBgColor" class="color-picker"
+                       @input="onTermBgInput" :title="t('settings.bgColor')"/>
+                <button v-if="termBgColor" class="btn-reset-bg" @click="resetTermBg"
+                        :title="t('common.reset')">↺</button>
+              </div>
+            </div>
           </div>
 
           <div class="settings-section">
@@ -139,6 +148,7 @@ const animationsEnabled = ref(localStorage.getItem('appAnimations') !== 'false')
 const cursorStyle = ref(localStorage.getItem('termCursorStyle') || 'block');
 const scrollback = ref(parseInt(localStorage.getItem('termScrollback') || '5000'));
 const currentLocale = ref(localStorage.getItem('appLocale') || 'en-US');
+const termBgColor = ref(localStorage.getItem('termBgColor') || '');
 
 const themes = [
   {
@@ -210,6 +220,22 @@ watch(cursorStyle, (val) => {
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { cursorStyle: val } }));
 });
 watch(scrollback, (val) => localStorage.setItem('termScrollback', String(val)));
+
+let termBgTimer = null;
+function onTermBgInput() {
+  if (termBgTimer) clearTimeout(termBgTimer);
+  termBgTimer = setTimeout(() => {
+    if (termBgColor.value) {
+      localStorage.setItem('termBgColor', termBgColor.value);
+      window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { bgColor: termBgColor.value } }));
+    }
+  }, 200);
+}
+function resetTermBg() {
+  termBgColor.value = '';
+  localStorage.removeItem('termBgColor');
+  window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { bgColor: '' } }));
+}
 
 // ── Change Password ──
 const pwCurrent = ref('');
@@ -448,6 +474,21 @@ function close() { emit('close'); }
   color: white; transition: all 0.12s;
   &:hover:not(:disabled) { box-shadow: 0 2px 8px rgba(99,102,241,0.3); }
   &:disabled { opacity: 0.5; cursor: default; }
+}
+
+.settings-bg-ctrl { display: flex; align-items: center; gap: 0.3rem; }
+.color-picker {
+  width: 28px; height: 28px; padding: 0; border: 1.5px solid var(--bulma-border);
+  border-radius: 6px; cursor: pointer; background: none;
+  &::-webkit-color-swatch-wrapper { padding: 2px; }
+  &::-webkit-color-swatch { border: none; border-radius: 3px; }
+}
+.btn-reset-bg {
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--bulma-border); border-radius: 4px;
+  background: var(--bulma-scheme-main-bis); color: var(--bulma-text-light);
+  font-size: 0.8em; cursor: pointer; padding: 0;
+  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
 }
 
 @media (max-width: 480px) {

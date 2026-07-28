@@ -307,8 +307,19 @@ const lightTerminalTheme = {
   brightCyan: '#34e2e2', brightWhite: '#eeeeec'
 };
 
+function getThemeMainBg() {
+  try {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bulma-scheme-main').trim();
+    if (bg) return bg;
+  } catch {}
+  return uiStore.currentTheme === 'dark' ? '#1f2024' : '#ffffff';
+}
+
 function defaultTerminalTheme() {
-  return uiStore.currentTheme === 'dark' ? darkTerminalTheme : lightTerminalTheme;
+  const isDark = uiStore.currentTheme === 'dark';
+  const base = isDark ? darkTerminalTheme : lightTerminalTheme;
+  const bg = getThemeMainBg();
+  return { ...base, background: bg, cursorAccent: bg };
 }
 
 const terminalThemes = {
@@ -357,7 +368,7 @@ const terminalThemes = {
 };
 
 function getTerminalTheme(ts) {
-  if (ts.themeId === 'custom' && ts.bgColor) {
+  if (ts.bgColor) {
     const bg = ts.bgColor;
     const fg = ts.fgColor || '#FFFFFF';
     const br = parseInt(bg.slice(1,3),16), bg2 = parseInt(bg.slice(3,5),16), bb = parseInt(bg.slice(5,7),16);
@@ -404,7 +415,9 @@ const initializeTerminal = async () => {
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
   const fitWidth = xtermContainerRef.value?.offsetWidth || 800;
 
-  const ts = props.termSettings || {};
+  const ts = { ...(props.termSettings || {}) };
+  const storedBg = localStorage.getItem('termBgColor');
+  if (storedBg && !ts.bgColor) ts.bgColor = storedBg;
   const theme = getTerminalTheme(ts);
   applyTermBg(theme.background);
   const savedCursorStyle = localStorage.getItem('termCursorStyle');
@@ -662,8 +675,10 @@ watch(() => props.termSettings, (ts) => {
 function onTermSettingsChange(e) {
   if (!term) return;
   const detail = e.detail || {};
-  if (detail.themeId || detail.bgColor) {
-    const theme = getTerminalTheme(detail);
+  if (detail.themeId || detail.bgColor !== undefined) {
+    const update = { ...detail };
+    if (update.bgColor && !update.themeId) update.themeId = 'custom';
+    const theme = getTerminalTheme(update);
     term.options.theme = theme;
     applyTermBg(theme.background);
     term.refresh(0, term.rows - 1);
