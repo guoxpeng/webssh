@@ -82,6 +82,9 @@ __CF_nodeModules['crypto'] = new Proxy(__shim_crypto, {
     if (p === 'createECDH') return createECDH;
     if (p === 'createDiffieHellman' || p === 'createDiffieHellmanGroup') return createDiffieHellmanGroup;
     if (p === 'createVerify') return createVerify;
+    // These convenience functions (crypto.sign / crypto.verify) may be unenv stubs in workerd.
+    // Returning undefined forces ssh2 to use the createSign/createVerify path (which are polyfilled).
+    if (p === 'sign' || p === 'verify') return undefined;
     return t[p];
   },
 });

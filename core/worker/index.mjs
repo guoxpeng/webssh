@@ -498,6 +498,12 @@ async function handleDiagnostic() {
     const result = v.verify(pub, sig);
     return result ? 'OK' : 'FAIL (verify returned false)';
   });
+  test('sign_rsa_sha256', () => {
+    // Minimal test: createSign() does not throw
+    const s = crypto.createSign('sha256');
+    s.update(Buffer.from('test'));
+    return 'OK';
+  });
 
   test('ssh2_import', () => {
     try { const { Client } = require('ssh2'); return Client ? 'OK' : 'NULL'; }
