@@ -687,6 +687,8 @@ onBeforeUnmount(() => {
   :deep(.terminal), :deep(.xterm-viewport), :deep(.xterm-screen) { width: 100%; height: 100%; }
   :deep(.xterm-viewport) { overflow-y: auto !important; scrollbar-width: thin; }
   :deep(.xterm-rows) { will-change: transform; }
+  :deep(.xterm-selection) { display: none !important; }
+  :deep(.xterm) ::selection { background: transparent !important; color: inherit !important; }
 }
 .mobile-keys-toolbar {
   flex: 0 0 auto; padding: 0.2rem; display: none; flex-direction: column; gap: 0.15rem;
