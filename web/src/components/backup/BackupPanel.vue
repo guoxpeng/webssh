@@ -16,46 +16,32 @@
       </div>
     </div>
 
-    <div v-if="store.creating" class="panel-loading">
-      <div class="loading-spinner"></div>
-      <span>{{ t('backup.creating') }}</span>
-    </div>
-
-    <div class="panel-section">
-      <div class="section-header" @click="showCreateForm = !showCreateForm">
-        <ChevronRight :size="12" class="section-chevron" :class="{ 'is-open': showCreateForm }"/>
-        <span>{{ t('backup.create') }}</span>
-      </div>
-      <div v-if="showCreateForm" class="section-body">
+    <!-- Create Backup Modal -->
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+      <div class="modal-body">
+        <div class="modal-header">
+          <span>{{ t('backup.create') }}</span>
+          <button class="modal-close" @click="showCreateModal = false">&times;</button>
+        </div>
         <input type="text" v-model="backupLabel" :placeholder="t('backup.label')" class="form-input"
-               @keydown.enter="createNew"/>
-
-        <div class="inventory-panel" v-if="inv.connectionCount || inv.snippetCount || inv.credentialCount">
+               @keydown.enter="confirmCreate"/>
+        <div class="inventory-panel" v-if="inv.connectionCount || inv.snippetCount">
           <div class="inv-item">
             <Server :size="12"/> <span>{{ t('backup.connections', { count: inv.connectionCount }) }}</span>
           </div>
           <div class="inv-item">
             <Code :size="12"/> <span>{{ t('backup.snippets', { count: inv.snippetCount }) }}</span>
           </div>
-          <div class="inv-item" :class="{ 'has-cred': inv.credentialCount > 0 }">
-            <KeyRound :size="12"/>
-            <span>{{ inv.credentialCount > 0 ? t('backup.credentialsSaved', { count: inv.credentialCount }) : t('backup.noCredentials') }}</span>
-            <Lock v-if="inv.encrypted" :size="10" class="inv-lock"/>
-          </div>
         </div>
-
-        <label class="toggle-label credential-toggle" v-if="inv.credentialCount > 0">
-          <input type="checkbox" v-model="includeCreds"/>
-          <span>{{ t('backup.includeCredentials') }}</span>
-          <Lock :size="10" v-if="inv.encrypted" class="inv-lock"/>
-        </label>
-        <p v-if="includeCreds && !inv.encrypted" class="warn-text">
-          <AlertTriangle :size="11"/>           {{ t('backup.setMasterPasswordHint') }}
-        </p>
-
-        <button class="create-btn" @click="createNew" :disabled="store.creating">
-          <Database :size="14"/> {{ store.creating ? t('backup.creating') : t('backup.createNow') }}
-        </button>
+        <div v-if="store.creating" class="modal-creating">
+          <div class="loading-spinner"></div> {{ t('backup.creating') }}
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn" @click="showCreateModal = false">{{ t('common.cancel') }}</button>
+          <button class="modal-btn is-primary" @click="confirmCreate" :disabled="store.creating">
+            <Database :size="14"/> {{ t('common.confirm') }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -84,10 +70,6 @@
                    @change="updateSched"/>
             <span class="field-hint">{{ t('backup.backups') }}</span>
           </div>
-          <label class="toggle-label">
-            <input type="checkbox" v-model="autoIncludeCreds" @change="updateSched"/>
-            <span>{{ t('backup.includeCredentials') }}</span>
-          </label>
           <p class="info-text" v-if="store.scheduler.lastBackupAt">
             {{ t('backup.lastBackup', { time: formatTime(store.scheduler.lastBackupAt) }) }}
           </p>
@@ -162,13 +144,11 @@
             <div class="backup-info">
               <span class="backup-label">
                 {{ bak.label }}
-                <Lock v-if="bak.encrypted" :size="10" class="inv-lock" :title="t('common.encrypted')"/>
                 <ShieldCheck v-if="bak.checksum" :size="10" class="inv-check" :title="t('common.integrityVerified')"/>
               </span>
               <span class="backup-meta">
                 {{ formatTime(bak.createdAt) }}
                 &middot; {{ t('backup.connections', { count: bak.connections.length }) }}
-                <template v-if="bak.inventory?.credentialCount"> &middot; {{ t('backup.credentials', { count: bak.inventory.credentialCount }) }}</template>
                 &middot; {{ formatSize(bak.size) }}
               </span>
             </div>
@@ -195,8 +175,7 @@ import { ref, computed } from 'vue';
 import { useBackupStore } from '@/stores/backupStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
-import { encryptBackupData, decryptBackupData } from '@/utils/crypto';
-import { Database, Plus, Upload, Download, X, ChevronRight, Archive, RotateCcw, Trash2, Lock, ShieldCheck, Server, Code, KeyRound, AlertTriangle } from 'lucide-vue-next';
+import { Database, Plus, Upload, Download, X, Archive, RotateCcw, Trash2, ShieldCheck, Server, Code } from 'lucide-vue-next';
 
 const { t } = useI18n();
 
@@ -205,7 +184,7 @@ const emit = defineEmits(['close']);
 const store = useBackupStore();
 const { showSuccess, showError } = useNotifications();
 
-const showCreateForm = ref(false);
+const showCreateModal = ref(false);
 const showScheduleForm = ref(false);
 const showCloudForm = ref(false);
 function defaultLabel() {
@@ -217,8 +196,6 @@ const importInput = ref(null);
 const restoringId = ref(null);
 const syncUploading = ref(false);
 const syncDownloading = ref(false);
-const includeCreds = ref(false);
-const autoIncludeCreds = ref(false);
 
 const scheduleEnabled = ref(store.scheduler.enabled);
 const scheduleInterval = ref(store.scheduler.interval);
@@ -242,30 +219,27 @@ function formatSize(bytes) {
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
-async function createNew() {
+function createNew() {
+  backupLabel.value = defaultLabel();
+  showCreateModal.value = true;
+}
+
+async function confirmCreate() {
   try {
-    const bak = await store.createBackup(backupLabel.value || '', includeCreds.value);
+    const bak = await store.createBackup(backupLabel.value || '');
     showSuccess(t('backup.created', { label: bak.label }));
     store.cleanupOldBackups();
-    backupLabel.value = '';
+    showCreateModal.value = false;
   } catch (e) {
     showError(t('backup.createFailed', { error: e.message }));
   }
 }
 
 async function doRestore(bak) {
-  const credInfo = bak.inventory?.credentialCount ? t('backup.restoreCredInfo', { count: bak.inventory.credentialCount }) : '';
-  if (bak.encrypted && bak.inventory?.credentialCount > 0) {
-    const masterPwd = sessionStorage.getItem('webssh_master');
-    if (!masterPwd) {
-      showError(t('backup.setMasterPasswordHint'));
-      return;
-    }
-  }
   if (!confirm(t('backup.restoreConfirm', { label: bak.label, connCount: bak.connections.length }))) return;
   restoringId.value = bak.id;
   try {
-    const count = await store.restoreBackup(bak.id, true);
+    const count = await store.restoreBackup(bak.id);
     showSuccess(t('backup.restored', { count }));
   } catch (e) {
     showError(t('backup.restoreFailed', { error: e.message }));
@@ -329,7 +303,6 @@ function updateSched() {
     enabled: scheduleEnabled.value,
     interval: scheduleInterval.value,
     maxBackups: scheduleMax.value,
-    includeCredentials: autoIncludeCreds.value,
   });
 }
 
@@ -519,4 +492,42 @@ function updateCloudCfg() {
   animation: spin 0.6s linear infinite; flex-shrink: 0;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-body {
+  background: var(--bulma-scheme-main); border-radius: 12px;
+  padding: 1rem; width: 320px; max-width: 90vw;
+  display: flex; flex-direction: column; gap: 0.5rem;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.85em; font-weight: 600;
+}
+.modal-close {
+  background: none; border: none; font-size: 1.2em; cursor: pointer;
+  color: var(--bulma-text-light); padding: 0 0.2rem;
+}
+.modal-creating {
+  display: flex; align-items: center; gap: 0.5rem; font-size: 0.75em; color: var(--bulma-text-light);
+}
+.modal-actions {
+  display: flex; gap: 0.4rem; justify-content: flex-end;
+}
+.modal-btn {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.35rem 0.7rem; border: 1px solid var(--bulma-border);
+  border-radius: 6px; font-size: 0.75em; cursor: pointer;
+  background: var(--bulma-input-background-color); color: var(--bulma-text);
+  &.is-primary {
+    background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%));
+    color: white; border: none;
+    &:hover { box-shadow: 0 2px 8px rgba(99,102,241,0.3); }
+  }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
 </style>

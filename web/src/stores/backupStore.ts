@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { encryptBackupData, decryptBackupData } from '@/utils/crypto';
 import { useConnectionStore } from './connectionStore';
 import { useSnippetStore } from './snippetStore';
 import { useUiStore } from './uiStore';
@@ -13,12 +12,9 @@ export const BACKUP_VERSION = 2;
 
 export interface BackupInventory {
   connectionCount: number;
-  credentialCount: number;
   snippetCount: number;
   macroCount: number;
   codeNoteCount: number;
-  hasCredentials: boolean;
-  encrypted: boolean;
 }
 
 export interface BackupEntry {
@@ -48,7 +44,6 @@ export interface SchedulerConfig {
   enabled: boolean;
   interval: 'daily' | 'weekly' | 'manual';
   maxBackups: number;
-  includeCredentials: boolean;
   lastBackupAt: number;
 }
 
@@ -100,14 +95,11 @@ export const useBackupStore = defineStore('backup', () => {
       const codeNoteStore = useCodeNoteStore();
       return {
         connectionCount: connStore.savedConnections.length,
-        credentialCount: Object.keys(connStore.sessionRememberedCredentials).length,
         snippetCount: snipStore.snippets.length,
         macroCount: macroStore.macros?.length || 0,
         codeNoteCount: codeNoteStore.notes?.length || 0,
-        hasCredentials: Object.keys(connStore.sessionRememberedCredentials).length > 0,
-        encrypted: !!sessionStorage.getItem('webssh_master'),
       };
-    } catch { return { connectionCount: 0, credentialCount: 0, snippetCount: 0, macroCount: 0, codeNoteCount: 0, hasCredentials: false, encrypted: false }; }
+    } catch { return { connectionCount: 0, snippetCount: 0, macroCount: 0, codeNoteCount: 0 }; }
   });
 
   function persist() { saveBackups(backups.value); }
@@ -133,7 +125,7 @@ export const useBackupStore = defineStore('backup', () => {
     return 'h' + Math.abs(h).toString(16);
   }
 
-  async function createBackup(label: string, includeCredentials = false): Promise<BackupEntry> {
+  async function createBackup(label: string): Promise<BackupEntry> {
     creating.value = true;
     try {
       const connStore = useConnectionStore();
@@ -147,17 +139,6 @@ export const useBackupStore = defineStore('backup', () => {
       const rawConns = JSON.parse(JSON.stringify(connStore.savedConnections));
       const connections = rawConns.map(c => { delete c.auth_value; return c; });
 
-      let credentials: Record<string, string> = {};
-      if (includeCredentials) {
-        const master = sessionStorage.getItem('webssh_master');
-        if (master) {
-          for (const [serverId, cred] of Object.entries(connStore.sessionRememberedCredentials)) {
-            const c = cred as any;
-            credentials[serverId] = await encryptBackupData(c, master);
-          }
-        }
-      }
-
       const snippets = JSON.parse(JSON.stringify(snipStore.snippets));
       const macros = JSON.parse(JSON.stringify(macroStore.macros || []));
       const codeNotes = JSON.parse(JSON.stringify(codeNoteStore.notes || []));
@@ -170,7 +151,7 @@ export const useBackupStore = defineStore('backup', () => {
 
       const backupData = {
         connections,
-        credentials,
+        credentials: {},
         snippets,
         macros,
         codeNotes,
@@ -185,24 +166,20 @@ export const useBackupStore = defineStore('backup', () => {
 
       const checksum = await computeChecksum(backupData);
       const size = estimateDataSize(backupData);
-      const isEncrypted = includeCredentials && !!sessionStorage.getItem('webssh_master');
 
       const entry: BackupEntry = {
         id: generateId(),
         label: label || `Backup ${new Date().toLocaleDateString()}`,
         createdAt: Date.now(),
         size,
-        encrypted: isEncrypted,
+        encrypted: false,
         version: BACKUP_VERSION,
         checksum,
         inventory: {
           connectionCount: connections.length,
-          credentialCount: Object.keys(credentials).length,
           snippetCount: snippets.length,
           macroCount: macros.length,
           codeNoteCount: codeNotes.length,
-          hasCredentials: Object.keys(credentials).length > 0,
-          encrypted: isEncrypted,
         },
         ...backupData,
       };
@@ -229,7 +206,7 @@ export const useBackupStore = defineStore('backup', () => {
     }
   }
 
-  async function restoreBackup(id: string, restoreCredentials = true): Promise<number> {
+  async function restoreBackup(id: string): Promise<number> {
     restoring.value = true;
     try {
       const entry = backups.value.find(b => b.id === id);
@@ -274,22 +251,6 @@ export const useBackupStore = defineStore('backup', () => {
           title: snip.title, command: snip.command,
           tags: snip.tags || [], favorite: snip.favorite || false,
         });
-      }
-
-      if (restoreCredentials && entry.credentials && Object.keys(entry.credentials).length > 0) {
-        const master = sessionStorage.getItem('webssh_master');
-        if (master) {
-          for (const [serverId, ciphertext] of Object.entries(entry.credentials)) {
-            const decrypted = await decryptBackupData(ciphertext, master);
-            if (decrypted) {
-              const c = decrypted.data;
-              connStore.sessionRememberedCredentials[serverId] = c;
-              if (c.auth_value) {
-                connStore.saveCredentialToSessionStorage(serverId, c.auth_type, c.auth_value);
-              }
-            }
-          }
-        }
       }
 
       if (entry.macros && entry.macros.length > 0) {
@@ -347,12 +308,9 @@ export const useBackupStore = defineStore('backup', () => {
       if (!data.connections && !data.snippets) return false;
       const inv = data.inventory || {
         connectionCount: (data.connections || []).length,
-        credentialCount: Object.keys(data.credentials || {}).length,
         snippetCount: (data.snippets || []).length,
         macroCount: (data.macros || []).length,
         codeNoteCount: (data.codeNotes || []).length,
-        hasCredentials: Object.keys(data.credentials || {}).length > 0,
-        encrypted: !!data.encrypted,
       };
       const entry: BackupEntry = {
         id: generateId(),
@@ -463,8 +421,8 @@ export const useBackupStore = defineStore('backup', () => {
 function loadScheduler(): SchedulerConfig {
   try {
     const raw = localStorage.getItem(SCHEDULER_KEY);
-    return raw ? { ...{ enabled: false, interval: 'manual', maxBackups: 10, includeCredentials: false, lastBackupAt: 0 }, ...JSON.parse(raw) } : { enabled: false, interval: 'manual', maxBackups: 10, includeCredentials: false, lastBackupAt: 0 };
-  } catch { return { enabled: false, interval: 'manual', maxBackups: 10, includeCredentials: false, lastBackupAt: 0 }; }
+    return raw ? { ...{ enabled: false, interval: 'manual', maxBackups: 10, lastBackupAt: 0 }, ...JSON.parse(raw) } : { enabled: false, interval: 'manual', maxBackups: 10, lastBackupAt: 0 };
+  } catch { return { enabled: false, interval: 'manual', maxBackups: 10, lastBackupAt: 0 }; }
 }
 
 function loadCloudTarget(): CloudTarget {
