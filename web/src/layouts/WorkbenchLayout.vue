@@ -236,13 +236,7 @@ onMounted(() => {
   document.addEventListener('open-settings', () => { showSettings.value = true; });
   document.addEventListener('open-macro', () => { showMacro.value = true; });
   connectionStore.loadCredentialsFromSessionStorage?.()?.catch(() => {});
-  // Auto-backup check
-  const bakStore = useBackupStore();
-  if (bakStore.shouldAutoBackup()) {
-    bakStore.createBackup(t('backup.autoLabel'), bakStore.scheduler.includeCredentials).then(() => {
-      bakStore.cleanupOldBackups();
-    });
-  }
+  // Auto-backup skipped: manual backup with password required
 });
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onGlobalKeydown);

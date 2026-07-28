@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { encryptBackupData, decryptBackupData } from '@/utils/crypto';
 import { useConnectionStore } from './connectionStore';
 import { useSnippetStore } from './snippetStore';
 import { useUiStore } from './uiStore';
@@ -8,13 +9,14 @@ import { useMacroStore } from './macroStore';
 import { useCodeNoteStore } from './codeNoteStore';
 import { useChatStore } from './chatStore';
 
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 export interface BackupInventory {
   connectionCount: number;
   snippetCount: number;
   macroCount: number;
   codeNoteCount: number;
+  hasPassword: boolean;
 }
 
 export interface BackupEntry {
@@ -22,22 +24,22 @@ export interface BackupEntry {
   label: string;
   createdAt: number;
   size: number;
-  encrypted: boolean;
   version: number;
-  checksum: string;
   inventory: BackupInventory;
-  connections: NodeConfig[];
-  credentials: Record<string, string>;
-  snippets: any[];
-  macros: any[];
-  codeNotes: any[];
-  chatConfig: any;
-  groupOrder: string[];
-  groupCollapsed: string[];
-  settings: {
-    themePreset: string;
-    recentCommands: string[];
-  };
+  /** New format: entire backup data encrypted with password */
+  encryptedPayload?: string;
+  /** Old format fields (kept for backward compat) */
+  encrypted?: boolean;
+  checksum?: string;
+  connections?: any[];
+  credentials?: Record<string, string>;
+  snippets?: any[];
+  macros?: any[];
+  codeNotes?: any[];
+  chatConfig?: any;
+  groupOrder?: string[];
+  groupCollapsed?: string[];
+  settings?: { themePreset: string; recentCommands: string[] };
 }
 
 export interface SchedulerConfig {
@@ -52,7 +54,7 @@ export interface CloudTarget {
   token: string;
   enabled: boolean;
   autoSync: boolean;
-  syncInterval: number; // minutes, 0 = manual only
+  syncInterval: number;
   lastSyncAt: number;
   lastSyncOk: boolean;
 }
@@ -98,8 +100,9 @@ export const useBackupStore = defineStore('backup', () => {
         snippetCount: snipStore.snippets.length,
         macroCount: macroStore.macros?.length || 0,
         codeNoteCount: codeNoteStore.notes?.length || 0,
+        hasPassword: false,
       };
-    } catch { return { connectionCount: 0, snippetCount: 0, macroCount: 0, codeNoteCount: 0 }; }
+    } catch { return { connectionCount: 0, snippetCount: 0, macroCount: 0, codeNoteCount: 0, hasPassword: false }; }
   });
 
   function persist() { saveBackups(backups.value); }
@@ -114,74 +117,62 @@ export const useBackupStore = defineStore('backup', () => {
     return new Blob([JSON.stringify(data)]).size;
   }
 
-  async function computeChecksum(data) {
-    const json = JSON.stringify(data);
-    if (crypto && crypto.subtle) {
-      const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(json));
-      return btoa(String.fromCharCode(...new Uint8Array(hash)));
-    }
-    let h = 0;
-    for (let i = 0; i < json.length; i++) { h = ((h << 5) - h) + json.charCodeAt(i); h |= 0; }
-    return 'h' + Math.abs(h).toString(16);
+  /** Collect all data from stores (including credentials) */
+  function collectAllData() {
+    const connStore = useConnectionStore();
+    const snipStore = useSnippetStore();
+    const uiStore = useUiStore();
+    const termStore = useTerminalStore();
+    const macroStore = useMacroStore();
+    const codeNoteStore = useCodeNoteStore();
+    const chatStore = useChatStore();
+
+    // Deep clone connections WITH auth_value
+    const connections = JSON.parse(JSON.stringify(connStore.savedConnections));
+
+    const snippets = JSON.parse(JSON.stringify(snipStore.snippets));
+    const macros = JSON.parse(JSON.stringify(macroStore.macros || []));
+    const codeNotes = JSON.parse(JSON.stringify(codeNoteStore.notes || []));
+    let chatConfig = {};
+    try {
+      chatConfig = JSON.parse(JSON.stringify({ ai: chatStore.config.ai }));
+    } catch {}
+
+    return {
+      connections,
+      snippets,
+      macros,
+      codeNotes,
+      chatConfig,
+      groupOrder: [...connStore.groupOrder],
+      groupCollapsed: Array.from(connStore.groupCollapsed || []),
+      settings: {
+        themePreset: uiStore.currentPreset || 'light',
+        recentCommands: [...termStore.recentCommands],
+      },
+    };
   }
 
-  async function createBackup(label: string): Promise<BackupEntry> {
+  async function createBackup(label: string, password: string): Promise<BackupEntry> {
     creating.value = true;
     try {
-      const connStore = useConnectionStore();
-      const snipStore = useSnippetStore();
-      const uiStore = useUiStore();
-      const termStore = useTerminalStore();
-      const macroStore = useMacroStore();
-      const codeNoteStore = useCodeNoteStore();
-      const chatStore = useChatStore();
-
-      const rawConns = JSON.parse(JSON.stringify(connStore.savedConnections));
-      const connections = rawConns.map(c => { delete c.auth_value; return c; });
-
-      const snippets = JSON.parse(JSON.stringify(snipStore.snippets));
-      const macros = JSON.parse(JSON.stringify(macroStore.macros || []));
-      const codeNotes = JSON.parse(JSON.stringify(codeNoteStore.notes || []));
-      let chatConfig = {};
-      try {
-        chatConfig = JSON.parse(JSON.stringify({
-          ai: chatStore.config.ai,
-        }));
-      } catch {}
-
-      const backupData = {
-        connections,
-        credentials: {},
-        snippets,
-        macros,
-        codeNotes,
-        chatConfig,
-        groupOrder: [...connStore.groupOrder],
-        groupCollapsed: Array.from(connStore.groupCollapsed || []),
-        settings: {
-          themePreset: uiStore.currentPreset || 'light',
-          recentCommands: [...termStore.recentCommands],
-        },
-      };
-
-      const checksum = await computeChecksum(backupData);
-      const size = estimateDataSize(backupData);
+      const allData = collectAllData();
+      const encryptedPayload = await encryptBackupData(allData, password);
 
       const entry: BackupEntry = {
         id: generateId(),
         label: label || `Backup ${new Date().toLocaleDateString()}`,
         createdAt: Date.now(),
-        size,
-        encrypted: false,
+        size: estimateDataSize(allData),
         version: BACKUP_VERSION,
-        checksum,
         inventory: {
-          connectionCount: connections.length,
-          snippetCount: snippets.length,
-          macroCount: macros.length,
-          codeNoteCount: codeNotes.length,
+          connectionCount: allData.connections.length,
+          snippetCount: allData.snippets.length,
+          macroCount: allData.macros.length,
+          codeNoteCount: allData.codeNotes.length,
+          hasPassword: true,
         },
-        ...backupData,
+        encryptedPayload,
       };
 
       backups.value.push(entry);
@@ -189,14 +180,9 @@ export const useBackupStore = defineStore('backup', () => {
       scheduler.value.lastBackupAt = Date.now();
       persistScheduler();
 
-      // Auto-sync to cloud if enabled
       if (cloud.value.enabled && cloud.value.autoSync && cloud.value.url) {
         uploadToCloud(entry.id).then(ok => {
-          if (ok) {
-            cloud.value.lastSyncAt = Date.now();
-            cloud.value.lastSyncOk = true;
-            persistCloud();
-          }
+          if (ok) { cloud.value.lastSyncAt = Date.now(); cloud.value.lastSyncOk = true; persistCloud(); }
         }).catch(() => {});
       }
 
@@ -206,26 +192,31 @@ export const useBackupStore = defineStore('backup', () => {
     }
   }
 
-  async function restoreBackup(id: string): Promise<number> {
+  /** Decrypt and return the data payload, or null if wrong password */
+  async function decryptBackup(id: string, password: string): Promise<any | null> {
+    const entry = backups.value.find(b => b.id === id);
+    if (!entry) return null;
+    if (entry.encryptedPayload) {
+      const result = await decryptBackupData(entry.encryptedPayload, password);
+      return result ? result.data : null;
+    }
+    // Old format: no password needed
+    return entry;
+  }
+
+  async function restoreBackup(id: string, password: string): Promise<{ restored: number; error?: string }> {
     restoring.value = true;
     try {
       const entry = backups.value.find(b => b.id === id);
-      if (!entry) throw new Error('Backup not found');
+      if (!entry) return { restored: 0, error: 'Backup not found' };
 
-      if (entry.checksum) {
-        const currentChecksum = await computeChecksum({
-          connections: entry.connections,
-          credentials: entry.credentials,
-          snippets: entry.snippets,
-          settings: entry.settings,
-        });
-        if (currentChecksum !== entry.checksum) {
-          console.warn('Backup checksum mismatch - data may be tampered');
-          try {
-            const uiStore = useUiStore();
-            uiStore.addNotification({ type: 'warning', message: 'Backup checksum mismatch - data may be tampered', duration: 0 });
-          } catch {}
-        }
+      let allData: any;
+      if (entry.encryptedPayload) {
+        const decrypted = await decryptBackupData(entry.encryptedPayload, password);
+        if (!decrypted) return { restored: 0, error: '密码错误或数据已损坏' };
+        allData = decrypted.data;
+      } else {
+        allData = entry;
       }
 
       const connStore = useConnectionStore();
@@ -234,58 +225,47 @@ export const useBackupStore = defineStore('backup', () => {
       const codeNoteStore = useCodeNoteStore();
       const chatStore = useChatStore();
 
-      const existingIds = connStore.savedConnections.map(c => c.id);
-      const existingNames = connStore.savedConnections.map(c => c.name);
+      const existingIds = connStore.savedConnections.map((c: any) => c.id);
+      const existingNames = connStore.savedConnections.map((c: any) => c.name);
 
       let restored = 0;
-      for (const conn of entry.connections) {
-        const isDuplicate = existingIds.includes(conn.id) || existingNames.includes(conn.name);
-        if (!isDuplicate) {
+      for (const conn of allData.connections || []) {
+        if (!existingIds.includes(conn.id) && !existingNames.includes(conn.name)) {
           connStore.addConnection(conn);
           restored++;
         }
       }
 
-      for (const snip of entry.snippets) {
+      for (const snip of allData.snippets || []) {
         snipStore.addSnippet({
           title: snip.title, command: snip.command,
           tags: snip.tags || [], favorite: snip.favorite || false,
         });
       }
 
-      if (entry.macros && entry.macros.length > 0) {
-        for (const m of entry.macros) {
-          try { macroStore.addMacro(m); } catch {}
-        }
+      for (const m of allData.macros || []) {
+        try { macroStore.addMacro(m); } catch {}
       }
 
-      if (entry.codeNotes && entry.codeNotes.length > 0) {
-        for (const n of entry.codeNotes) {
-          try { codeNoteStore.addNote(n.content, n.source || 'terminal'); } catch {}
-        }
+      for (const n of allData.codeNotes || []) {
+        try { codeNoteStore.addNote(n.content, n.source || 'terminal'); } catch {}
       }
 
-      if (entry.chatConfig?.ai) {
-        try { chatStore.config.ai = { ...chatStore.config.ai, ...entry.chatConfig.ai }; } catch {}
+      if (allData.chatConfig?.ai) {
+        try { chatStore.config.ai = { ...chatStore.config.ai, ...allData.chatConfig.ai }; } catch {}
       }
 
-      if (entry.groupOrder && entry.groupOrder.length > 0) {
-        connStore.groupOrder = [...entry.groupOrder];
-      }
-      if (entry.groupCollapsed && entry.groupCollapsed.length > 0) {
-        connStore.groupCollapsed = new Set(entry.groupCollapsed);
-      }
+      if (allData.groupOrder?.length > 0) connStore.groupOrder = [...allData.groupOrder];
+      if (allData.groupCollapsed?.length > 0) connStore.groupCollapsed = new Set(allData.groupCollapsed);
 
-      if (entry.settings) {
+      if (allData.settings) {
         const uiStore = useUiStore();
-        uiStore.setThemePreset(entry.settings.themePreset);
+        uiStore.setThemePreset(allData.settings.themePreset);
         const termStore = useTerminalStore();
-        if (entry.settings.recentCommands) {
-          termStore.recentCommands = [...entry.settings.recentCommands];
-        }
+        if (allData.settings.recentCommands) termStore.recentCommands = [...allData.settings.recentCommands];
       }
 
-      return restored;
+      return { restored };
     } finally {
       restoring.value = false;
     }
@@ -305,31 +285,30 @@ export const useBackupStore = defineStore('backup', () => {
   function importBackup(jsonStr: string): boolean {
     try {
       const data = JSON.parse(jsonStr);
-      if (!data.connections && !data.snippets) return false;
+      if (!data.encryptedPayload && !data.connections && !data.snippets) return false;
       const inv = data.inventory || {
-        connectionCount: (data.connections || []).length,
-        snippetCount: (data.snippets || []).length,
-        macroCount: (data.macros || []).length,
-        codeNoteCount: (data.codeNotes || []).length,
+        connectionCount: data.connections?.length || 0,
+        snippetCount: data.snippets?.length || 0,
+        macroCount: data.macros?.length || 0,
+        codeNoteCount: data.codeNotes?.length || 0,
+        hasPassword: !!data.encryptedPayload,
       };
       const entry: BackupEntry = {
         id: generateId(),
         label: data.label || `Imported ${new Date().toLocaleDateString()}`,
         createdAt: data.createdAt || Date.now(),
-        size: estimateDataSize(data),
-        encrypted: !!data.encrypted,
+        size: data.size || estimateDataSize(data),
         version: data.version || 1,
-        checksum: data.checksum || '',
         inventory: inv,
-        connections: data.connections || [],
-        credentials: data.credentials || {},
-        snippets: data.snippets || [],
-        macros: data.macros || [],
-        codeNotes: data.codeNotes || [],
-        chatConfig: data.chatConfig || null,
-        groupOrder: data.groupOrder || [],
-        groupCollapsed: data.groupCollapsed || [],
-        settings: data.settings || { themePreset: 'light', recentCommands: [] },
+        encryptedPayload: data.encryptedPayload || undefined,
+        connections: data.connections || undefined,
+        snippets: data.snippets || undefined,
+        macros: data.macros || undefined,
+        codeNotes: data.codeNotes || undefined,
+        chatConfig: data.chatConfig || undefined,
+        groupOrder: data.groupOrder || undefined,
+        groupCollapsed: data.groupCollapsed || undefined,
+        settings: data.settings || undefined,
       };
       backups.value.push(entry);
       persist();
@@ -356,8 +335,7 @@ export const useBackupStore = defineStore('backup', () => {
     const max = scheduler.value.maxBackups;
     if (backups.value.length <= max) return;
     const sorted = [...backups.value].sort((a, b) => b.createdAt - a.createdAt);
-    const toRemove = sorted.slice(max);
-    toRemove.forEach(b => deleteBackup(b.id));
+    sorted.slice(max).forEach(b => deleteBackup(b.id));
   }
 
   function updateCloud(config: Partial<CloudTarget>): void {
@@ -370,7 +348,6 @@ export const useBackupStore = defineStore('backup', () => {
     const entry = backups.value.find(b => b.id === backupId);
     if (!entry) return false;
     try {
-      const blob = new Blob([JSON.stringify(entry)], { type: 'application/json' });
       const resp = await fetch(cloud.value.url, {
         method: 'POST',
         headers: {
@@ -379,13 +356,9 @@ export const useBackupStore = defineStore('backup', () => {
           'X-Backup-Id': entry.id,
           'X-Backup-Label': encodeURIComponent(entry.label),
         },
-        body: blob,
+        body: JSON.stringify(entry),
       });
-      if (resp.ok) {
-        cloud.value.lastSyncAt = Date.now();
-        persistCloud();
-        return true;
-      }
+      if (resp.ok) { cloud.value.lastSyncAt = Date.now(); persistCloud(); return true; }
       return false;
     } catch { return false; }
   }
@@ -399,11 +372,9 @@ export const useBackupStore = defineStore('backup', () => {
       });
       if (!resp.ok) return false;
       const data = await resp.json();
-      if (Array.isArray(data)) {
-        for (const item of data) { importBackup(JSON.stringify(item)); }
-      } else { importBackup(JSON.stringify(data)); }
-      cloud.value.lastSyncAt = Date.now();
-      persistCloud();
+      if (Array.isArray(data)) { for (const item of data) importBackup(JSON.stringify(item)); }
+      else importBackup(JSON.stringify(data));
+      cloud.value.lastSyncAt = Date.now(); persistCloud();
       return true;
     } catch { return false; }
   }
@@ -411,7 +382,7 @@ export const useBackupStore = defineStore('backup', () => {
   return {
     backups, sortedBackups, totalSize, inventory, creating, restoring,
     scheduler, cloud,
-    createBackup, restoreBackup, deleteBackup,
+    createBackup, decryptBackup, restoreBackup, deleteBackup,
     exportBackup, importBackup,
     updateScheduler, shouldAutoBackup, cleanupOldBackups,
     updateCloud, uploadToCloud, downloadFromCloud,
