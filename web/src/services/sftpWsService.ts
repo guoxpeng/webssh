@@ -15,6 +15,7 @@ class SftpWsService {
   private _connected = false;
   private _error = '';
   private closed = false;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
   get connected() { return this._connected; }
   get error() { return this._error; }
@@ -40,6 +41,9 @@ class SftpWsService {
     this.ws.onopen = () => {
       try {
         this.ws!.send(JSON.stringify(this.config));
+        this.heartbeatTimer = setInterval(() => {
+          if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: 'ping' }));
+        }, 30000);
       } catch {
         this._error = 'Failed to send config';
         this.callbacks.onStatus?.('error', this._error);
@@ -97,6 +101,7 @@ class SftpWsService {
 
   disconnect() {
     this.closed = true;
+    if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
     if (this.ws) {
       this.ws.close(1000, 'disconnect');
       this.ws = null;

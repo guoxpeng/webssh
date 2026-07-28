@@ -190,6 +190,12 @@ async function handleSFTPWebSocket(request) {
     if (closed) return;
     const str = String(event.data);
 
+    // Heartbeat
+    if (str === '\x00hb\x00') return;
+    let _ping;
+    try { _ping = JSON.parse(str); } catch {}
+    if (_ping?.type === 'ping') { send({ type: 'pong' }); return; }
+
     // First message: connection config
     if (!conn) {
       let cfgData;
@@ -424,6 +430,11 @@ async function handleTerminalWS(request) {
 
   server.addEventListener('message', (event) => {
     const str = String(event.data);
+    // Heartbeat
+    if (str === '\x00hb\x00') return;
+    let _ping;
+    try { _ping = JSON.parse(str); } catch {}
+    if (_ping?.type === 'ping') { try { server.send('{"type":"pong"}'); } catch {} return; }
     // First message contains the connection config as JSON
     if (!conn && !cfgData) {
       try {
