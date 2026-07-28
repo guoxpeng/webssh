@@ -229,6 +229,16 @@ async function confirmCreate() {
     showSuccess(t('backup.created', { label: bak.label }));
     store.cleanupOldBackups();
     showCreateModal.value = false;
+    // Auto-download
+    const json = store.exportBackup(bak.id);
+    if (json) {
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${bak.label}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   } catch (e) {
     showError(t('backup.createFailed', { error: e.message }));
   }
@@ -411,7 +421,7 @@ function updateCloudCfg() {
 }
 .modal-body {
   background: var(--bulma-scheme-main); border-radius: 12px;
-  padding: 1rem; width: 320px; max-width: 90vw;
+  padding: 1.2rem; width: 380px; max-width: 92vw;
   display: flex; flex-direction: column; gap: 0.5rem;
   box-shadow: 0 16px 48px rgba(0,0,0,0.2);
 }
