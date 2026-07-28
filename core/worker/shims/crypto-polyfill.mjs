@@ -608,7 +608,7 @@ function createCipheriv(algo, key, iv) {
         const buf = typeof data === 'string' ? B.from(data) : B.from(data);
         const out = B.alloc(buf.length);
         for (let i = 0; i < buf.length; i++) {
-          if (ksPos >= 16) { ksBuf = aesEncryptBlock(counter, w, Nr); ksPos = 0; for (let j = 15; j >= 0; j--) if (++counter[j] !== 0) break; }
+          if (ksPos >= 16) { ksBuf = aesEncryptBlock(counter, w, Nr); ksPos = 0; for (let j = 15; j >= 0; j--) if (counter[j]++ !== 255) break; }
           out[i] = buf[i] ^ ksBuf[ksPos++];
         }
         return out;
@@ -671,7 +671,7 @@ function createDecipheriv(algo, key, iv) {
         const buf = typeof data === 'string' ? B.from(data) : B.from(data);
         const out = B.alloc(buf.length);
         for (let i = 0; i < buf.length; i++) {
-          if (ksPos >= 16) { ksBuf = aesEncryptBlock(counter, w, Nr); ksPos = 0; for (let j = 15; j >= 0; j--) if (++counter[j] !== 0) break; }
+          if (ksPos >= 16) { ksBuf = aesEncryptBlock(counter, w, Nr); ksPos = 0; for (let j = 15; j >= 0; j--) if (counter[j]++ !== 255) break; }
           out[i] = buf[i] ^ ksBuf[ksPos++];
         }
         return out;
