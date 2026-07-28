@@ -76,14 +76,11 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { useNotifications } from '@/composables/useNotifications';
 import { useConnectionStore } from '@/stores/connectionStore';
 import TerminalDisplay from './TerminalDisplay.vue';
 import ConnectionErrorPanel from './ConnectionErrorPanel.vue';
-import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
 import ProtocolInfoPanel from './ProtocolInfoPanel.vue';
 import DockerPanel from '@/components/docker/DockerPanel.vue';
-import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
 import { Terminal, Monitor, Video, Wifi, GripVertical, GripHorizontal } from 'lucide-vue-next';
 
 const { t } = useI18n();

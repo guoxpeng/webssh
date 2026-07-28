@@ -19,6 +19,3 @@ export function setLocale(locale: string) {
   localStorage.setItem('appLocale', locale);
 }
 
-export function getLocale(): string {
-  return i18n.global.locale.value as string;
-}

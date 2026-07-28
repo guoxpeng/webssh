@@ -13,8 +13,16 @@ import { handleSSH } from './lib/ssh.mjs';
 import { handleSFTP } from './lib/sftp.mjs';
 import { handleTelnet } from './lib/telnet.mjs';
 import { handleSerial } from './lib/serial.mjs';
-import { createChatBot } from './lib/chat.mjs';
 import { audit, getAuditLog, clearAuditLog } from './lib/audit.mjs';
+
+let chatBot = null;
+async function getChatBot() {
+  if (!chatBot) {
+    const module = await import('./lib/chat.mjs');
+    chatBot = module.createChatBot();
+  }
+  return chatBot;
+}
 
 // ─── Auth middleware (only when AUTH_TOKEN is set) ───
 const AUTH_TOKEN = process.env.AUTH_TOKEN || null;
@@ -52,10 +60,8 @@ process.on('unhandledRejection', (reason) => {
   console.error('❗ Unhandled Rejection:', reason?.message || reason);
 });
 
-const chatBot = createChatBot();
-
 // ─── HTTP Server ───
-const server = createServer(async (req, res) => {
+export const server = createServer(async (req, res) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
   if (!checkRate(ip)) { res.writeHead(429); res.end('Too many requests'); return; }
   setSecurityHeaders(res);
@@ -114,27 +120,28 @@ const server = createServer(async (req, res) => {
 
   // ── Chat Bot API ──
   if (req.url.startsWith('/api/chat/')) {
+    const bot = await getChatBot();
     if (req.url === '/api/chat/config') {
-      if (req.method === 'POST') { chatBot.updateConfig(body); json(res, { success: true }); }
-      else json(res, chatBot.getSanitizedConfig());
+      if (req.method === 'POST') { bot.updateConfig(body); json(res, { success: true }); }
+      else json(res, bot.getSanitizedConfig());
       return;
     }
     if (req.url === '/api/chat/messages') {
       const since = parseInt(req.headers['x-since'] || '0', 10);
-      json(res, { messages: chatBot.getMessages(since) });
+      json(res, { messages: bot.getMessages(since) });
       return;
     }
     if (req.url === '/api/chat/send') {
       const { platform, text, meta } = body;
       if (!platform || !text) { json(res, { success: false, error: 'platform and text required' }, 400); return; }
-      const result = await chatBot.sendMessage(platform, text, meta);
+      const result = await bot.sendMessage(platform, text, meta);
       json(res, result);
       return;
     }
     if (req.url === '/api/chat/ai') {
       const { message, serverConfig } = body;
       if (!message) { json(res, { success: false, error: 'message required' }, 400); return; }
-      const result = await chatBot.processAiMessage(message, serverConfig || null);
+      const result = await bot.processAiMessage(message, serverConfig || null);
       json(res, result);
       return;
     }
@@ -284,22 +291,27 @@ server.on('upgrade', (req, socket, head) => {
 
 
 // ─── Docker API via dockerode ───
-let Docker;
-let docker;
-try {
-  const dockerode = await import('dockerode');
-  Docker = dockerode.default;
-  docker = new Docker();
-} catch {}
+let Docker = null;
+let docker = null;
+let dockerInitialized = false;
+async function initDocker() {
+  if (dockerInitialized) return;
+  dockerInitialized = true;
+  try {
+    const dockerode = await import('dockerode');
+    Docker = dockerode.default;
+    docker = new Docker();
+  } catch {}
+}
 
-async function handleDockerApi(docker, req, res, body) {
+async function handleDockerApi(dockerInstance, req, res, body) {
   try {
     const action = req.url.slice('/api/docker/'.length);
     if (action === 'ps') {
-      const containers = await docker.listContainers({ all: true });
+      const containers = await dockerInstance.listContainers({ all: true });
       json(res, { containers });
     } else if (action === 'exec') {
-      const container = docker.getContainer(body.containerId);
+      const container = dockerInstance.getContainer(body.containerId);
       if (body.action === 'logs') {
         const logs = await container.logs({ stdout: true, stderr: true, tail: 100 });
         json(res, { output: logs.toString() });

@@ -14,10 +14,6 @@ export interface NodeInfo {
   [key: string]: any;
 }
 
-const MAX_RECONNECT_ATTEMPTS = 5;
-const RECONNECT_BASE_DELAY = 1000;
-const MAX_RECONNECT_DELAY = 15000;
-
 class SshWebSocketService {
   private ws: WebSocket | null = null;
   private onOpenCallback: (() => void) | null = null;
@@ -28,16 +24,12 @@ class SshWebSocketService {
   private nodeIdentifier: string = 'default-node';
   private manualDisconnect: boolean = false;
   private nodeInfo: NodeInfo | null = null;
-  private reconnectAttempts: number = 0;
-  private reconnectTimer: any = null;
 
   connect(nodeInfo: NodeInfo, callbacks: Callbacks): void {
-    this.cancelReconnect();
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.disconnect(true);
     }
     this.manualDisconnect = false;
-    this.reconnectAttempts = 0;
     this.nodeIdentifier = nodeInfo.name || `node-${Date.now()}`;
     this.nodeInfo = nodeInfo;
 
@@ -59,7 +51,6 @@ class SshWebSocketService {
     }
 
     this.ws.onopen = () => {
-      this.reconnectAttempts = 0;
       try {
         this.ws!.send(JSON.stringify(this.nodeInfo));
       } catch (e) {
@@ -99,30 +90,6 @@ class SshWebSocketService {
     };
   }
 
-  private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
-    this.reconnectAttempts++;
-    const delay = Math.min(
-      RECONNECT_BASE_DELAY * Math.pow(2, this.reconnectAttempts - 1),
-      MAX_RECONNECT_DELAY
-    );
-    this.reconnectTimer = setTimeout(() => {
-      if (this.nodeInfo && !this.manualDisconnect) {
-        if (this.onErrorCallback) {
-          this.onErrorCallback(new Error(`Reconnecting (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`));
-        }
-        this.createSocket();
-      }
-    }, delay);
-  }
-
-  private cancelReconnect(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-  }
-
   sendMessage(data: string): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try { this.ws.send(data); } catch (e) {
@@ -134,7 +101,6 @@ class SshWebSocketService {
   }
 
   disconnect(forReconnect: boolean = false): void {
-    this.cancelReconnect();
     if (this.ws) {
       this.manualDisconnect = !forReconnect;
       this.ws.close(1000, 'disconnect');

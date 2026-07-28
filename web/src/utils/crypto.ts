@@ -104,12 +104,6 @@ async function deriveKey(masterPassword: string, salt: Uint8Array): Promise<Cryp
   return key;
 }
 
-async function exportKeyRaw(key: CryptoKey | Uint8Array): Promise<Uint8Array> {
-  if (key instanceof Uint8Array) return key.slice(0, 16);
-  const raw = await crypto.subtle.exportKey('raw', key as CryptoKey);
-  return new Uint8Array(raw);
-}
-
 export async function setupMasterPassword(password: string): Promise<void> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
   if (haveSubtle()) {

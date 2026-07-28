@@ -163,15 +163,20 @@ export const useUiStore = defineStore('ui', () => {
     setThemePreset(currentTheme.value === 'light' ? 'dark' : 'light');
   }
 
+  const notificationTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
   function addNotification({ message, type = 'info', duration = 5000 }: { message: string; type?: string; duration?: number }): void {
     const id = notificationIdCounter++;
     notifications.value.push({ id, message, type, duration });
     if (duration > 0) {
-      setTimeout(() => removeNotification(id), duration);
+      const timer = setTimeout(() => removeNotification(id), duration);
+      notificationTimers.set(id, timer);
     }
   }
 
   function removeNotification(id: number): void {
+    const timer = notificationTimers.get(id);
+    if (timer) { clearTimeout(timer); notificationTimers.delete(id); }
     notifications.value = notifications.value.filter(n => n.id !== id);
   }
 

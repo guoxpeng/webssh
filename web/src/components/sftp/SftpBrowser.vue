@@ -228,14 +228,14 @@ import {
   Edit3, Pencil, Shield, Trash2, X, ClipboardCopy, Search,
 } from 'lucide-vue-next';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { useUiStore } from '@/stores/uiStore';
+import { useNotifications } from '@/composables/useNotifications';
 import SftpHttpService from '@/services/sftpHttpService';
 import JSZip from 'jszip';
 /* HTTP_SFTP_V2 */
 
 const { t } = useI18n();
 const connStore = useConnectionStore();
-const uiStore = useUiStore();
+const { showSuccess, showError, showInfo } = useNotifications();
 
 const props = defineProps({
   nodeConfig: { type: Object, default: null },
@@ -321,7 +321,7 @@ async function loadEditorContent() {
       editorTextareaRef.value?.focus();
     });
   } catch (err) {
-    showMessage(t('sftp.loadFailed', { name: editFileName.value, error: err.message }), 'is-error');
+    showError(t('sftp.loadFailed', { name: editFileName.value, error: err.message }));
   }
 }
 
@@ -332,9 +332,9 @@ async function saveEditor() {
     editOriginal.value = editContent.value;
     editorDirty.value = false;
     editorJustSaved.value = true;
-    showMessage(t('sftp.savedFile', { name: editFileName.value }), 'is-success');
+    showSuccess(t('sftp.savedFile', { name: editFileName.value }));
   } catch (err) {
-    showMessage(t('sftp.saveFailed', { name: editFileName.value, error: err.message }), 'is-error');
+    showError(t('sftp.saveFailed', { name: editFileName.value, error: err.message }));
   } finally {
     saving.value = false;
   }
@@ -373,10 +373,7 @@ const chmodOctal = computed(() => {
 watch(showNewFolder, (v) => { if (v) nextTick(() => folderInputRef.value?.focus()); });
 watch(showRename, (v) => { if (v) nextTick(() => renameInputRef.value?.focus()); });
 
-function showMessage(msg, type = 'is-info') {
-  const typeMap = { 'is-success': 'success', 'is-error': 'danger', 'is-info': 'info' };
-  uiStore.addNotification({ type: typeMap[type] || 'info', message: msg, duration: 3000 });
-}
+
 
 function friendlyError(msg) {
   const m = (msg || '').toLowerCase();
@@ -507,7 +504,7 @@ async function onUploadFiles(e) {
   const files = e.target?.files;
   if (!files?.length) return;
   for (const file of files) {
-    if (file.size > 52428800) { showMessage(t('sftp.fileTooLarge', { name: file.name }), 'is-error'); continue; }
+    if (file.size > 52428800) { showError(t('sftp.fileTooLarge', { name: file.name })); continue; }
     uploadFileName.value = file.name;
     uploadProgress.value = 0;
     const reader = new FileReader();
@@ -518,9 +515,9 @@ async function onUploadFiles(e) {
     try {
       await api('write', { path: (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + file.name, content, encoding: 'base64' });
       uploadProgress.value = 100;
-      showMessage(t('sftp.uploaded', { name: file.name }), 'is-success');
+      showSuccess(t('sftp.uploaded', { name: file.name }));
     } catch (err) {
-      showMessage(t('sftp.uploadFailed', { name: file.name, error: err.message }), 'is-error');
+      showError(t('sftp.uploadFailed', { name: file.name, error: err.message }));
     }
   }
   uploadProgress.value = null;
@@ -556,9 +553,9 @@ async function downloadFile(entry) {
     const a = document.createElement('a');
     a.href = url; a.download = entry.name; a.click();
     URL.revokeObjectURL(url);
-    showMessage(t('sftp.downloaded', { name: entry.name }), 'is-success');
+    showSuccess(t('sftp.downloaded', { name: entry.name }));
   } catch (err) {
-    showMessage(err.message, 'is-error');
+    showError(err.message);
   }
 }
 
@@ -566,7 +563,7 @@ async function downloadFolderAsZip(dirName) {
   loading.value = true;
   try {
     const allFiles = await walkFolder(dirName);
-    if (allFiles.length === 0) { showMessage(t('sftp.empty'), 'is-info'); return; }
+    if (allFiles.length === 0) { showInfo(t('sftp.empty')); return; }
     const zip = new JSZip();
     for (const f of allFiles) {
       const data = await api('read', { path: fullPath(f.path) });
@@ -580,9 +577,9 @@ async function downloadFolderAsZip(dirName) {
     const a = document.createElement('a');
     a.href = url; a.download = dirName + '.zip'; a.click();
     URL.revokeObjectURL(url);
-    showMessage(t('sftp.downloaded', { name: dirName + '.zip' }), 'is-success');
+    showSuccess(t('sftp.downloaded', { name: dirName + '.zip' }));
   } catch (err) {
-    showMessage(err.message, 'is-error');
+    showError(err.message);
   } finally {
     loading.value = false;
   }
@@ -590,7 +587,7 @@ async function downloadFolderAsZip(dirName) {
 
 async function downloadSelected() {
   const names = [...selected.value];
-  if (names.length === 0) { showMessage(t('sftp.selectDownload'), 'is-info'); return; }
+  if (names.length === 0) { showInfo(t('sftp.selectDownload')); return; }
   loading.value = true;
   try {
     const allFiles = [];
@@ -617,9 +614,9 @@ async function downloadSelected() {
     const a = document.createElement('a');
     a.href = url; a.download = 'download.zip'; a.click();
     URL.revokeObjectURL(url);
-    showMessage(t('sftp.downloaded', { name: names.join(', ') }), 'is-success');
+    showSuccess(t('sftp.downloaded', { name: names.join(', ') }));
   } catch (err) {
-    showMessage(err.message, 'is-error');
+    showError(err.message);
   } finally {
     loading.value = false;
   }
@@ -658,10 +655,10 @@ async function createFolder() {
   try {
     await api('mkdir', { path: fullPath(newFolderName.value.trim()) });
     showNewFolder.value = false;
-    showMessage(t('sftp.folderCreated'), 'is-success');
+    showSuccess(t('sftp.folderCreated'));
     refresh();
   } catch (err) {
-    showMessage(err.message, 'is-error');
+    showError(err.message);
   }
 }
 
@@ -678,10 +675,10 @@ async function doRename() {
     await api('rename', { srcPath: src, destPath: dst });
     showRename.value = false;
     renameTarget.value = null;
-    showMessage(t('sftp.renamed'), 'is-success');
+    showSuccess(t('sftp.renamed'));
     refresh();
   } catch (err) {
-    showMessage(err.message, 'is-error');
+    showError(err.message);
   }
 }
 
@@ -698,10 +695,10 @@ async function doChmod() {
   try {
     await api('chmod', { path: fullPath(chmodTarget.value), mode: chmodOctal.value });
     showChmod.value = false;
-    showMessage(t('sftp.permissionsChanged'), 'is-success');
+    showSuccess(t('sftp.permissionsChanged'));
     refresh();
   } catch (err) {
-    showMessage(err.message, 'is-error');
+    showError(err.message);
   }
 }
 
@@ -716,10 +713,10 @@ async function doDelete() {
       await api('delete', { path });
     }
     deleteTarget.value = null;
-    showMessage(t('sftp.deleted'), 'is-success');
+    showSuccess(t('sftp.deleted'));
     refresh();
   } catch (err) {
-    showMessage(err.message, 'is-error');
+    showError(err.message);
   }
 }
 
@@ -727,9 +724,9 @@ async function copyPath(entry) {
   const full = fullPath(entry.name);
   try {
     await navigator.clipboard.writeText(full);
-    showMessage(t('sftp.copied', { path: full }), 'is-success');
+    showSuccess(t('sftp.copied', { path: full }));
   } catch {
-    showMessage(t('sftp.copyFailed'), 'is-error');
+    showError(t('sftp.copyFailed'));
   }
 }
 

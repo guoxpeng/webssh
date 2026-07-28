@@ -160,6 +160,7 @@ import AppNotification from '@/components/global/AppNotification.vue';
 import SettingsPanel from '@/components/global/SettingsPanel.vue';
 import SkipToContent from '@/components/global/SkipToContent.vue';
 import { useUiStore } from '@/stores/uiStore';
+import { useNotifications } from '@/composables/useNotifications';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useBackupStore } from '@/stores/backupStore';
@@ -173,10 +174,11 @@ import AuditPanel from '@/components/audit/AuditPanel.vue';
 import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
 
 const { t } = useI18n();
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.1.1';
 const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
+const { showWarning } = useNotifications();
 const sidebarCollapsed = ref(false);
 const mobileMenuOpen = ref(false);
 const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
@@ -207,7 +209,6 @@ function onRunSnippet(snippet) {
     terminalStore.activeSendFunction(snippet.command + '\n');
     terminalStore.addRecentCommand(snippet.command);
   } else {
-    const { showWarning } = useNotifications();
     showWarning(t('terminal.connectFirst'));
   }
 }
@@ -224,7 +225,6 @@ function onRunMacro(macro) {
     const macroStore = useMacroStore();
     macroStore.incrementRunCount(macro.id);
   } else {
-    const { showWarning } = useNotifications();
     showWarning(t('terminal.connectFirst'));
   }
 }
@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
     &.is-collapsed { transform: translateX(-100%); }
   }
   .workbench-content {
-    margin-left: 0 !important; padding: 0.6rem; padding-bottom: calc(3.5rem + var(--sab, 0px));
+    margin-left: 0 !important; padding: 0.6rem; padding-bottom: calc(3.5rem + 20px + var(--sab, 0px));
     overflow: hidden;
   }
   .sidebar-header {
@@ -379,7 +379,11 @@ onBeforeUnmount(() => {
   .sidebar-label { display: inline !important; }
   .collapse-icon { display: none; }
   .mobile-bottom-nav { display: flex; }
-  .workbench-statusbar { display: none; }
+  .workbench-statusbar {
+    display: flex; height: 20px; font-size: 0.6em;
+    position: fixed; bottom: 3.5rem; left: 0; right: 0; z-index: 99;
+    .statusbar-right { display: none; }
+  }
 
   /* Mobile dark mode refinements */
   :root.is-dark-mode .workbench-sidebar {

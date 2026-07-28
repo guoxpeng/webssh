@@ -37,9 +37,25 @@
           <span v-if="loading" class="btn-loading"></span>
           {{ btnText }}
         </button>
+
+        <div v-if="!isSetup" class="unlock-forgot">
+          <button class="forgot-link" @click="clearConfirmVisible = true">
+            {{ t('unlock.forgotPassword') }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
+
+  <ConfirmDialog
+    :visible="clearConfirmVisible"
+    :title="t('unlock.clearConfirmTitle')"
+    :message="t('unlock.clearConfirmMsg')"
+    :confirm-text="t('unlock.clearConfirmBtn')"
+    :cancel-text="t('common.cancel')"
+    @confirm="clearAllData"
+    @cancel="clearConfirmVisible = false"
+  />
 </template>
 
 <script setup>
@@ -47,6 +63,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { setupMasterPassword, verifyMasterPassword, STORAGE_VERIFY_KEY } from '@/utils/crypto';
 import { KeyRound, Lock, Eye, EyeOff, Info } from 'lucide-vue-next';
+import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 
 const { t } = useI18n();
 const emit = defineEmits(['unlocked']);
@@ -60,6 +77,7 @@ const showPw = ref(false);
 const error = ref('');
 const loading = ref(false);
 const inputRef = ref(null);
+const clearConfirmVisible = ref(false);
 
 // Electron: auto-unlock if master password was persisted
 if (isElectron) {
@@ -127,6 +145,25 @@ async function trySubmit() {
     loading.value = false;
   }
 }
+
+function clearAllData() {
+  clearConfirmVisible.value = false;
+  const localKeys = Object.keys(localStorage);
+  for (const key of localKeys) {
+    if (key.startsWith('sshWebAppCredLocal_') || key === 'sshWebAppConnections_configs'
+        || key === 'webssh_verify' || key === 'webssh_verify_salt'
+        || key === 'webssh_exe_master') {
+      localStorage.removeItem(key);
+    }
+  }
+  const sessionKeys = Object.keys(sessionStorage);
+  for (const key of sessionKeys) {
+    if (key.startsWith('sshWebAppCred_') || key === 'webssh_master') {
+      sessionStorage.removeItem(key);
+    }
+  }
+  window.location.reload();
+}
 </script>
 
 <style scoped>
@@ -183,4 +220,11 @@ async function trySubmit() {
   border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.unlock-forgot { margin-top: 1rem; }
+.forgot-link {
+  background: none; border: none; cursor: pointer;
+  color: var(--bulma-text-light); font-size: 0.78em;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.forgot-link:hover { color: var(--bulma-danger); }
 </style>

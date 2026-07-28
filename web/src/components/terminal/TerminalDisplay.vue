@@ -111,7 +111,6 @@ import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
-import { WebglAddon } from '@xterm/addon-webgl';
 import SshWebSocketService from '@/services/sshWebSocketService';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useConnectionStore } from '@/stores/connectionStore';
@@ -155,8 +154,6 @@ const searchQuery = ref('');
 const searchResultIndex = ref(0);
 const searchResultCount = ref(0);
 const commandInput = ref('');
-const snippetDragIdx = ref(null);
-const snippetDragOverIdx = ref(null);
 let term = null;
 let fitAddon = null;
 let searchAddon = null;
@@ -200,6 +197,18 @@ const pasteFallbackText = ref('');
 const pasteFallbackRef = ref(null);
 
 async function pasteToTerminal() {
+  const cmdInput = cmdInputRef.value;
+  if (cmdInput && document.activeElement === cmdInput) {
+    const text = await navigator.clipboard.readText().catch(() => '');
+    if (text) {
+      const start = cmdInput.selectionStart;
+      const end = cmdInput.selectionEnd;
+      const val = commandInput.value;
+      commandInput.value = val.substring(0, start) + text + val.substring(end);
+      nextTick(() => { cmdInput.selectionStart = cmdInput.selectionEnd = start + text.length; });
+    }
+    return;
+  }
   if (!wsService) return;
   try {
     const text = await navigator.clipboard.readText();
@@ -232,32 +241,24 @@ function cancelPasteFallback() {
 }
 
 function copyFromTerminal() {
+  const cmdInput = cmdInputRef.value;
+  if (cmdInput && document.activeElement === cmdInput) {
+    const start = cmdInput.selectionStart;
+    const end = cmdInput.selectionEnd;
+    if (start !== end) {
+      const text = commandInput.value.substring(start, end);
+      navigator.clipboard.writeText(text);
+      uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 });
+    }
+    return;
+  }
   if (term?.hasSelection()) {
     const selected = term.getSelection();
     if (selected) {
-      copyText(selected, () => uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
+      navigator.clipboard.writeText(selected);
+      uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 });
     }
   }
-}
-
-function copyText(text, onSuccess) {
-  if (tryExecCopy(text)) { onSuccess?.(); return; }
-  try { navigator.clipboard.writeText(text).then(() => onSuccess?.()); } catch {}
-}
-
-function tryExecCopy(text) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.left = '-9999px';
-  ta.style.top = '0';
-  document.body.appendChild(ta);
-  ta.focus();
-  ta.select();
-  let ok = false;
-  try { ok = document.execCommand('copy'); } catch {}
-  document.body.removeChild(ta);
-  return ok;
 }
 
 function sendQuickSnippet(s) {
@@ -265,19 +266,6 @@ function sendQuickSnippet(s) {
     wsService.sendMessage(s.command + '\n');
     codeNoteStore.addNote(s.command, 'terminal');
   }
-}
-
-function onSnippetDragStart(e, idx) { snippetDragIdx.value = idx; e.dataTransfer.effectAllowed = 'move'; }
-function onSnippetDragOver(e, idx) { e.preventDefault(); snippetDragOverIdx.value = idx; }
-function onSnippetDrop(idx) {
-  if (snippetDragIdx.value === null || snippetDragIdx.value === idx) return;
-  const favs = snippetStore.snippets.filter(s => s.favorite);
-  const src = favs[snippetDragIdx.value];
-  const dst = favs[idx];
-  if (!src || !dst) return;
-  snippetStore.reorderFavorites(src.id, dst.id);
-  snippetDragIdx.value = null;
-  snippetDragOverIdx.value = null;
 }
 
 const darkTerminalTheme = {
@@ -410,7 +398,6 @@ const initializeTerminal = async () => {
     searchResultIndex.value = Math.min(results.resultIndex + 1, results.resultCount);
   });
   term.loadAddon(searchAddon);
-  try { term.loadAddon(new WebglAddon()); } catch {}
   term.open(xtermContainerRef.value);
 
   try { fitAddon.fit(); } catch (e) {

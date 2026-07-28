@@ -288,6 +288,10 @@ export default {
     show: '显示',
     hide: '隐藏',
     unlockTitle: '解锁',
+    forgotPassword: '忘记密码？清除所有数据',
+    clearConfirmTitle: '确认清除',
+    clearConfirmMsg: '将清除所有已保存的服务器连接和凭据。此操作不可撤销！',
+    clearConfirmBtn: '清除所有数据',
   },
   notFound: {
     title: '404',

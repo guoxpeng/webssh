@@ -374,10 +374,10 @@ export default {
       return handleTerminalWS(request);
     }
 
-    /* Serve built frontend via ASSETS binding (Workers) or 404 (Pages without ASSETS) */
+    /* Serve built frontend via ASSETS binding (Workers format) or fall through to Pages static assets */
     if (env.ASSETS) {
       return env.ASSETS.fetch(request);
     }
-    return json({ error: 'Not found', hint: 'If on Pages, ensure _worker.js is present and static files are deployed together.' }, 404);
+    return; // Let CF Pages serve static files for unmatched routes
   },
 };

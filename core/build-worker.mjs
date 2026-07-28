@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -108,11 +108,11 @@ console.log('Worker built to dist/client/_worker.js');
 
 // Post-build: verify SFTP is properly stubbed
 const workerPath = join(outDir, '_worker.js');
-let code = require('fs').readFileSync(workerPath, 'utf8');
+let code = readFileSync(workerPath, 'utf8');
 if (/class\s+SFTPWrapper/.test(code)) {
   // If stub didn't work, replace any remaining SFTP class with empty stub
   code = code.replace(/class SFTPWrapper[\s\S]*?(?=\n\s*(?:class|export|const|var|let|async|function|$))/g, 'class SFTPWrapper {}');
-  require('fs').writeFileSync(workerPath, code);
+  writeFileSync(workerPath, code);
   console.log('Fallback: SFTP class stubbed via regex');
 }
 console.log('Worker build complete');

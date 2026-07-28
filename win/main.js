@@ -1,13 +1,25 @@
-const { app, BrowserWindow, dialog, Menu } = require('electron');
-const { spawn, execSync } = require('child_process');
+const { app, dialog, Menu, Tray, shell } = require('electron');
+const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
+const { pathToFileURL } = require('url');
 
-let mainWindow = null;
-let serverProcess = null;
+let tray = null;
+let httpServer = null;
 const PORT = 9627;
-const APP_ROOT = process.resourcesPath;
+
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128');
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('disable-background-networking');
+app.commandLine.appendSwitch('disable-default-apps');
+app.commandLine.appendSwitch('disable-extensions');
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-features', 'AudioServiceOutOfProcess,AudioServiceSandbox,NetworkService,TranslateService,TranslateUI,AutofillServerCommunication,MediaRouter,OptimizationHints,BackForwardCache');
+app.commandLine.appendSwitch('single-process');
+
+app.disableHardwareAcceleration();
 
 function waitForPort(port, timeout = 15000) {
   return new Promise((resolve, reject) => {
@@ -24,49 +36,30 @@ function waitForPort(port, timeout = 15000) {
   });
 }
 
-function createMainWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280, height: 800,
-    icon: path.join(APP_ROOT, 'icon.ico'),
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
-    show: false,
-  });
-  mainWindow.loadURL(`http://localhost:${PORT}`);
-  mainWindow.once('ready-to-show', () => mainWindow.show());
-  mainWindow.on('closed', () => { mainWindow = null; });
-}
-
 app.whenReady().then(async () => {
-  // Electron 25+ no longer includes "Electron" in userAgent by default
-  // Restore it so our renderer can detect Electron context
   if (!app.userAgentFallback.includes('Electron')) {
     app.userAgentFallback += ' Electron';
   }
-  Menu.setApplicationMenu(null); // Remove default menu bar
 
-  const serverEntry = path.join(APP_ROOT, 'core', 'server', 'index.mjs');
-  if (!fs.existsSync(serverEntry)) {
-    dialog.showErrorBox('File Missing', 'core/server/index.mjs not found.\n\nExpected: ' + serverEntry);
+  const serverPath = path.join(process.resourcesPath, 'core', 'server', 'index.mjs');
+  if (!fs.existsSync(serverPath)) {
+    dialog.showErrorBox('File Missing', `core/server/index.mjs not found.\n\nExpected: ${serverPath}`);
     app.quit();
     return;
   }
 
-  let serverLog = '';
-  serverProcess = spawn(process.execPath, [serverEntry], {
-    cwd: APP_ROOT,
-    env: { ...process.env, PORT: String(PORT), NODE_ENV: 'production', ELECTRON_RUN_AS_NODE: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: false,
-  });
-  serverProcess.stdout.on('data', (d) => { serverLog += d; if (serverLog.length > 8000) serverLog = serverLog.slice(-6000); });
-  serverProcess.stderr.on('data', (d) => { serverLog += d; if (serverLog.length > 8000) serverLog = serverLog.slice(-6000); });
+  process.env.PORT = String(PORT);
+  process.env.NODE_ENV = 'production';
 
-  serverProcess.on('exit', (code) => {
-    if (code !== 0) {
-      dialog.showErrorBox('Service Stopped', `SSH service exited (code ${code}).\n\nLast logs:\n${serverLog.trim().split('\n').slice(-10).join('\n')}`);
-    }
+  try {
+    const serverUrl = pathToFileURL(serverPath).href;
+    const mod = await import(serverUrl);
+    httpServer = mod.server || null;
+  } catch (err) {
+    dialog.showErrorBox('Server Error', `Failed to start server:\nPath: ${serverPath}\nError: ${err.message}`);
     app.quit();
-  });
+    return;
+  }
 
   try {
     await waitForPort(PORT);
@@ -76,19 +69,24 @@ app.whenReady().then(async () => {
     return;
   }
 
-  createMainWindow();
-});
+  const trayIcon = path.join(process.resourcesPath, 'icon.ico');
+  if (fs.existsSync(trayIcon)) {
+    tray = new Tray(trayIcon);
+    tray.setToolTip('WebSSH');
+    tray.setContextMenu(Menu.buildFromTemplate([
+      { label: 'Open', click: () => shell.openExternal(`http://localhost:${PORT}`) },
+      { type: 'separator' },
+      { label: 'Quit', click: () => app.quit() },
+    ]));
+    tray.on('double-click', () => shell.openExternal(`http://localhost:${PORT}`));
+  }
 
-function killProcessTree(pid) {
-  try {
-    if (process.platform === 'win32') {
-      execSync(`taskkill /f /t /pid ${pid}`, { stdio: 'ignore', timeout: 3000 });
-    } else {
-      try { process.kill(-pid, 'SIGTERM'); } catch {}
-      try { process.kill(pid, 'SIGTERM'); } catch {}
-    }
-  } catch {}
-}
+  shell.openExternal(`http://localhost:${PORT}`);
+  app.dock?.hide?.();
+}).catch(err => {
+  dialog.showErrorBox('Startup Error', err.message);
+  app.quit();
+});
 
 function cleanupPort(port) {
   try {
@@ -99,16 +97,17 @@ function cleanupPort(port) {
 }
 
 function cleanup() {
-  if (serverProcess && serverProcess.pid) killProcessTree(serverProcess.pid);
+  if (httpServer) {
+    try { httpServer.close(); } catch {}
+    httpServer = null;
+  }
   cleanupPort(PORT);
 }
 
 app.on('before-quit', () => cleanup());
-app.on('window-all-closed', () => { cleanup(); app.quit(); });
+app.on('window-all-closed', (e) => { e.preventDefault(); });
 process.on('exit', () => cleanup());
 
-// Ensure only one instance
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) app.quit();
-// Kill any leftover process on our port before starting
 cleanupPort(PORT);

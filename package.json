@@ -1,7 +1,7 @@
 {
   "name": "webssh",
   "private": true,
-  "version": "3.1.0",
+  "version": "3.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
     "worker:build": "node core/build-worker.mjs",
     "worker:dev": "wrangler dev",
     "worker:deploy": "npm run build && node core/build-worker.mjs && wrangler deploy",
-    "pages:deploy": "npm run build && node core/build-worker.mjs && wrangler pages deploy dist --project-name=webssh",
+    "pages:deploy": "npm run build && node core/build-worker.mjs && wrangler pages deploy dist/client --project-name=webssh",
     "lint": "eslint web/src --fix",
     "format": "prettier --write web/src",
     "typecheck": "vue-tsc --noEmit",

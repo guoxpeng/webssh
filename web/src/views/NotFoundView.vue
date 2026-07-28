@@ -21,7 +21,7 @@ import { Unplug, Home } from 'lucide-vue-next';
 
 <style lang="scss" scoped>
 .section {
-  // min-height calculated in DefaultLayout or App.vue for main content area
+  // min-height handled by flex layout in WorkbenchLayout
 }
 .lucide {
     vertical-align: -0.15em;

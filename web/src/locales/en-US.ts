@@ -288,6 +288,10 @@ export default {
     show: 'Show',
     hide: 'Hide',
     unlockTitle: 'Unlock',
+    forgotPassword: 'Forgot password? Reset all data',
+    clearConfirmTitle: 'Confirm Reset',
+    clearConfirmMsg: 'This will clear all saved connections and credentials. This action cannot be undone!',
+    clearConfirmBtn: 'Reset All Data',
   },
   notFound: {
     title: '404',
