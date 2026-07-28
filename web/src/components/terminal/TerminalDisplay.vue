@@ -416,12 +416,13 @@ const initializeTerminal = async () => {
   let connected = false;
 
   function friendlyError(msg) {
-  const m = (msg || '').toLowerCase();
-  if (m.includes('timed out') || m.includes('timeout') || m.includes('handshake') || m.includes('ETIMEDOUT')) return t('terminal.connTimeout');
-  if (m.includes('authentication') || m.includes('auth failed') || m.includes('password') || m.includes('permission denied')) return t('terminal.authFailed');
-  if (m.includes('refused') || m.includes('ECONNREFUSED') || m.includes('not allowed')) return t('terminal.connRefused');
-  if (m.includes('lost') || m.includes('closed') || m.includes('reset')) return t('terminal.connLost');
-  return msg;
+  const raw = msg || '';
+  const m = raw.toLowerCase();
+  if (m.includes('timed out') || m.includes('timeout') || m.includes('handshake') || m.includes('ETIMEDOUT')) return t('terminal.connTimeout') + ' [' + raw + ']';
+  if (m.includes('authentication') || m.includes('auth failed') || m.includes('password') || m.includes('permission denied')) return t('terminal.authFailed') + ' [' + raw + ']';
+  if (m.includes('refused') || m.includes('ECONNREFUSED') || m.includes('not allowed')) return t('terminal.connRefused') + ' [' + raw + ']';
+  if (m.includes('lost') || m.includes('closed') || m.includes('reset')) return t('terminal.connLost') + ' [' + raw + ']';
+  return raw;
 }
 
 const callbacks = {
