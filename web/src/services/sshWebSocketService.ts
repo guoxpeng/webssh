@@ -45,6 +45,7 @@ class SshWebSocketService {
   private createSocket(): void {
     try {
       this.ws = new WebSocket(getWsBaseUrl());
+      this.ws.binaryType = 'arraybuffer';
     } catch (e) {
       if (this.onErrorCallback) this.onErrorCallback(e instanceof Error ? e : new Error('Failed to create WebSocket.'));
       return;
