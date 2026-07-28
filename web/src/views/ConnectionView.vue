@@ -22,11 +22,8 @@
             <History :size="16"/> {{ t('server.savedServers') }}
             <div class="sidebar-header-actions">
               <button class="header-action-btn" @click="showNewGroupInput = true" :title="t('server.newGroup')"><FolderPlus :size="14"/></button>
-              <button class="header-action-btn" @click="exportConnections" :title="t('server.export')"><Download :size="14"/></button>
-              <button class="header-action-btn" @click="triggerImport" :title="t('server.import')"><Upload :size="14"/></button>
             </div>
             <span class="sidebar-badge">{{ connectionStore.savedConnections.length }}</span>
-            <input type="file" ref="importInputRef" accept=".json" style="display:none" @change="onImportFile"/>
           </div>
 
           <!-- New group input -->
@@ -144,22 +141,6 @@
       @cancel="connectionToRemove = null"
     />
 
-    <div v-if="showExportWarning" class="export-warning-overlay" @click.self="showExportWarning = false">
-      <div class="export-warning-card">
-        <div class="ew-header">
-          <AlertTriangle :size="18"/>
-          <span>{{ t('server.exportWarningTitle') }}</span>
-          <button class="ew-close" @click="showExportWarning = false">&times;</button>
-        </div>
-        <div class="ew-body">
-          <p>{{ t('server.exportPasswordWarning') }}</p>
-        </div>
-        <div class="ew-footer">
-          <button class="ew-btn ew-btn-cancel" @click="doExport(false)">{{ t('server.exportWithoutPassword') }}</button>
-          <button class="ew-btn ew-btn-danger" @click="doExport(true)">{{ t('server.exportWithPassword') }}</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -174,8 +155,8 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
 import {
-  Server, History, Edit3, Trash2, Play, FolderSearch, Download, Upload,
-  ChevronRight, FolderPlus, Star, MoreHorizontal, AlertTriangle,
+  Server, History, Edit3, Trash2, Play, FolderSearch,
+  ChevronRight, FolderPlus, Star, MoreHorizontal,
 } from 'lucide-vue-next';
 
 const connectionStore = useConnectionStore();
@@ -193,7 +174,7 @@ onMounted(() => {
   }
 });
 const connectionToRemove = ref(null);
-const importInputRef = ref(null);
+
 const sidebarListRef = ref(null);
 const itemRefs = ref([]);
 const focusedIndex = ref(-1);
@@ -236,50 +217,6 @@ function onSidebarKeydown(e) {
 const removeDialogMessage = computed(() =>
   connectionToRemove.value ? t('server.removeConfirm', { name: connectionToRemove.value.name }) : ''
 );
-
-function exportConnections() {
-  showExportWarning.value = true;
-}
-
-async function doExport(includePwd) {
-  showExportWarning.value = false;
-  let data;
-  if (includePwd) {
-    data = JSON.stringify(await connectionStore.getConnectionsWithCredentials(), null, 2);
-  } else {
-    data = JSON.stringify(connectionStore.savedConnections, null, 2);
-  }
-  const blob = new Blob([data], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `webssh-connections-${Date.now()}.json`;
-  a.click(); URL.revokeObjectURL(a.href);
-  showSuccess(t('server.exported', { count: connectionStore.savedConnections.length }));
-}
-function triggerImport() { importInputRef.value?.click(); }
-function onImportFile(e) {
-  const file = e.target.files?.[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    try {
-      const imported = JSON.parse(ev.target?.result || '[]');
-      if (!Array.isArray(imported)) throw new Error('Invalid format');
-      let count = 0;
-      for (const conn of imported) {
-        if (conn.name && conn.host) {
-          const added = connectionStore.addConnection(conn);
-          if (conn.auth_value && added?.id) {
-            connectionStore.saveCredentialToSessionStorage(added.id, conn.auth_type || 'password', conn.auth_value);
-          }
-          count++;
-        }
-      }
-      showSuccess(t('server.exported', { count }));
-    } catch { showError(t('server.importFailed')); }
-  };
-  reader.readAsText(file);
-  e.target.value = '';
-}
 
 async function handleFormSave(nodeConfig) {
   const saved = connectionStore.addConnection(nodeConfig);
@@ -362,7 +299,7 @@ function cancelCreateGroup() { showNewGroupInput.value = false; newGroupName.val
 const groupMenuVisible = ref(false);
 const groupMenuStyle = ref({});
 const groupMenuTarget = ref('');
-const showExportWarning = ref(false);
+
 
 function showGroupContextMenu(e, grp) {
   groupMenuTarget.value = grp;
@@ -553,39 +490,6 @@ function onDrop(e, conn, targetGroup) {
 .rename-input { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--bulma-border); border-radius: 6px; font-size: 0.85em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none; &:focus { border-color: var(--bulma-primary); } }
 .rename-actions { display: flex; gap: 0.35rem; margin-top: 0.5rem; }
 .rename-btn { flex: 1; border: none; border-radius: 6px; padding: 0.35rem; font-size: 0.8em; cursor: pointer; font-weight: 500; background: var(--bulma-primary); color: white; &.cancel { background: var(--bulma-border-light); color: var(--bulma-text); } }
-
-.export-warning-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex;
-  align-items: center; justify-content: center; z-index: 3000; backdrop-filter: blur(2px);
-}
-.export-warning-card {
-  background: var(--bulma-scheme-main); border-radius: 14px; width: 420px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.25); overflow: hidden;
-  border: 1px solid rgba(239,68,68,0.3);
-}
-.ew-header {
-  display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, hsl(0,65%,55%), hsl(0,70%,48%));
-  color: white; font-size: 0.9em; font-weight: 600;
-}
-.ew-close {
-  margin-left: auto; background: none; border: none; color: rgba(255,255,255,0.7);
-  font-size: 1.3em; cursor: pointer; line-height: 1; padding: 0;
-  &:hover { color: white; }
-}
-.ew-body {
-  padding: 1rem; font-size: 0.82em; line-height: 1.6; color: var(--bulma-text);
-  p { margin: 0; }
-}
-.ew-footer {
-  display: flex; gap: 0.5rem; padding: 0.75rem 1rem; border-top: 1px solid var(--bulma-border-light);
-}
-.ew-btn {
-  flex: 1; border: none; border-radius: 8px; padding: 0.5rem; font-size: 0.8em;
-  cursor: pointer; font-weight: 500;
-}
-.ew-btn-cancel { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); &:hover { background: var(--bulma-border-light); } }
-.ew-btn-danger { background: hsl(0,65%,55%); color: white; &:hover { background: hsl(0,65%,45%); } }
 
 @media (max-width: 768px) {
   .conn-layout { grid-template-columns: 1fr; }
