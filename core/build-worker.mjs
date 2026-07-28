@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -57,7 +57,14 @@ var __CF_nodeModules = {
   'url': __shim_url, 'node:url': __shim_url,
   'util': __shim_util, 'node:util': __shim_util,
   'zlib': __shim_zlib, 'node:zlib': __shim_zlib,
-  'child_process': {}, 'dns': {}, 'fs': {}, 'net': {}, 'os': {}, 'tls': {},
+  'child_process': {}, 'dns': {}, 'net': {}, 'os': {}, 'tls': {},
+  'fs': {
+    constants: {
+      S_IFMT: 61440, S_IFDIR: 16384, S_IFREG: 32768,
+      S_IFBLK: 24576, S_IFCHR: 8192, S_IFLNK: 40960,
+      S_IFIFO: 4096, S_IFSOCK: 49152,
+    },
+  },
   'http': { Agent: class Agent {} }, 'https': { Agent: class Agent {} },
 };
 
@@ -100,25 +107,10 @@ await esbuild.build({
           return { path: join(__dirname, 'worker/shims/ssh2-agent.js') };
         }
       });
-      // Replace ssh2's SFTP protocol module with stub (not available on Workers)
-      build.onResolve({ filter: /protocol[/\\\\]SFTP/ }, (args) => {
-        if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
-          return { path: join(__dirname, 'worker/shims/sftp-stub.mjs') };
-        }
-      });
+
     },
   }],
 });
 
 console.log('Worker built to dist/client/_worker.js');
-
-// Post-build: verify SFTP is properly stubbed
-const workerPath = join(outDir, '_worker.js');
-let code = readFileSync(workerPath, 'utf8');
-if (/class\s+SFTPWrapper/.test(code)) {
-  // If stub didn't work, replace any remaining SFTP class with empty stub
-  code = code.replace(/class SFTPWrapper[\s\S]*?(?=\n\s*(?:class|export|const|var|let|async|function|$))/g, 'class SFTPWrapper {}');
-  writeFileSync(workerPath, code);
-  console.log('Fallback: SFTP class stubbed via regex');
-}
 console.log('Worker build complete');

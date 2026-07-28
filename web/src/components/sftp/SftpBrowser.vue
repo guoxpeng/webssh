@@ -229,7 +229,7 @@ import {
 } from 'lucide-vue-next';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useNotifications } from '@/composables/useNotifications';
-import SftpHttpService from '@/services/sftpHttpService';
+import SftpWsService from '@/services/sftpWsService';
 import JSZip from 'jszip';
 /* HTTP_SFTP_V2 */
 
@@ -243,7 +243,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-const sftp = new SftpHttpService();
+const sftp = new SftpWsService();
 const loading = ref(false);
 const error = ref('');
 const entries = ref([]);
