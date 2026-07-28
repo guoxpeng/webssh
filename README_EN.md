@@ -1,4 +1,4 @@
-# WebSSH v3.1 — SSH Client in Your Browser
+# WebSSH v3.2 — SSH Client in Your Browser
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
@@ -116,136 +116,54 @@ npm run desktop
 
 ---
 
-## Cloudflare Version
+## Cloudflare Deployment (Free Pages)
 
-Deploy WebSSH on Cloudflare Workers/Pages — no server required, leverage Cloudflare's global network for SSH access.
+No server required — leverage Cloudflare's global network for SSH access.
 
-> **Note:** Cloudflare Workers cannot connect to private IP addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x). For LAN servers, use the Docker deployment or Windows desktop client.
+> ⚠ **Public servers only.** Private IPs (192.168.x.x etc.) cannot be reached. Use Docker or Windows client for LAN.
 
-### Prerequisites
-
-- A Cloudflare account
-- **Pages deployment**: Free, no credit card required
-- **Workers deployment**: Workers Paid plan required (`cloudflare:sockets` API requires paid subscription)
-- [Node.js](https://nodejs.org/) >= 18 + npm
-
-### 1. Create R2 Bucket
-
-The backup feature requires an R2 storage bucket:
-
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com)
-2. Navigate to **R2** → **Create bucket**
-3. Name it **`webssh-backups`** (region: default)
-4. Click **Create bucket**
-
-### 2. Clone & Install
+### Step-by-step
 
 ```bash
+# 1. Clone & install
 git clone https://github.com/guoxpeng/webssh.git
-cd webssh
-npm install
-```
+cd webssh && npm install
 
-### 3. Configure Deployment
-
-The `wrangler.toml` file at the project root contains all configuration:
-
-```toml
-name = "webssh"
-compatibility_date = "2026-07-23"
-compatibility_flags = ["nodejs_compat"]
-
-pages_build_output_dir = "dist/client"
-
-[[r2_buckets]]
-binding = "BACKUP_BUCKET"
-bucket_name = "webssh-backups"
-```
-
-**Key points:**
-- `compatibility_flags`: Must include `nodejs_compat` — required for ssh2's Node.js built-in modules to work
-- `bucket_name`: Must match the R2 bucket name you created in step 1
-- `pages_build_output_dir`: Keep as `dist/client`
-
-### 4. Build Worker Bundle
-
-Build the frontend and package the Worker script (includes crypto polyfill, WebSocket handlers, R2 backup API):
-
-```bash
+# 2. Build frontend + Worker bundle
 npm run build && node core/build-worker.mjs
-```
 
-This command:
-1. Builds frontend static assets via Vite → `dist/client/`
-2. Bundles the Worker script (`core/worker/index.mjs`) via esbuild → `dist/client/_worker.js`
-3. Injects crypto polyfill (ECDH + DH + RSA verify + AES GCM→CTR/CBC downgrade) for Cloudflare workerd runtime compatibility
-
-### 5. Deploy
-
-#### Option A: Cloudflare Pages (recommended)
-
-```bash
+# 3. Deploy to Cloudflare Pages
 npm run pages:deploy
 ```
 
-Equivalent to:
-```bash
-npm run build && node core/build-worker.mjs && wrangler pages deploy dist/client --project-name=webssh
-```
+First deploy prompts Cloudflare login. You'll get a `*.pages.dev` URL.
 
-The first deploy will prompt you to log in to Cloudflare and authorize. You'll get a `*.pages.dev` URL.
+### R2 Backup (optional — requires a bucket first)
 
-> **Adding R2 binding in Pages Dashboard:**
-> The `[[r2_buckets]]` config in `wrangler.toml` must also be configured manually in the Pages Dashboard:
-> 1. Go to Pages project → **Settings** → **Functions** → **R2 bucket bindings**
-> 2. Click **Add binding**, variable name: `BACKUP_BUCKET`, R2 bucket: `webssh-backups`
-> 3. Save and redeploy
+1. [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2** → **Create bucket**, name: `webssh-backups`
+2. Project → **Settings** → **Functions** → **R2 bucket bindings** → **Add binding**
+   - Variable name: `BACKUP_BUCKET`
+   - R2 bucket: `webssh-backups`
+3. Save & redeploy
 
-#### Option B: Cloudflare Workers (Paid plan required)
+### Auto-deploy (GitHub)
 
-```bash
-npm run worker:deploy
-```
+Connect your repo in Pages Dashboard, set:
+- **Build command**: `npm run build && node core/build-worker.mjs`
+- **Build output**: `dist/client`
 
-Equivalent to:
-```bash
-npm run build && node core/build-worker.mjs && wrangler deploy
-```
+Every push triggers build + deploy.
 
-> **Note:** Workers deployment requires a Paid plan ($5+/month) because SSH connections depend on the `cloudflare:sockets` API, which is unavailable on the free plan.
-
-### 6. Verify
-
-Open `https://your-project.pages.dev`. You should see the WebSSH login screen.
-
-**Quick checks:**
-- Connect to a public server → terminal + SFTP + backup all work
-- LAN warning appears if you saved 192.168./10.0. connections → informs you to use Docker/Win client instead
-- Backup page shows cloud storage list → R2 binding is correct
-
-### Pages Auto-Deployment (CI/CD)
-
-If you use GitHub, Cloudflare Pages can auto-deploy from your repository:
-
-1. Push your fork to GitHub
-2. In Pages Dashboard, connect your repository
-3. Set build configuration:
-   ```
-   Build command: npm run build && node core/build-worker.mjs
-   Build output: dist/client
-   ```
-
-> Every push triggers an automatic build and deploy.
+> ⚠ Workers Paid: `npm run worker:deploy` ($5+/mo, `cloudflare:sockets` requires paid plan)
 
 ### Known Limitations
 
 | Limitation | Description |
 |---|---|
-| RSA host keys only | ECDSA host key verification removed from algorithm list |
-| CTR/CBC ciphers only | AES-256-GCM unavailable in workerd, downgraded to CTR/CBC |
-| No private IP support | Workers cannot establish TCP connections to RFC 1918 addresses |
-| WebSocket idle timeout | Heartbeat every 30 seconds prevents disconnection |
-| Connection concurrency | Workers Paid plan has concurrent connection limits |
+| RSA host keys only | ECDSA removed from algorithm list |
+| CTR/CBC ciphers only | AES-256-GCM unavailable in workerd |
+| No private IP support | Workers cannot connect to RFC 1918 addresses |
+| WebSocket idle timeout | Heartbeat every 30 seconds |
 
 ---
 
