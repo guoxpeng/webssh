@@ -346,6 +346,7 @@ function createECDH(curveName) {
   let pubPoint = null;
 
   function genPriv() {
+    if (privKey !== null) return;
     const extra = curve.byteLen + 8;
     const rand = crypto.getRandomValues(new Uint8Array(extra));
     privKey = (bufToBig(B.from(rand)) % (curve.n - 1n)) + 1n;
@@ -354,7 +355,7 @@ function createECDH(curveName) {
 
   function getPub() {
     if (pubPoint) return pubPoint;
-    if (privKey === null) genPriv();
+    genPriv();
     pubPoint = ecMult(curve, privKey, curve.Gx, curve.Gy);
     return pubPoint;
   }
@@ -417,6 +418,7 @@ function createDiffieHellman(primeOrGroup) {
   let privKey = null;
 
   function genPriv() {
+    if (privKey !== null) return;
     const rand = crypto.getRandomValues(new Uint8Array(64));
     privKey = bufToBig(B.from(rand));
   }
@@ -442,4 +444,8 @@ function createDiffieHellman(primeOrGroup) {
   };
 }
 
-export { createECDH, createDiffieHellman };
+function createDiffieHellmanGroup(groupName) {
+  return createDiffieHellman(groupName);
+}
+
+export { createECDH, createDiffieHellman, createDiffieHellmanGroup };

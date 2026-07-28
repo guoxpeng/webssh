@@ -80,7 +80,7 @@ ${CRYPTO_POLYFILL}
 __CF_nodeModules['crypto'] = new Proxy(__shim_crypto, {
   get(t, p) {
     if (p === 'createECDH') return createECDH;
-    if (p === 'createDiffieHellman') return createDiffieHellman;
+    if (p === 'createDiffieHellman' || p === 'createDiffieHellmanGroup') return createDiffieHellmanGroup;
     return t[p];
   },
 });
