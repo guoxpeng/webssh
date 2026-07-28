@@ -3,10 +3,12 @@ import { withSessionSftp } from './session.mjs';
 export function handleSFTP(ws, config) {
   let sftpSession = null;
   let closed = false;
+  console.log('[SFTP] handleSFTP called:', config?.host, config?.username, config?.auth_type, config?.auth_value ? '***' : 'MISSING_AUTH');
 
   const close = () => {
     if (closed) return;
     closed = true;
+    console.log('[SFTP] closing');
     try { ws.close(1000); } catch {}
   };
 
@@ -18,8 +20,10 @@ export function handleSFTP(ws, config) {
 
   const start = async () => {
     try {
+      console.log('[SFTP] sending connecting status');
       send({ type: 'status', status: 'connecting' });
       try {
+        console.log('[SFTP] calling withSessionSftp');
         await withSessionSftp(config, { timeout: 1800000 }, async (sftp, client) => {
           if (closed) return;
           sftpSession = sftp;
@@ -32,8 +36,10 @@ export function handleSFTP(ws, config) {
               send({ type: 'error', error: 'Invalid JSON' });
               return;
             }
+            if (msg.type === 'ping') return;
             const { id, action, path, content, mode, srcPath, destPath, encoding } = msg;
 
+            if (!action) return;
             try {
               let result;
               switch (action) {

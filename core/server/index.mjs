@@ -270,17 +270,19 @@ server.on('upgrade', (req, socket, head) => {
   } else if (url === '/ws/sftp') {
     wss.handleUpgrade(req, socket, head, (ws) => {
       const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
-      console.log(`[SFTP WS] New connection from ${ip}`);
+      console.log(`[SFTP WS] New connection from ${ip}, WS readyState: ${ws.readyState}`);
       let initialized = false;
-      ws.on('close', () => {});
-      ws.on('error', () => {});
+      ws.on('close', () => { console.log('[SFTP WS] closed'); });
+      ws.on('error', (e) => { console.log('[SFTP WS] error:', e.message); });
       ws.on('message', (data) => {
         if (initialized) return;
         try {
           const config = JSON.parse(data.toString());
+          console.log('[SFTP WS] config received:', config.host, config.username, config.auth_type, config.auth_value ? '***' : 'NO_AUTH');
           initialized = true;
           handleSFTP(ws, config);
         } catch (e) {
+          console.log('[SFTP WS] parse error:', e.message);
           try { ws.send(JSON.stringify({ type: 'status', status: 'error', error: 'Invalid config JSON' })); } catch {}
           try { ws.close(1000); } catch {}
         }

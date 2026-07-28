@@ -263,7 +263,7 @@ function close() { emit('close'); }
 .settings-panel {
   width: 200px;
   max-width: 200px;
-  height: 100vh;
+  height: calc(100vh - 24px);
   background: var(--bulma-scheme-main);
   display: flex;
   flex-direction: column;

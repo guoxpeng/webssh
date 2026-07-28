@@ -2,7 +2,7 @@ export default {
   app: {
     name: 'WebSSH',
     tagline: '简单易用的远程服务器管理工具',
-    cfBackupWarning: '⚠️ 当前部署在 Cloudflare Workers 上，所有连接配置、凭据、片段等数据仅保存在浏览器本地存储中。建议定期使用「备份」功能导出数据，以免丢失。',
+    cfLanWarning: '⚠️ 检测到局域网连接（192.168./10.0.），Cloudflare Workers 仅支持连接公网服务器。连接内网服务器请使用 Windows 客户端或 Docker 本地部署版本。',
   },
   nav: {
     servers: '服务器',

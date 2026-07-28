@@ -735,8 +735,10 @@ async function connectServer() {
   if (!auth.host) { error.value = t('sftp.notConnected'); return; }
   error.value = '';
   connected.value = false;
+  loading.value = true;
   sftp.connect(auth, {
     onStatus: (status, err) => {
+      loading.value = false;
       if (status === 'connected') {
         connected.value = true;
         error.value = '';
@@ -746,7 +748,7 @@ async function connectServer() {
         listDir('/');
       } else if (status === 'error') {
         connected.value = false;
-        error.value = friendlyError(err) || t('sftp.notConnected');
+        error.value = friendlyError(err) || err || t('sftp.notConnected');
       } else if (status === 'disconnected') {
         connected.value = false;
         error.value = t('sftp.notConnected');

@@ -40,9 +40,11 @@ setInterval(() => {
 
 export async function withSessionSftp(body, fn, opts = {}) {
   const key = getPoolKey(body);
+  console.log('[SFTP] withSessionSftp key:', key);
   const idle = sftpPool.get(key);
 
   if (idle && !idle.busy) {
+    console.log('[SFTP] reusing idle connection');
     idle.busy = true;
     const timeout = setTimeout(() => {
       idle.busy = false;
@@ -60,23 +62,29 @@ export async function withSessionSftp(body, fn, opts = {}) {
     }
   }
 
+  console.log('[SFTP] creating new SSH connection');
   const conn = new Client();
   setupSSHClient(conn, body.auth_value);
   const cfg = { ...makeSSHConfig(body), keepaliveInterval: 30000, keepaliveCountMax: 3 };
+  console.log('[SFTP] SSH config:', cfg.host, cfg.port, cfg.username, cfg.password ? 'has_password' : cfg.privateKey ? 'has_key' : 'NO_AUTH');
 
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
+      console.log('[SFTP] TIMEOUT - connection took too long');
       try { conn.end(); } catch {}
       reject(new Error('SFTP timeout'));
     }, opts.timeout || 30000);
     const done = () => clearTimeout(timeout);
 
     conn.on('ready', () => {
+      console.log('[SFTP] SSH ready, calling sftp()');
       conn.sftp((err, sftp) => {
         if (err) {
+          console.log('[SFTP] sftp() error:', err.message);
           done(); try { conn.end(); } catch {} reject(err);
           return;
         }
+        console.log('[SFTP] sftp() success');
         const entry = { conn, sftp, busy: true, lastUsed: Date.now() };
         sftpPool.set(key, entry);
 
@@ -87,6 +95,7 @@ export async function withSessionSftp(body, fn, opts = {}) {
           entry.lastUsed = Date.now();
           resolve(r);
         }).catch(e => {
+          console.log('[SFTP] exec error:', e.message);
           done();
           sftpPool.delete(key);
           try { conn.end(); } catch {}
@@ -95,10 +104,12 @@ export async function withSessionSftp(body, fn, opts = {}) {
       });
     });
     conn.on('error', e => {
+      console.log('[SFTP] SSH error:', e.message);
       sftpPool.delete(key);
       done(); try { conn.end(); } catch {} reject(e);
     });
     try { conn.connect(cfg); } catch (e) {
+      console.log('[SFTP] connect() threw:', e.message);
       sftpPool.delete(key);
       done(); try { conn.end(); } catch {} reject(e);
     }

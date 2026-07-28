@@ -16,6 +16,7 @@ class SftpWsService {
   private _error = '';
   private closed = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private connTimeout: ReturnType<typeof setTimeout> | null = null;
 
   get connected() { return this._connected; }
   get error() { return this._error; }
@@ -39,12 +40,21 @@ class SftpWsService {
     }
 
     this.ws.onopen = () => {
+      this.connTimeout = setTimeout(() => {
+        if (!this._connected) {
+          this.closed = true;
+          this._error = 'Connection timeout';
+          this.callbacks.onStatus?.('error', 'Connection timeout');
+          if (this.ws) { try { this.ws.close(1000); } catch {} this.ws = null; }
+        }
+      }, 15000);
       try {
         this.ws!.send(JSON.stringify(this.config));
         this.heartbeatTimer = setInterval(() => {
           if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: 'ping' }));
         }, 30000);
       } catch {
+        if (this.connTimeout) { clearTimeout(this.connTimeout); this.connTimeout = null; }
         this._error = 'Failed to send config';
         this.callbacks.onStatus?.('error', this._error);
       }
@@ -54,6 +64,7 @@ class SftpWsService {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'status') {
+          if (this.connTimeout) { clearTimeout(this.connTimeout); this.connTimeout = null; }
           this._connected = msg.status === 'connected';
           this._error = msg.status === 'error' ? (msg.error || '') : '';
           this.callbacks.onStatus?.(msg.status, msg.error);
@@ -101,6 +112,7 @@ class SftpWsService {
 
   disconnect() {
     this.closed = true;
+    if (this.connTimeout) { clearTimeout(this.connTimeout); this.connTimeout = null; }
     if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
     if (this.ws) {
       this.ws.close(1000, 'disconnect');

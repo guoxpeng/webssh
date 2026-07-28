@@ -16,6 +16,7 @@ import { ref } from 'vue';
 import WorkbenchLayout from '@/layouts/WorkbenchLayout.vue';
 import UnlockScreen from '@/components/global/UnlockScreen.vue';
 import { useUiStore } from '@/stores/uiStore';
+import { useConnectionStore } from '@/stores/connectionStore';
 import { onMounted } from 'vue';
 import { usePwaInstall } from '@/composables/usePwaInstall';
 import { useI18n } from 'vue-i18n';
@@ -47,16 +48,21 @@ onMounted(() => {
   }
   uiStore.initializeTheme();
 
-  // Detect CF Workers deployment and warn about browser-only storage
-  if (!localStorage.getItem('webssh_cf_backup_warned')) {
+  // CF Workers: detect LAN connections and show warning
+  if (!localStorage.getItem('webssh_cf_lan_warned')) {
     fetch('/health').then(r => r.json()).then(data => {
       if (data.uptime === 'worker') {
-        uiStore.addNotification({
-          message: t('app.cfBackupWarning'),
-          type: 'warning',
-          duration: 0,
-        });
-        localStorage.setItem('webssh_cf_backup_warned', '1');
+        const connStore = useConnectionStore();
+        const isLan = (host) => /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[01])\./.test(host);
+        const lanConns = connStore.savedConnections.filter(c => c.host && isLan(c.host));
+        if (lanConns.length > 0) {
+          uiStore.addNotification({
+            message: t('app.cfLanWarning'),
+            type: 'warning',
+            duration: 0,
+          });
+        }
+        localStorage.setItem('webssh_cf_lan_warned', '1');
       }
     }).catch(() => {});
   }

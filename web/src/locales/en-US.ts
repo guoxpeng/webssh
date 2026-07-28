@@ -2,7 +2,7 @@ export default {
   app: {
     name: 'WebSSH',
     tagline: 'A simple and powerful remote server management tool',
-    cfBackupWarning: '⚠️ Deployed on Cloudflare Workers. All connection configs, credentials, snippets and other data are stored in browser local storage only. Please regularly use the "Backup" feature to export your data.',
+    cfLanWarning: '⚠️ LAN addresses detected (192.168./10.0.). Cloudflare Workers only supports public internet connections. For local network servers, use the Windows client or Docker local deployment.',
   },
   nav: {
     servers: 'Servers',
