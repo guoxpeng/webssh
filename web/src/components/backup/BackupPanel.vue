@@ -378,8 +378,8 @@ onMounted(() => {
 .backup-panel {
   background: var(--bulma-box-background-color);
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 380px; max-width: 95vw;
-  max-height: 90vh; overflow-y: auto;
+  border-radius: 12px; overflow: hidden; width: 540px; max-width: 95vw;
+  max-height: 85vh; overflow-y: auto;
 }
 .panel-header {
   display: flex; align-items: center; padding: 0.5rem 0.65rem;
@@ -440,7 +440,7 @@ onMounted(() => {
 }
 .backups-section { border-bottom: none; }
 .empty-state { padding: 1rem; text-align: center; font-size: 0.7em; color: var(--bulma-text-light); }
-.backup-list { max-height: 240px; overflow-y: auto; }
+.backup-list { max-height: 360px; overflow-y: auto; }
 .backup-item { padding: 0.35rem 0.6rem; & + & { border-top: 1px solid var(--bulma-border-light); } }
 .backup-top { display: flex; align-items: center; gap: 0.35rem; }
 .backup-info { flex: 1; min-width: 0; }
@@ -463,7 +463,7 @@ onMounted(() => {
 }
 .modal-body {
   background: var(--bulma-scheme-main); border-radius: 12px;
-  padding: 1.2rem; width: 380px; max-width: 92vw;
+  padding: 1.5rem; width: 520px; max-width: 94vw;
   display: flex; flex-direction: column; gap: 0.5rem;
   box-shadow: 0 16px 48px rgba(0,0,0,0.2);
 }
