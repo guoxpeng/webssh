@@ -45,12 +45,12 @@
         <button v-if="quickSnippets.length > 6" class="cmd-act-btn cmd-snippet-btn" :title="t('snippets.title')" disabled>…</button>
       </div>
       <div class="command-input-bar">
-        <span class="cmd-prefix">$</span>
             <textarea ref="cmdInputRef" v-model="commandInput"
                       :placeholder="t('terminal.commandPlaceholder')"
                       class="cmd-input" rows="4"
                       @keydown.enter="onCmdEnter"
-                      @keydown.escape="commandInput = ''; term?.focus()"/>
+                      @keydown.escape="commandInput = ''; term?.focus()"
+                      @focus="cmdInputFocused = true" @blur="cmdInputFocused = false"/>
         <button class="cmd-send-btn" @click="sendCommand" :disabled="!commandInput.trim()" :title="t('terminal.sendCommand')">
           <Send :size="15"/>
         </button>
@@ -154,6 +154,7 @@ const searchQuery = ref('');
 const searchResultIndex = ref(0);
 const searchResultCount = ref(0);
 const commandInput = ref('');
+const cmdInputFocused = ref(false);
 let term = null;
 let fitAddon = null;
 let searchAddon = null;
@@ -198,7 +199,7 @@ const pasteFallbackRef = ref(null);
 
 async function pasteToTerminal() {
   const cmdInput = cmdInputRef.value;
-  if (cmdInput && document.activeElement === cmdInput) {
+  if (cmdInput && cmdInputFocused.value) {
     const text = await navigator.clipboard.readText().catch(() => '');
     if (text) {
       const start = cmdInput.selectionStart;
@@ -259,13 +260,9 @@ function copyToClipboard(text, done) {
 
 function copyFromTerminal() {
   const cmdInput = cmdInputRef.value;
-  if (cmdInput && document.activeElement === cmdInput) {
-    const start = cmdInput.selectionStart;
-    const end = cmdInput.selectionEnd;
-    if (start !== end) {
-      copyToClipboard(commandInput.value.substring(start, end), () =>
-        uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
-    }
+  if (cmdInput && cmdInput.selectionStart !== cmdInput.selectionEnd) {
+    copyToClipboard(commandInput.value.substring(cmdInput.selectionStart, cmdInput.selectionEnd), () =>
+      uiStore.addNotification({ message: t('terminal.copied'), type: 'info', duration: 2000 }));
     return;
   }
   if (term?.hasSelection()) {
@@ -810,7 +807,6 @@ onBeforeUnmount(() => {
   display: flex; align-items: flex-end; gap: 0.3rem;
   padding: 0.3rem 0.35rem; background: var(--term-bg);
 }
-.cmd-prefix { color: var(--term-text-dim); font-family: monospace; font-size: 0.8em; padding-bottom: 0.15rem; flex-shrink: 0; }
 .cmd-input {
   flex: 1; background: var(--term-bg2); border: 1px solid var(--term-border);
   border-radius: 4px; padding: 0.25rem 0.4rem; font-size: 0.8em;
