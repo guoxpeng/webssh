@@ -116,45 +116,31 @@ npm run desktop
 
 ---
 
-## Cloudflare 部署（免费 Pages）
+## Cloudflare 部署（推荐 Pages）
 
-无需服务器，利用 Cloudflare 全球网络提供 SSH 访问。
+无需服务器，直接部署到 Cloudflare 全球网络。
 
-> ⚠ 仅支持**公网服务器**，内网地址（192.168.x.x 等）无法连接，请用 Docker 或 Windows 客户端。
+> ⚠ 仅支持**公网服务器**，内网地址（192.168.x.x 等）无法连接。
 
-### 按顺序执行
+### 步骤
 
-```bash
-# 1. 克隆 & 安装
-git clone https://github.com/guoxpeng/webssh.git
-cd webssh && npm install
+**1. 克隆本仓库到你的 GitHub 账号下**
 
-# 2. 构建前端 + Worker 脚本
-npm run build && node core/build-worker.mjs
+先 Fork 或直接克隆到自己的仓库。
 
-# 3. 部署到 Cloudflare Pages
-npm run pages:deploy
-```
+**2. 建立 R2 存储桶**
 
-首次部署会提示登录 Cloudflare 授权，完成后获得 `*.pages.dev` 域名。
+Cloudflare Dashboard → **存储和数据库** → **R2 对象存储** → **概述** → **创建存储桶** → 名称填写 `webssh-backups` → 创建。
 
-### R2 备份（可选，需先创建存储桶）
+**3. 连接仓库并部署**
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2** → **Create bucket**，名称填 `webssh-backups`
-2. 项目 → **Settings** → **Functions** → **R2 bucket bindings** → **Add binding**
-   - 变量名：`BACKUP_BUCKET`
-   - R2 bucket：`webssh-backups`
-3. 保存后重新部署
+Cloudflare Dashboard → **计算** → **Workers 和 Pages** → **创建应用程序** → 页面最下方找到"想要部署 Pages？开始使用"→ 点击**开始使用** → 连接你克隆的仓库 → 开始克隆 → 填写：
 
-### 自动部署（GitHub）
+- **构建命令**：`npm run build && node core/build-worker.mjs`
+- **构建输出目录**：`dist/client`
+- **环境变量（高级）**：添加 `BACKUP_BUCKET` = `webssh-backups`
 
-Pages Dashboard 连接仓库后，设置：
-- **Build command**：`npm run build && node core/build-worker.mjs`
-- **Build output**：`dist/client`
-
-每次推送自动构建部署。
-
-> ⚠ Workers Paid 部署：`npm run worker:deploy`（需 $5+/月，`cloudflare:sockets` 需要付费计划）
+点击**保存并部署**，等待几分钟即可访问 `https://你的项目名.pages.dev`。
 
 ### 已知限制
 

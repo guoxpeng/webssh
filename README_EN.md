@@ -116,45 +116,31 @@ npm run desktop
 
 ---
 
-## Cloudflare Deployment (Free Pages)
+## Cloudflare Deployment (Pages Recommended)
 
-No server required — leverage Cloudflare's global network for SSH access.
+Deploy directly to Cloudflare's global network — no server required.
 
-> ⚠ **Public servers only.** Private IPs (192.168.x.x etc.) cannot be reached. Use Docker or Windows client for LAN.
+> ⚠ **Public servers only.** Private IPs (192.168.x.x etc.) cannot be reached.
 
-### Step-by-step
+### Steps
 
-```bash
-# 1. Clone & install
-git clone https://github.com/guoxpeng/webssh.git
-cd webssh && npm install
+**1. Clone this repo to your GitHub account**
 
-# 2. Build frontend + Worker bundle
-npm run build && node core/build-worker.mjs
+Fork or directly clone to your own repository.
 
-# 3. Deploy to Cloudflare Pages
-npm run pages:deploy
-```
+**2. Create R2 bucket**
 
-First deploy prompts Cloudflare login. You'll get a `*.pages.dev` URL.
+Cloudflare Dashboard → **Storage & Databases** → **R2 Object Storage** → **Overview** → **Create bucket** → name: `webssh-backups` → Create.
 
-### R2 Backup (optional — requires a bucket first)
+**3. Connect repo & deploy**
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2** → **Create bucket**, name: `webssh-backups`
-2. Project → **Settings** → **Functions** → **R2 bucket bindings** → **Add binding**
-   - Variable name: `BACKUP_BUCKET`
-   - R2 bucket: `webssh-backups`
-3. Save & redeploy
+Cloudflare Dashboard → **Compute** → **Workers & Pages** → **Create application** → scroll to bottom → click **Start with Pages** → Connect your cloned repo → Begin clone → Fill in:
 
-### Auto-deploy (GitHub)
-
-Connect your repo in Pages Dashboard, set:
 - **Build command**: `npm run build && node core/build-worker.mjs`
-- **Build output**: `dist/client`
+- **Build output directory**: `dist/client`
+- **Environment variables (advanced)**: Add `BACKUP_BUCKET` = `webssh-backups`
 
-Every push triggers build + deploy.
-
-> ⚠ Workers Paid: `npm run worker:deploy` ($5+/mo, `cloudflare:sockets` requires paid plan)
+Click **Save and Deploy**. After a few minutes, visit `https://your-project.pages.dev`.
 
 ### Known Limitations
 
