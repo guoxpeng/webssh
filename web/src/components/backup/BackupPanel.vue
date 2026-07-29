@@ -383,10 +383,10 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .backup-panel {
-  background: var(--bulma-box-background-color);
+  background: var(--bulma-scheme-main);
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 600px; max-width: 95vw;
-  max-height: 85vh; overflow-y: auto;
+  border-radius: 12px; overflow: hidden; width: 640px; max-width: 96vw;
+  max-height: 90vh; overflow-y: auto;
 }
 .panel-header {
   display: flex; align-items: center; padding: 0.5rem 0.65rem;
@@ -470,10 +470,11 @@ onMounted(() => {
 }
 .modal-body {
   background: var(--bulma-scheme-main); border-radius: 12px;
-  padding: 1.5rem 1.8rem; width: 580px; max-width: 96vw;
-  display: flex; flex-direction: column; gap: 0.65rem;
+  padding: 1.8rem 2.2rem; width: 640px; max-width: 96vw;
+  display: flex; flex-direction: column; gap: 0.75rem;
   box-shadow: 0 16px 48px rgba(0,0,0,0.2);
-  max-height: 80vh; overflow-y: auto;
+  max-height: 85vh; overflow-y: auto;
+  .form-input { padding: 0.55rem 0.65rem; font-size: 0.85em; }
 }
 .modal-header { display: flex; align-items: center; justify-content: space-between; font-size: 0.85em; font-weight: 600; }
 .modal-close { background: none; border: none; font-size: 1.2em; cursor: pointer; color: var(--bulma-text-light); padding: 0 0.2rem; }
