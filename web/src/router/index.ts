@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useTerminalStore } from '@/stores/terminalStore';
+import { useConnectionStore } from '@/stores/connectionStore';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -43,7 +44,10 @@ router.beforeEach((to, from, next) => {
   document.title = `WebSSH v${__APP_VERSION__}`;
   if (to.name === 'Terminal') {
     const store = useTerminalStore();
-    if (store.sessionCount === 0) return next({ name: 'ConnectionHome' });
+    const connectionStore = useConnectionStore();
+    if (store.sessionCount === 0 && connectionStore.pendingConnections.length === 0) {
+      return next({ name: 'ConnectionHome' });
+    }
   }
   next();
 });
