@@ -12,30 +12,6 @@ WebSSH is a web-based SSH client that runs in your browser. No local terminal em
 
 ---
 
-## Feature Comparison
-
-| Feature | WebSSH | Termius | MobaXterm | PuTTY |
-|---|---|---|---|---|
-| License | Free (no limitations) | Subscription (Premium required) | Shareware (Premium required) | Free |
-| Runtime | Browser / Desktop app | Native client required | Native client required | Native client required |
-| Cross-platform | Desktop, mobile, tablet | Separate apps per platform | Windows only | Windows only |
-| Credential encryption | AES-256-GCM | Supported | Not supported | Not supported |
-| Master password | Supported | Supported | Supported | Not supported |
-| File manager (SFTP) | Independent of SSH session | Requires SSH connection | Requires SSH connection | Third-party tool required |
-| Remote file editing | In-browser inline editor | Not supported | Supported | Not supported |
-| Batch execution & scheduling | Record → Replay → Batch → Schedule | Not supported | Supported (scripting) | Not supported |
-| Docker management | In-browser container management | Not supported | Not supported | Not supported |
-| SSH tunneling | Local / Remote / Dynamic forwarding | Supported | Supported | Supported |
-| Group management | Drag & drop, context menu | Supported | Not supported | Not supported |
-| Multi-tab terminal | Drag reorder, color, rename | Supported | Supported | Not supported |
-| Terminal search (Ctrl+F) | Supported | Not supported | Supported | Not supported |
-| Theme system | 4 presets | Supported | Supported | Not supported |
-| Multi-language UI | English / Chinese | English | English | English |
-| PWA desktop install | Supported | Not supported | Not supported | Not supported |
-| Error diagnostics | Human-readable messages | Supported | Not supported | Not supported |
-| Encrypted backup & sync | Supported | Supported | Not supported | Not supported |
-| AI command generation | OpenAI API integration | Not supported | Not supported | Not supported |
-
 ---
 
 ## Deployment
@@ -178,6 +154,10 @@ npm run dev
 ## Tech Stack
 
 Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Docker · Electron
+
+---
+
+[AGPL-3.0 License](LICENSE) — Licensed under GNU Affero General Public License v3.0.
 
 ---
 
