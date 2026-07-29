@@ -39,6 +39,13 @@ setInterval(() => {
   }
 }, 60000);
 
+function runWithTimeout(promiseFn, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('SFTP timeout')), timeoutMs);
+    promiseFn().then(r => { clearTimeout(timer); resolve(r); }).catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
+
 export async function withSessionSftp(body, fn, opts = {}) {
   const key = getPoolKey(body);
   sftpLog.debug('withSessionSftp key: ' + key);
@@ -46,27 +53,29 @@ export async function withSessionSftp(body, fn, opts = {}) {
 
   if (idle && !idle.busy) {
     sftpLog.debug('reusing idle connection');
-    idle.busy = true;
-    const timeout = setTimeout(() => {
-      idle.busy = false;
-    }, opts.timeout || 30000);
-    try {
-      return await fn(idle.sftp, idle.conn);
-    } catch (e) {
+    if (idle.conn && !idle.conn._sock?.writable) {
+      sftpLog.warn('stale connection detected, removing from pool');
       sftpPool.delete(key);
       try { idle.conn.end(); } catch {}
-      throw e;
-    } finally {
-      clearTimeout(timeout);
-      idle.busy = false;
-      idle.lastUsed = Date.now();
+    } else {
+      idle.busy = true;
+      try {
+        return await runWithTimeout(() => fn(idle.sftp, idle.conn), opts.timeout || 30000);
+      } catch (e) {
+        sftpPool.delete(key);
+        try { idle.conn.end(); } catch {}
+        throw e;
+      } finally {
+        idle.busy = false;
+        idle.lastUsed = Date.now();
+      }
     }
   }
 
   sftpLog.info('creating new SSH connection');
   const conn = new Client();
   setupSSHClient(conn, body.auth_value);
-  const cfg = { ...makeSSHConfig(body), keepaliveInterval: 30000, keepaliveCountMax: 3 };
+  const cfg = { ...makeSSHConfig(body), keepaliveInterval: 15000, keepaliveCountMax: 2 };
   sftpLog.debug(`config: ${cfg.host} ${cfg.port} ${cfg.username} ${cfg.password ? 'password' : cfg.privateKey ? 'key' : 'NO_AUTH'}`);
 
   return new Promise((resolve, reject) => {
@@ -89,8 +98,7 @@ export async function withSessionSftp(body, fn, opts = {}) {
         const entry = { conn, sftp, busy: true, lastUsed: Date.now() };
         sftpPool.set(key, entry);
 
-        const exec = () => fn(sftp, conn);
-        exec().then(r => {
+        runWithTimeout(() => fn(sftp, conn), opts.timeout || 30000).then(r => {
           done();
           entry.busy = false;
           entry.lastUsed = Date.now();

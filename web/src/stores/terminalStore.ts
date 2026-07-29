@@ -12,6 +12,14 @@ export interface TerminalSession {
   createdAt: number;
 }
 
+export interface PaneConfig {
+  type: string;
+  protocol: string;
+  config: Record<string, any>;
+  name: string;
+  tabColor?: string;
+}
+
 interface SessionConfig {
   name?: string;
   host: string;
@@ -22,6 +30,7 @@ interface SessionConfig {
 
 export const useTerminalStore = defineStore('terminal', () => {
   const SESSIONS_KEY = 'webssh_saved_sessions';
+  const PANE_CONFIGS_KEY = 'webssh_pane_configs';
   const RECENT_CMDS_KEY = 'webssh_recent_commands';
   const MAX_RECENT = 20;
 
@@ -30,12 +39,34 @@ export const useTerminalStore = defineStore('terminal', () => {
   const activeSessionId = ref<string | null>(null);
   const recentCommands = ref<string[]>(loadRecentCommands());
   const activeSendFunction = ref<((data: string) => void) | null>(null);
+  const paneConfigs = ref<PaneConfig[]>(loadPaneConfigs());
 
   function loadRecentCommands(): string[] {
     try {
       const raw = localStorage.getItem(RECENT_CMDS_KEY);
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
+  }
+
+  function loadPaneConfigs(): PaneConfig[] {
+    try {
+      const raw = sessionStorage.getItem(PANE_CONFIGS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+
+  function persistPaneConfigs(): void {
+    sessionStorage.setItem(PANE_CONFIGS_KEY, JSON.stringify(paneConfigs.value));
+  }
+
+  function setPaneConfigs(configs: PaneConfig[]): void {
+    paneConfigs.value = configs;
+    persistPaneConfigs();
+  }
+
+  function clearPaneConfigs(): void {
+    paneConfigs.value = [];
+    sessionStorage.removeItem(PANE_CONFIGS_KEY);
   }
 
   function persistRecentCommands(): void {
@@ -119,8 +150,10 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   return {
     sessions, activeSessionId, activeSession, sessionCount, recentCommands,
+    paneConfigs,
     activeSendFunction, setActiveSendFunction,
     createSession, closeSession, setActiveSession, updateSessionStatus, restoreActiveSession,
     addRecentCommand, clearRecentCommands, clearAll,
+    setPaneConfigs, clearPaneConfigs,
   };
 });

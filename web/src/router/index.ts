@@ -45,7 +45,7 @@ router.beforeEach((to, from, next) => {
   if (to.name === 'Terminal') {
     const store = useTerminalStore();
     const connectionStore = useConnectionStore();
-    if (store.sessionCount === 0 && connectionStore.pendingConnections.length === 0) {
+    if (store.sessionCount === 0 && connectionStore.pendingConnections.length === 0 && store.paneConfigs.length === 0) {
       return next({ name: 'ConnectionHome' });
     }
   }

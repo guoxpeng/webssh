@@ -257,17 +257,21 @@ function toggleSftpPanel() {
 function processPendingConnections() {
   if (connectionStore.pendingConnections.length === 0) return;
   const configs = connectionStore.pendingConnections.splice(0);
+  const panes = [];
   for (const cfg of configs) {
     if (cfg.id && cfg.auth_value) {
       connectionStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value).catch(() => {});
     }
     splitPaneRef.value?.addTerminalPane(cfg);
+    panes.push({ type: 'terminal', protocol: cfg.protocol || 'ssh', config: { ...cfg }, name: cfg.name || cfg.host });
   }
+  if (panes.length > 0) terminalStore.setPaneConfigs(panes);
 }
 
 function onDisconnectConfirmed() {
   showDisconnectDialog.value = false;
   terminalStore.clearAll();
+  terminalStore.clearPaneConfigs();
   router.push({ name: 'ConnectionHome' });
 }
 
@@ -290,6 +294,13 @@ function startDrag(e) {
 
 onMounted(() => {
   processPendingConnections();
+  // Restore saved pane configs if no pending connections were processed
+  const saved = terminalStore.paneConfigs;
+  if (saved.length > 0 && (splitPaneRef.value?.panes?.length || 0) === 0) {
+    for (const pane of saved) {
+      splitPaneRef.value?.addTerminalPane(pane.config);
+    }
+  }
   const area = document.querySelector('.terminal-main-area');
   if (area) {
     sftpResizeObserver = new ResizeObserver(() => {
@@ -330,7 +341,19 @@ watch(() => splitPaneRef.value?.panes, (panes) => {
 onBeforeUnmount(() => {
   if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
   if (sftpResizeObserver) { sftpResizeObserver.disconnect(); sftpResizeObserver = null; }
-  terminalStore.clearAll();
+  // Save active pane configs for restoration on return
+  const panes = splitPaneRef.value?.panes;
+  if (panes?.length > 0) {
+    terminalStore.setPaneConfigs(panes.map(p => ({
+      type: p.type,
+      protocol: p.protocol,
+      config: p.config,
+      name: p.name,
+      tabColor: p.tabColor || '',
+    })));
+  } else {
+    terminalStore.clearPaneConfigs();
+  }
 });
 </script>
 
