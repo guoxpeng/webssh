@@ -137,11 +137,10 @@ Cloudflare Dashboard → **Compute** → **Workers & Pages** → **Create applic
 - **Connect Git** → authorize and select your cloned repo
 - **Build command**: `npm run build && node core/build-worker.mjs`
 - **Build output**: `dist/client`
-- **Environment variables (optional, for backup)**:
-  - Variable name: `BACKUP_BUCKET`
-  - Value: `webssh-backups`
 
 Click **Save and Deploy**. Wait for the build to finish, then visit the generated URL.
+
+> **Enable backup (optional):** After deployment, go to Pages project → **Settings** → **Functions** → **R2 bucket bindings** → **Add binding**. Variable name: `BACKUP_BUCKET`, R2 bucket: select `webssh-backups`. Save and redeploy. This is an R2 binding, not a plain environment variable.
 
 ### Known Limitations
 
