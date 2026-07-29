@@ -98,7 +98,10 @@ npm run desktop
 
 ## Cloudflare 部署（推荐 Pages）
 
-> ⚠ 仅支持**公网服务器**，内网地址（192.168.x.x 等）无法连接，请用 Docker 或 Windows 客户端。
+> ⚠ **公网部署警告：** Cloudflare Workers 默认暴露在公网，必须设置 `AUTH_TOKEN` 保护。此外：
+> - 仅支持**已有公网 IP 的服务器**，内网地址（192.168.x.x 等）无法连接
+> - 不支持 AES-256-GCM（Workers 运行时限制），仅 CTR/CBC 加密可用
+> - 仅支持 RSA 主机密钥
 
 ### 1. 克隆仓库
 
@@ -167,4 +170,6 @@ Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia 
 
 ---
 
-> **安全说明：** WebSSH 建议在内网或 VPN 环境下使用。公网部署时请设置 `AUTH_TOKEN` 环境变量并配置 HTTPS 反向代理。
+> **安全说明：** WebSSH 默认假设运行于**内网/VPN 环境**。公网部署必须配置 `AUTH_TOKEN` + HTTPS，否则暴露在公网存在严重安全风险。详见 [SECURITY.md](SECURITY.md)。
+
+> **审计日志：** 服务器端自动记录 SSH 连接/断开/错误等事件（JSONL 格式，5MB 自动轮转），UI 面板支持按类型过滤、下载导出、一键清空。审计日志**不包含**任何密码、密钥或会话数据。

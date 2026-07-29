@@ -97,7 +97,10 @@ npm run desktop
 
 ## Cloudflare Deployment (Pages recommended)
 
-> ⚠ **Public servers only.** Private IPs (192.168.x.x etc.) cannot be reached. Use Docker or Windows client for LAN.
+> ⚠ **Public deployment warning:** Cloudflare Workers are public by default — **`AUTH_TOKEN` is mandatory**. Additional limitations:
+> - Only **servers with public IPs** are reachable (RFC 1918 private addresses cannot be connected)
+> - AES-256-GCM unavailable on Workers; only CTR/CBC ciphers supported
+> - RSA host keys only (no ECDSA)
 
 ### 1. Clone the repo
 
@@ -164,4 +167,6 @@ Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia 
 
 ---
 
-> **Security:** WebSSH is designed for intranet or VPN use. For public-facing deployments, set the `AUTH_TOKEN` environment variable and configure an HTTPS reverse proxy.
+> **Security:** WebSSH defaults to **intranet/VPN-only trust model**. Public deployments **must** configure `AUTH_TOKEN` + HTTPS. See [SECURITY.md](SECURITY.md) for the full threat model and deployment checklist.
+
+> **Audit Log:** Server-side audit records SSH connect/disconnect/error events (JSONL, 5 MB auto-rotation). The UI panel supports type filtering, JSON export, and one-click clear. Audit logs **never** contain passwords, keys, or session data.

@@ -1,3 +1,21 @@
+## v3.2.0 — 安全文档 + 漏洞修复 + 备份恢复密码透传
+
+> 发布时间：2026-07-29
+
+### 安全文档
+- **新增 `SECURITY.md`**：威胁模型、凭据存储流程、主密码派生（PBKDF2-SHA256 100k 迭代）、会话隔离机制、审计日志说明、公网部署 checklist、历史安全修复索引
+- **README 公网警告强化**：Cloudflare 部署区明确标注 `AUTH_TOKEN` 强制 + Workers 加密算法限制；页脚安全说明增加 `SECURITY.md` 链接
+- **README 新增审计日志说明**：强调"不包含密码/密钥/会话数据"以及可导出、可清空
+
+### 漏洞修复
+- **npm audit 高严重性**：`package.json` 增加 `brace-expansion` / `ejs` 版本覆盖，消除 dev 依赖链中的 DoS 风险
+- **修复 vitest include 路径**：`root: 'web'` 配置下 include 多了 `web/` 前缀，导致 4 个测试文件未被发现（`vite.config.mjs`）
+
+### 备份恢复
+- **密码透传**：恢复备份时自动将连接凭据写入 sessionStorage，用户无需重新输入 SSH 密码
+
+---
+
 ## v3.0.0 — 架构重构：WebSocket SFTP，模块化布局，全面优化
 
 > 发布时间：2026-07-24
