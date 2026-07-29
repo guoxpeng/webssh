@@ -5,6 +5,17 @@ import { gzipSync } from 'zlib';
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
 
+const APP_VERSION = JSON.parse(readFileSync('./package.json', 'utf8')).version;
+
+function versionPlugin() {
+  return {
+    name: 'version',
+    transformIndexHtml(html) {
+      return html.replace(/%APP_VERSION%/g, APP_VERSION);
+    },
+  };
+}
+
 function gzipPlugin() {
   return {
     name: 'gzip',
@@ -30,7 +41,7 @@ function gzipPlugin() {
 export default defineConfig({
   root: 'web',
   define: {
-    __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync('./package.json', 'utf8')).version),
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
   },
   build: {
     outDir: '../dist/client',
@@ -46,6 +57,7 @@ export default defineConfig({
   },
   plugins: [
     vue(),
+    versionPlugin(),
     gzipPlugin(),
   ],
   resolve: {

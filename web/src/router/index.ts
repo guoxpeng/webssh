@@ -36,8 +36,10 @@ const router = createRouter({
   },
 });
 
+declare const __APP_VERSION__: string;
+
 router.beforeEach((to, from, next) => {
-  document.title = 'WebSSH';
+  document.title = `WebSSH v${__APP_VERSION__}`;
   next();
 });
 
