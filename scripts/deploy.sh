@@ -102,8 +102,8 @@ if [ -d "${APP_DIR}/.git" ]; then
   git reset --hard origin/main
   NEW_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
   git clean -fdx
-  # Read version from source (new structure: web/src/layouts/...)
-  SRC_VER=$(grep -oP "APP_VERSION\s*=\s*'\K[^']+" web/src/layouts/WorkbenchLayout.vue 2>/dev/null || grep -oP "APP_VERSION\s*=\s*'\K[^']+" src/layouts/WorkbenchLayout.vue 2>/dev/null || echo "unknown")
+  # Read version from package.json
+  SRC_VER=$(grep -oP '"version":\s*"\K[^"]+' package.json 2>/dev/null || echo "unknown")
   if [ "$OLD_HASH" = "$NEW_HASH" ] && [ "$SRC_VER" != "unknown" ]; then
     info "Already at latest: ${NEW_HASH:0:7} (v${SRC_VER})"
   elif [ "$SRC_VER" = "unknown" ]; then
@@ -117,7 +117,7 @@ else
   git clone --depth=1 "$REPO" "$APP_DIR"
   cd "$APP_DIR"
   NEW_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-  SRC_VER=$(grep -oP "APP_VERSION\s*=\s*'\K[^']+" web/src/layouts/WorkbenchLayout.vue 2>/dev/null || grep -oP "APP_VERSION\s*=\s*'\K[^']+" src/layouts/WorkbenchLayout.vue 2>/dev/null || echo "unknown")
+  SRC_VER=$(grep -oP '"version":\s*"\K[^"]+' package.json 2>/dev/null || echo "unknown")
   ok "Cloned: ${NEW_HASH:0:7} (v${SRC_VER})"
 fi
 progress 30 "Source ready (${NEW_HASH:0:7})"
