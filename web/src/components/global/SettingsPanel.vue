@@ -131,7 +131,7 @@ import { setLocale } from '@/i18n';
 import { useNotifications } from '@/composables/useNotifications';
 import { verifyMasterPassword, setupMasterPassword } from '@/utils/crypto';
 const { t, locale } = useI18n();
-const { showSuccess, showError } = useNotifications();
+  const { showSuccess, showError, showInfo } = useNotifications();
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -188,7 +188,8 @@ function applyTheme(id) {
   if (themeColors) {
     document.documentElement.style.setProperty('--theme-primary', themeColors.primary);
   }
-  // Visual feedback: brief flash
+  const label = themes.find(t => t.id === id)?.label || id;
+  showSuccess(t('settings.themeChanged', { theme: label }));
   const panel = panelRef.value;
   if (panel) {
     panel.style.transition = 'background 0s';
@@ -203,23 +204,30 @@ function adjustFontSize(delta) {
   localStorage.setItem('appFontSize', String(newSize));
   document.documentElement.style.setProperty('--app-font-size', `${newSize}px`);
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { fontSize: newSize } }));
+  showSuccess(t('settings.fontSizeChanged', { size: newSize }));
 }
 
 function onLocaleChange() {
   locale.value = currentLocale.value;
   setLocale(currentLocale.value);
+  showSuccess(t('settings.languageChanged'));
 }
 
 watch(animationsEnabled, (val) => {
   localStorage.setItem('appAnimations', String(val));
   document.documentElement.classList.toggle('animations-disabled', !val);
+  showSuccess(val ? t('settings.animationsEnabled') : t('settings.animationsDisabled'));
 });
 
 watch(cursorStyle, (val) => {
   localStorage.setItem('termCursorStyle', val);
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { cursorStyle: val } }));
+  showSuccess(t('settings.cursorStyleChanged'));
 });
-watch(scrollback, (val) => localStorage.setItem('termScrollback', String(val)));
+watch(scrollback, (val) => {
+  localStorage.setItem('termScrollback', String(val));
+  showSuccess(t('settings.scrollbackChanged', { count: val }));
+});
 
 let termBgTimer = null;
 function onTermBgInput() {
@@ -228,6 +236,7 @@ function onTermBgInput() {
     if (termBgColor.value) {
       localStorage.setItem('termBgColor', termBgColor.value);
       window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { bgColor: termBgColor.value } }));
+      showSuccess(t('settings.bgColorChanged'));
     }
   }, 200);
 }
@@ -235,6 +244,7 @@ function resetTermBg() {
   termBgColor.value = '';
   localStorage.removeItem('termBgColor');
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { bgColor: '' } }));
+  showSuccess(t('settings.bgColorReset'));
 }
 
 // ── Change Password ──

@@ -106,9 +106,11 @@
 <script setup>
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useNotifications } from '@/composables/useNotifications';
 import { Monitor, Video, Terminal, Wifi, Cable, Download, Copy } from 'lucide-vue-next';
 
 const { t } = useI18n();
+const { showSuccess } = useNotifications();
 
 const props = defineProps({
   protocol: { type: String, required: true },
@@ -155,22 +157,26 @@ function copyAddress() {
   const c = props.config;
   if (!c) return;
   copy(`${c.host}:${c.port}`);
+  showSuccess(t('protocol.copied'));
 }
 
 function copySshString() {
   const c = props.config;
   if (!c) return;
   copy(`ssh ${c.username}@${c.host} -p ${c.port || 22}`);
+  showSuccess(t('protocol.copied'));
 }
 
 function copyTelnetString() {
   const c = props.config;
   if (!c) return;
   copy(`telnet ${c.host} ${c.port || 23}`);
+  showSuccess(t('protocol.copied'));
 }
 
 function copyVncString() {
   copy(vncConnectionString.value);
+  showSuccess(t('protocol.copied'));
 }
 
 function downloadRdp() {
@@ -202,6 +208,7 @@ function downloadRdp() {
   a.download = `${c.host || 'server'}.rdp`;
   a.click();
   URL.revokeObjectURL(url);
+  showSuccess(t('protocol.copied'));
 }
 </script>
 

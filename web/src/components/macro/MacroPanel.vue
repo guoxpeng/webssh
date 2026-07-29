@@ -98,11 +98,11 @@
             <span class="sch-meta">{{ t(`macro.${s.repeat}`) }}{{ s.repeat === 'interval' ? ` (${s.intervalMinutes}min)` : '' }}</span>
           </div>
           <div class="sch-actions">
-            <button class="mac-btn" :class="{ 'is-active': s.enabled }" @click="toggleSchedule(s)" :title="t(s.enabled ? 'macro.disable' : 'macro.enable')">
+            <button class="mac-btn" :class="{ 'is-active': s.enabled }" @click="onToggleSchedule(s)" :title="t(s.enabled ? 'macro.disable' : 'macro.enable')">
               <Play v-if="s.enabled" :size="13"/>
               <Pause v-else :size="13"/>
             </button>
-            <button class="mac-btn is-danger" @click="store.removeSchedule(s.id)" :title="t('common.delete')"><Trash2 :size="13"/></button>
+            <button class="mac-btn is-danger" @click="onRemoveSchedule(s)" :title="t('common.delete')"><Trash2 :size="13"/></button>
           </div>
         </div>
         <div class="sch-bottom">
@@ -123,12 +123,12 @@
               <span class="macro-meta">{{ m.steps.length }} {{ t('macro.steps') }}{{ m.runCount > 0 ? ` · ${t('macro.ran', { n: m.runCount })}` : '' }}</span>
             </div>
             <div class="macro-actions">
-              <button class="mac-btn is-fav" :class="{ 'is-active': m.favorite }" @click="store.toggleFavorite(m.id)" :title="t('macro.favorite')">
+              <button class="mac-btn is-fav" :class="{ 'is-active': m.favorite }" @click="onToggleFavorite(m)" :title="t('macro.favorite')">
                 <Star :size="13" :fill="m.favorite ? 'currentColor' : 'none'"/>
               </button>
               <button class="mac-btn" @click="runMacro(m)" :title="t('macro.run')"><Play :size="13"/></button>
-              <button class="mac-btn" @click="store.duplicateMacro(m.id)" :title="t('macro.duplicate')"><Copy :size="13"/></button>
-              <button class="mac-btn is-danger" @click="store.removeMacro(m.id)" :title="t('common.delete')"><Trash2 :size="13"/></button>
+              <button class="mac-btn" @click="onDuplicateMacro(m)" :title="t('macro.duplicate')"><Copy :size="13"/></button>
+              <button class="mac-btn is-danger" @click="onRemoveMacro(m)" :title="t('common.delete')"><Trash2 :size="13"/></button>
             </div>
           </div>
           <div v-if="m.expanded" class="macro-detail">
@@ -170,7 +170,7 @@ import BatchExecutionDialog from './BatchExecutionDialog.vue';
 const { t } = useI18n();
 const emit = defineEmits(['close', 'run', 'recordStart', 'recordStop']);
 const store = useMacroStore();
-const { showSuccess, showError } = useNotifications();
+const { showSuccess, showError, showInfo } = useNotifications();
 
 const showAddForm = ref(false);
 const importInput = ref(null);
@@ -245,15 +245,42 @@ function onImportFile(e) {
 function startRecordingFromPanel() {
   isRecording.value = true;
   emit('recordStart');
+  showInfo(t('macro.recordingStarted'));
 }
 
 function stopRecordingNow() {
   isRecording.value = false;
   emit('recordStop');
+  showSuccess(t('macro.recordingStopped'));
 }
 
 function toggleSchedule(s) {
   store.updateSchedule(s.id, { enabled: !s.enabled });
+}
+
+function onToggleSchedule(s) {
+  store.updateSchedule(s.id, { enabled: !s.enabled });
+  showSuccess(s.enabled ? t('macro.disabled') : t('macro.enabled'));
+}
+
+function onRemoveSchedule(s) {
+  store.removeSchedule(s.id);
+  showSuccess(t('macro.scheduleRemoved'));
+}
+
+function onToggleFavorite(m) {
+  store.toggleFavorite(m.id);
+  showSuccess(m.favorite ? t('macro.unfavorited') : t('macro.favorited'));
+}
+
+function onDuplicateMacro(m) {
+  store.duplicateMacro(m.id);
+  showSuccess(t('macro.duplicated'));
+}
+
+function onRemoveMacro(m) {
+  store.removeMacro(m.id);
+  showSuccess(t('macro.removed'));
 }
 
 function addNewSchedule() {

@@ -141,9 +141,11 @@ import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useMacroStore } from '@/stores/macroStore';
+import { useNotifications } from '@/composables/useNotifications';
 import { Terminal, Server, FolderOpen, ChevronDown, Circle, Square, History, GripVertical } from 'lucide-vue-next';
 
 const { t } = useI18n();
+const { showSuccess, showInfo } = useNotifications();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
 const macroStore = useMacroStore();
@@ -195,6 +197,7 @@ function startRecording() {
   recordingTimer = setInterval(() => {
     recordingElapsed.value = Date.now() - recordingStartTime.value;
   }, 200);
+  showInfo(t('macro.recordingStarted'));
 }
 
 function stopRecording() {
@@ -212,6 +215,7 @@ function stopRecording() {
     favorite: false,
   });
   recordingSteps.value = [];
+  showSuccess(t('macro.recordingStopped'));
 }
 
 function onCommandSent(text) {

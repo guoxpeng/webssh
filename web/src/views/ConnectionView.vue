@@ -50,7 +50,7 @@
                 </div>
               </div>
               <div class="saved-item-actions">
-                <button class="icon-btn is-pinned" @click.stop="connectionStore.togglePinConnection(conn.id)" :title="t('server.unpin')"><Star :size="13" fill="currentColor"/></button>
+                <button class="icon-btn is-pinned" @click.stop="onTogglePin(conn.id)" :title="t('server.unpin')"><Star :size="13" fill="currentColor"/></button>
                 <button class="icon-btn is-primary" @click.stop="quickConnect(conn)" :title="t('form.connect')"><Play :size="14"/></button>
               </div>
             </div>
@@ -92,7 +92,7 @@
                     </div>
                   </div>
                   <div class="saved-item-actions">
-                    <button class="icon-btn" :class="{ 'is-pinned': conn.pinned }" @click.stop="connectionStore.togglePinConnection(conn.id)"
+                    <button class="icon-btn" :class="{ 'is-pinned': conn.pinned }" @click.stop="onTogglePin(conn.id)"
                             :title="conn.pinned ? t('server.unpin') : t('server.pin')">
                       <Star :size="12" :fill="conn.pinned ? 'currentColor' : 'none'"/>
                     </button>
@@ -162,7 +162,7 @@ import {
 const connectionStore = useConnectionStore();
 const router = useRouter();
 const { t } = useI18n();
-const { showSuccess, showError } = useNotifications();
+const { showSuccess, showError, showWarning } = useNotifications();
 
 const groupLabel = (g) => g === 'Ungrouped' ? t('server.ungrouped') : g;
 
@@ -274,6 +274,12 @@ function doConnect(conn, authType, authValue) {
   if (router.currentRoute.value.name !== 'Terminal') router.push({ name: 'Terminal' });
 }
 function confirmRemoveConnection(conn) { connectionToRemove.value = conn; }
+function onTogglePin(id) {
+  const conn = connectionStore.savedConnections.find(c => c.id === id);
+  const wasPinned = conn?.pinned;
+  connectionStore.togglePinConnection(id);
+  showSuccess(wasPinned ? t('server.unpinned') : t('server.pinned'));
+}
 function onRemoveConfirmed() {
   if (connectionToRemove.value) {
     connectionStore.removeConnection(connectionToRemove.value.id);

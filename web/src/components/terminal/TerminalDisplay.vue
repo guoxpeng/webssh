@@ -191,6 +191,7 @@ function clearTerminal() {
     term.clear();
     term.focus();
   }
+  uiStore.addNotification({ message: t('terminal.cleared'), type: 'info', duration: 2000 });
 }
 
 const showPasteFallback = ref(false);

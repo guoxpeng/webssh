@@ -170,7 +170,7 @@
               <button class="bak-btn is-restore" @click="openRestoreModal(bak)" :title="t('backup.restore')" :disabled="store.restoring"><RotateCcw :size="13"/></button>
               <button class="bak-btn" @click="doExport(bak)" :title="t('backup.download')"><Download :size="13"/></button>
               <button class="bak-btn is-cloud" @click="doUpload(bak)" :title="t('backup.uploadToCloud')" :disabled="!store.cloud.enabled"><Upload :size="13"/></button>
-              <button class="bak-btn is-danger" @click="store.deleteBackup(bak.id)" :title="t('common.delete')"><Trash2 :size="13"/></button>
+              <button class="bak-btn is-danger" @click="onDeleteBackup(bak)" :title="t('common.delete')"><Trash2 :size="13"/></button>
             </div>
           </div>
         </div>
@@ -327,6 +327,12 @@ async function onImportFile(e) {
 
 function updateSched() {
   store.updateScheduler({ enabled: scheduleEnabled.value, interval: scheduleInterval.value, maxBackups: scheduleMax.value });
+  showSuccess(t('backup.configSaved'));
+}
+
+function onDeleteBackup(bak) {
+  store.deleteBackup(bak.id);
+  showSuccess(t('backup.deleted'));
 }
 
 async function doUpload(bak) {
@@ -367,6 +373,7 @@ async function deleteCloud(bak) {
 
 function updateCloudCfg() {
   store.updateCloud({ enabled: cloudEnabled.value, autoSync: cloudAutoSync.value, syncInterval: cloudSyncInterval.value });
+  showSuccess(t('backup.configSaved'));
 }
 
 onMounted(() => {

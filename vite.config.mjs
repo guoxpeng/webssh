@@ -29,6 +29,9 @@ function gzipPlugin() {
 
 export default defineConfig({
   root: 'web',
+  define: {
+    __APP_VERSION__: JSON.stringify(JSON.parse(readFileSync('./package.json', 'utf8')).version),
+  },
   build: {
     outDir: '../dist/client',
     emptyOutDir: true,

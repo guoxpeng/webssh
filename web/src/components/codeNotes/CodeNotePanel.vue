@@ -26,7 +26,7 @@
             <button class="note-btn" @click="runNote(note)" :title="t('snippets.sendToTerminal')"><Play :size="13"/></button>
             <button class="note-btn" @click="copyNote(note)" :title="t('common.copy')"><ClipboardCopy :size="12"/></button>
             <button class="note-btn" @click="startEdit(note)" :title="t('common.edit')"><Edit3 :size="12"/></button>
-            <button class="note-btn is-danger" @click="store.removeNote(note.id)" :title="t('common.delete')"><Trash2 :size="13"/></button>
+            <button class="note-btn is-danger" @click="onRemoveNote(note)" :title="t('common.delete')"><Trash2 :size="13"/></button>
           </div>
         </div>
 
@@ -62,9 +62,11 @@ import { useCodeNoteStore } from '@/stores/codeNoteStore';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useNotifications } from '@/composables/useNotifications';
 import { TerminalSquare, Play, ClipboardCopy, Edit3, Trash2, X, ArrowUpRight } from 'lucide-vue-next';
 
 const { t } = useI18n();
+const { showSuccess, showInfo } = useNotifications();
 const store = useCodeNoteStore();
 const terminalStore = useTerminalStore();
 const snippetStore = useSnippetStore();
@@ -83,6 +85,7 @@ function runNote(note) {
   if (terminalStore.activeSendFunction) {
     terminalStore.activeSendFunction(note.command + '\n');
     store.addNote(note.command, 'terminal');
+    showInfo(t('snippets.sentToTerminal'));
   } else {
     uiStore.addNotification({ message: t('terminal.connectFirst'), type: 'warning', duration: 3000 });
   }
@@ -90,6 +93,7 @@ function runNote(note) {
 
 function copyNote(note) {
   navigator.clipboard.writeText(note.command).catch(() => {});
+  showSuccess(t('protocol.copied'));
 }
 
 function startEdit(note) {
@@ -102,10 +106,14 @@ function saveEdit(id) {
   if (editName.value.trim()) store.updateName(id, editName.value.trim());
   if (editCommand.value.trim()) store.updateCommand(id, editCommand.value.trim());
   editingId.value = null;
+  showSuccess(t('common.saved'));
 }
 
 function onClearAll() {
-  if (confirm(t('codeNotes.confirmClear'))) store.clearAll();
+  if (confirm(t('codeNotes.confirmClear'))) {
+    store.clearAll();
+    showSuccess(t('codeNotes.cleared'));
+  }
 }
 
 function isSaved(note) {
@@ -115,6 +123,12 @@ function isSaved(note) {
 function saveToSnippet(note) {
   if (isSaved(note)) return;
   snippetStore.addSnippet({ title: note.name, command: note.command, tags: [], favorite: false });
+  showSuccess(t('codeNotes.savedToSnippet'));
+}
+
+function onRemoveNote(note) {
+  store.removeNote(note.id);
+  showSuccess(t('codeNotes.removed'));
 }
 
 function sourceLabel(src) {

@@ -77,6 +77,7 @@ import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { useNotifications } from '@/composables/useNotifications';
 import TerminalDisplay from './TerminalDisplay.vue';
 import ConnectionErrorPanel from './ConnectionErrorPanel.vue';
 import ProtocolInfoPanel from './ProtocolInfoPanel.vue';
@@ -86,6 +87,7 @@ import { Terminal, Monitor, Video, Wifi, GripVertical, GripHorizontal } from 'lu
 const { t } = useI18n();
 const router = useRouter();
 const connStore = useConnectionStore();
+const { showSuccess, showInfo } = useNotifications();
 const panes = ref([]);
 const activePane = ref(0);
 const showTabHint = ref(false);
@@ -105,6 +107,7 @@ function showTabMenu(e, idx) {
 function setTabColor(idx, color) {
   if (panes.value[idx]) { panes.value[idx].tabColor = color || ''; panes.value = [...panes.value]; }
   tabMenuVisible.value = false;
+  showSuccess(t('terminal.tabColorChanged'));
 }
 function startRename(idx) {
   tabMenuVisible.value = false;
@@ -128,6 +131,7 @@ function finishRename(idx, e) {
     if (pane.config?.id) {
       connStore.addConnection({ ...pane.config, name: newName });
     }
+    showSuccess(t('terminal.tabRenamed'));
   }
   panes.value = [...panes.value];
   renamingIdx.value = null;
@@ -162,6 +166,7 @@ function closePane(idx) {
   if (panes.value.length <= 1) return;
   panes.value.splice(idx, 1);
   if (activePane.value >= panes.value.length) activePane.value = panes.value.length - 1;
+  showInfo(t('terminal.paneClosed'));
 }
 
 function onPaneStatus(idx, status) {

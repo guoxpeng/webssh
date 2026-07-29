@@ -52,13 +52,13 @@
             <span class="snippet-cmd-preview">{{ s.command.substring(0, 40) }}{{ s.command.length > 40 ? '...' : '' }}</span>
           </div>
           <div class="snippet-actions">
-            <button class="snip-btn is-pinned" :class="{ 'is-active': s.favorite }" @click="store.toggleFavorite(s.id)" :title="t('snippets.pinToTop')">
+            <button class="snip-btn is-pinned" :class="{ 'is-active': s.favorite }" @click="onToggleFavorite(s)" :title="t('snippets.pinToTop')">
               <Pin :size="13" :fill="s.favorite ? 'currentColor' : 'none'"/>
             </button>
             <button class="snip-btn" @click="runSnippet(s)" :title="t('snippets.sendToTerminal')"><Play :size="13"/></button>
             <button class="snip-btn" @click="startEdit(s)" :title="t('common.edit')"><Edit3 :size="12"/></button>
             <button class="snip-btn" @click="sendToMacro(s)" :title="t('snippets.sendToMacro')"><ArrowRightCircle :size="12"/></button>
-            <button class="snip-btn is-danger" @click="store.removeSnippet(s.id)" :title="t('common.delete')"><Trash2 :size="13"/></button>
+            <button class="snip-btn is-danger" @click="onRemoveSnippet(s)" :title="t('common.delete')"><Trash2 :size="13"/></button>
           </div>
         </div>
         <div v-if="editingId === s.id" class="edit-form" @click.stop>
@@ -101,7 +101,7 @@ const { t } = useI18n();
 const emit = defineEmits(['close', 'run']);
 const store = useSnippetStore();
 const macroStore = useMacroStore();
-const { showSuccess, showError } = useNotifications();
+const { showSuccess, showError, showInfo } = useNotifications();
 
 const showAddForm = ref(false);
 const newTitle = ref('');
@@ -154,7 +154,20 @@ function addNew() {
   showSuccess(t('snippets.added'));
 }
 
-function runSnippet(s) { emit('run', s); }
+function runSnippet(s) {
+  emit('run', s);
+  showInfo(t('snippets.sentToTerminal'));
+}
+
+function onToggleFavorite(s) {
+  store.toggleFavorite(s.id);
+  showSuccess(s.favorite ? t('snippets.unfavorited') : t('snippets.favorited'));
+}
+
+function onRemoveSnippet(s) {
+  store.removeSnippet(s.id);
+  showSuccess(t('snippets.removed'));
+}
 
 function startEdit(s) {
   editingId.value = s.id;

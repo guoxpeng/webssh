@@ -103,12 +103,10 @@
         <AppNotification />
       </div>
       <div class="statusbar-right">
-        <span class="statusbar-item">{{ t('terminal.sessions', { count: terminalStore.sessionCount }) }}</span>
+        <span v-if="terminalStore.sessionCount > 0" class="statusbar-item">{{ t('terminal.sessions', { count: terminalStore.sessionCount }) }}</span>
         <span class="statusbar-item">{{ uiStore.currentTheme === 'dark' ? t('settings.dark') : t('settings.light') }}</span>
         <span class="statusbar-item" style="opacity:0.5">v{{ APP_VERSION }}</span>
-        <span class="statusbar-item">
-          <kbd class="statusbar-kbd">Ctrl+P</kbd>
-        </span>
+
       </div>
     </footer>
 
@@ -174,11 +172,11 @@ import AuditPanel from '@/components/audit/AuditPanel.vue';
 import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
 
 const { t } = useI18n();
-const APP_VERSION = '3.1.1';
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
-const { showWarning } = useNotifications();
+const { showWarning, showSuccess } = useNotifications();
 const sidebarCollapsed = ref(false);
 const mobileMenuOpen = ref(false);
 const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
@@ -229,7 +227,12 @@ function onRunMacro(macro) {
   }
 }
 
-function toggleTheme() { uiStore.toggleTheme(); sidebarCollapsed.value = false; }
+function toggleTheme() { 
+  const isDark = uiStore.currentTheme === 'dark';
+  uiStore.toggleTheme(); 
+  sidebarCollapsed.value = false; 
+  showSuccess(t('nav.themeChanged', { theme: isDark ? t('settings.light') : t('settings.dark') }));
+}
 
 onMounted(() => {
   document.addEventListener('keydown', onGlobalKeydown);

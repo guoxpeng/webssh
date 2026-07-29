@@ -57,10 +57,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useNotifications } from '@/composables/useNotifications';
 import { apiFetch } from '@/utils/api';
 import { ScrollText, RefreshCw, Trash2, X, Download } from 'lucide-vue-next';
 
 const { t } = useI18n();
+const { showSuccess } = useNotifications();
 const entries = ref([]);
 const loading = ref(false);
 const filter = ref('');
@@ -81,6 +83,7 @@ async function refreshData() {
     if (res.ok) {
       const data = await res.json();
       entries.value = (data.entries || []).reverse();
+      showSuccess(t('audit.refreshed'));
     }
   } catch {} finally {
     loading.value = false;
@@ -91,6 +94,7 @@ async function clearLog() {
   if (!confirm(t('audit.clearConfirm'))) return;
   await apiFetch('/api/audit/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   entries.value = [];
+  showSuccess(t('audit.cleared'));
 }
 
 function downloadLog() {
@@ -111,6 +115,7 @@ function downloadLog() {
   a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  showSuccess(t('audit.downloaded'));
 }
 
 function eventLabel(e) {
