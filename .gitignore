@@ -120,7 +120,7 @@ win/node_modules/
 win/rcedit-x64.exe
 win/icon.png
 win/logo256.png
-release/win-unpacked/
+release/
 release[0-9]*/
 public/
 logo.png.backup
