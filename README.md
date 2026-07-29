@@ -37,6 +37,7 @@ WebSSH 是一个基于 Web 的 SSH 客户端，无需安装本地终端软件，
 | AI 命令生成 | OpenAI API 集成 | 不支持 | 不支持 | 不支持 |
 
 ---
+<img width="1214" height="955" alt="PixPin_2026-07-29_12-28-47" src="https://github.com/user-attachments/assets/1a44d2b0-31df-41bd-a6ee-46a3e26e5a23" />
 
 ## 部署方式
 
