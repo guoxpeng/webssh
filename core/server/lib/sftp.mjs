@@ -1,14 +1,16 @@
 import { withSessionSftp } from './session.mjs';
+import { logger } from './logger.mjs';
 
 export function handleSFTP(ws, config) {
   let sftpSession = null;
   let closed = false;
-  console.log('[SFTP] handleSFTP called:', config?.host, config?.username, config?.auth_type, config?.auth_value ? '***' : 'MISSING_AUTH');
+  const log = logger('SFTP');
+  log.info(`handleSFTP: ${config?.host} ${config?.username} ${config?.auth_type} ${config?.auth_value ? '***' : 'NO_AUTH'}`);
 
   const close = () => {
     if (closed) return;
     closed = true;
-    console.log('[SFTP] closing');
+    log.debug('closing');
     try { ws.close(1000); } catch {}
   };
 
@@ -20,10 +22,8 @@ export function handleSFTP(ws, config) {
 
   const start = async () => {
     try {
-      console.log('[SFTP] sending connecting status');
       send({ type: 'status', status: 'connecting' });
       try {
-        console.log('[SFTP] calling withSessionSftp');
         await withSessionSftp(config, async (sftp, client) => {
           if (closed) return;
           sftpSession = sftp;

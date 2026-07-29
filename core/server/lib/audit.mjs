@@ -1,6 +1,9 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from './logger.mjs';
+
+const log = logger('Audit');
 
 const __dirname = join(fileURLToPath(import.meta.url), '..', '..');
 const AUDIT_DIR = join(__dirname, 'data');
@@ -23,7 +26,7 @@ function rotate() {
       }
     }
   } catch (e) {
-    console.error('[Audit] Rotation failed:', e.message);
+    log.error('rotation failed', e);
   }
 }
 
@@ -32,7 +35,7 @@ function append(entry) {
     const line = JSON.stringify(entry) + '\n';
     writeFileSync(AUDIT_PATH, line, { flag: 'a' });
   } catch (e) {
-    console.error('[Audit] Failed to write:', e.message);
+    log.error('failed to write', e);
   }
 }
 

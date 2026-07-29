@@ -1,5 +1,8 @@
 import { SSH_ALGORITHMS } from './config.mjs';
 import { createHash } from 'crypto';
+import { logger } from './logger.mjs';
+
+const log = logger('Utils');
 
 export function hashCreds(authValue) {
   if (!authValue) return null;
@@ -146,7 +149,7 @@ export function serveStatic(req, res) {
       return true;
     }
   } catch (e) {
-    console.error('Static file error:', e.message);
+    log.error('static file error', e);
   }
   return false;
 }

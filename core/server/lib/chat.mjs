@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 import { get as httpsGet } from 'https';
 import { Client } from 'ssh2';
 import { audit } from './audit.mjs';
+import { logger } from './logger.mjs';
+const log = logger('Chat');
 
 const __dirname = join(fileURLToPath(import.meta.url), '..', '..');
 const CHAT_CONFIG_PATH = join(__dirname, 'chat-config.json');
@@ -14,7 +16,7 @@ let chatIdCounter = 0;
 
 try { if (existsSync(CHAT_CONFIG_PATH)) chatConfig = JSON.parse(readFileSync(CHAT_CONFIG_PATH, 'utf8')); } catch {}
 
-function saveChatConfig() { try { writeFileSync(CHAT_CONFIG_PATH, JSON.stringify(chatConfig, null, 2), 'utf8'); } catch (e) { console.error('[Chat] Failed to save config:', e.message); } }
+function saveChatConfig() { try { writeFileSync(CHAT_CONFIG_PATH, JSON.stringify(chatConfig, null, 2), 'utf8'); } catch (e) { log.error('failed to save config', e); } }
 
 function addChatMessage(msg) {
   const m = { id: `chat_${++chatIdCounter}`, ...msg, timestamp: msg.timestamp || Date.now() };
@@ -110,7 +112,7 @@ async function handleAiResponse(incomingText, platform, meta) {
     if (!reply) return;
     addChatMessage({ platform: 'ai', direction: 'in', from: 'AI', text: reply });
     await sendBotMessage(platform, reply, meta);
-  } catch (e) { console.error('[Chat] AI error:', e.message); }
+  } catch (e) { log.error('AI error', e); }
 }
 
 async function callAi(cfg, messages) {
@@ -120,7 +122,7 @@ async function callAi(cfg, messages) {
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` },
     body: JSON.stringify({ model: cfg.model || 'gpt-4o-mini', messages: msgs, temperature: cfg.temperature || 0.7, max_tokens: 2000 }),
   });
-  if (!res.ok) { console.error('[Chat] AI API error:', res.status); return null; }
+  if (!res.ok) { log.error('AI API error: ' + res.status); return null; }
   const data = await res.json();
   return data.choices?.[0]?.message?.content || null;
 }

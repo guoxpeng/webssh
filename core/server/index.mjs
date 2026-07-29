@@ -15,6 +15,8 @@ import { handleTelnet } from './lib/telnet.mjs';
 import { handleSerial } from './lib/serial.mjs';
 import { audit, getAuditLog, clearAuditLog } from './lib/audit.mjs';
 
+import { logger, getLevel } from './lib/logger.mjs';
+
 let chatBot = null;
 async function getChatBot() {
   if (!chatBot) {
@@ -23,6 +25,8 @@ async function getChatBot() {
   }
   return chatBot;
 }
+
+const log = logger('Server');
 
 // ─── Auth middleware (only when AUTH_TOKEN is set) ───
 const AUTH_TOKEN = process.env.AUTH_TOKEN || null;
@@ -53,11 +57,11 @@ function setSecurityHeaders(res) {
 }
 
 process.on('uncaughtException', (err) => {
-  console.error('❗ Uncaught Exception:', err.message);
-  console.error(err.stack);
+  log.error('uncaught exception', err);
+  process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('❗ Unhandled Rejection:', reason?.message || reason);
+  log.error('unhandled rejection', reason instanceof Error ? reason : new Error(String(reason)));
 });
 
 // ─── HTTP Server ───
@@ -233,7 +237,7 @@ server.on('upgrade', (req, socket, head) => {
   if (url === WS_PATH) {
     wss.handleUpgrade(req, socket, head, (ws) => {
       const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
-      console.log(`[WS] New connection from ${ip}`);
+      log.info(`WS connection from ${ip}`);
       let initialized = false;
       const cleanup = () => { clearInterval(pingInterval); try { ws.close(1000); } catch {} try { ws.removeAllListeners(); } catch {} };
       ws.on('close', () => cleanup());
@@ -246,7 +250,7 @@ server.on('upgrade', (req, socket, head) => {
           let config;
           try { config = JSON.parse(data.toString()); } catch { throw new Error('Invalid JSON'); }
           const proto = (config.protocol || 'ssh').toLowerCase();
-          console.log(`[WS] ${proto} ${config.host}:${config.port || 22} as ${config.username}`);
+          log.info(`${proto} ${config.host}:${config.port || 22} as ${config.username}`);
           if (proto !== 'serial' && !config.host) throw new Error('Host is required');
           initialized = true;
           ws.removeAllListeners('message');
@@ -259,7 +263,7 @@ server.on('upgrade', (req, socket, head) => {
   } else if (url === '/ws/guacd') {
     wss.handleUpgrade(req, socket, head, (ws) => {
       const guacd = createConnection({ host: GUACD_HOST, port: GUACD_PORT }, () => {
-        console.log('[Guacd] Connected');
+        log.info('guacd connected');
       });
       ws.on('message', (data) => { if (guacd.writable) guacd.write(data); });
       ws.on('error', () => {});
@@ -270,19 +274,19 @@ server.on('upgrade', (req, socket, head) => {
   } else if (url === '/ws/sftp') {
     wss.handleUpgrade(req, socket, head, (ws) => {
       const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
-      console.log(`[SFTP WS] New connection from ${ip}, WS readyState: ${ws.readyState}`);
+      log.info(`SFTP WS from ${ip}`);
       let initialized = false;
-      ws.on('close', () => { console.log('[SFTP WS] closed'); });
-      ws.on('error', (e) => { console.log('[SFTP WS] error:', e.message); });
+      ws.on('close', () => { log.debug('SFTP WS closed'); });
+      ws.on('error', (e) => { log.error('SFTP WS error', e); });
       ws.on('message', (data) => {
         if (initialized) return;
         try {
           const config = JSON.parse(data.toString());
-          console.log('[SFTP WS] config received:', config.host, config.username, config.auth_type, config.auth_value ? '***' : 'NO_AUTH');
+          log.info(`SFTP ${config.host} ${config.username} ${config.auth_type} ${config.auth_value ? '***' : 'NO_AUTH'}`);
           initialized = true;
           handleSFTP(ws, config);
         } catch (e) {
-          console.log('[SFTP WS] parse error:', e.message);
+          log.error('SFTP WS parse error', e);
           try { ws.send(JSON.stringify({ type: 'status', status: 'error', error: 'Invalid config JSON' })); } catch {}
           try { ws.close(1000); } catch {}
         }
@@ -327,24 +331,21 @@ async function handleDockerApi(dockerInstance, req, res, body) {
 
 // ─── Startup ───
 server.on('error', (err) => {
-  console.error('Server error:', err.message);
-  if (err.code === 'EADDRINUSE') { console.error(`Port ${PORT} is already in use.`); process.exit(1); }
+  log.error('server error', err);
+  if (err.code === 'EADDRINUSE') { log.error(`port ${PORT} already in use`); process.exit(1); }
 });
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
 
 server.listen(PORT, () => {
   const ip = getLocalIP();
-  console.log(`\n  🚀 WebSSH Server ready`);
-  console.log(`  ───────────────────────`);
-  console.log(`  Local:   http://localhost:${PORT}`);
-  if (ip !== 'localhost') console.log(`  Network: http://${ip}:${PORT}`);
-  console.log(`  WS:      ws://${ip}:${PORT}${WS_PATH}`);
-  console.log(`  Health:  http://localhost:${PORT}/health`);
-  if (Docker) console.log(`  Docker:  dockerode (native API)`);
-  console.log(`  Guacd:   ws://${ip}:${PORT}/ws/guacd → ${GUACD_HOST}:${GUACD_PORT}`);
-  if (existsSync(DIST_DIR)) console.log(`  Mode:    production (serving built frontend)`);
-  else console.log(`  Mode:    development (frontend on :5173)`);
+  log.info(`WebSSH ready — http://localhost:${PORT}`);
+  log.info(`health: http://localhost:${PORT}/health`);
+  log.info(`ws: ws://${ip}:${PORT}${WS_PATH}`);
+  if (Docker) log.info('docker: native API (dockerode)');
+  log.info(`guacd: ws://${ip}:${PORT}/ws/guacd → ${GUACD_HOST}:${GUACD_PORT}`);
+  log.info(`mode: ${existsSync(DIST_DIR) ? 'production' : 'development (frontend :5173)'}`);
+  log.info(`log level: ${getLevel()}`);
   fetchPublicIP();
 });
 
@@ -358,7 +359,7 @@ function fetchPublicIP(retries = 0) {
     res.on('data', (c) => body += c);
     res.on('end', () => {
       const ip = body.trim();
-      if (ip && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) { console.log(`  Public:  http://${ip}:${PORT}\n`); }
+      if (ip && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) { log.info(`public IP: ${ip}:${PORT}`); }
       else fetchPublicIP(retries + 1);
     });
   });
