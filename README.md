@@ -141,6 +141,8 @@ Cloudflare Dashboard → **计算** → **Workers 和 Pages** → **创建应用
 点击**保存并部署**，等待自动构建完成即可访问。
 
 > **启用备份（可选）：** 部署后进入 Pages 项目 → **Settings** → **Functions** → **R2 bucket bindings** → **Add binding**，变量名 `BACKUP_BUCKET`，R2 bucket 选择 `webssh-backups`，保存后重新部署一次。注意这是 R2 绑定，不是普通环境变量。
+> <img width="556" height="442" alt="PixPin_2026-07-29_12-23-32" src="https://github.com/user-attachments/assets/aeae24b7-05cd-4706-95f6-20ab8f936091" />
+
 
 ### 已知限制
 
