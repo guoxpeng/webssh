@@ -17,7 +17,7 @@
     "lint": "eslint web/src --fix",
     "format": "prettier --write web/src",
     "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config vitest.config.server.mjs",
     "test:watch": "vitest",
     "cap:sync": "npx cap sync",
     "cap:add:android": "npx cap add android",
