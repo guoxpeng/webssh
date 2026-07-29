@@ -473,6 +473,7 @@ onMounted(() => {
   padding: 1.5rem 1.8rem; width: 580px; max-width: 96vw;
   display: flex; flex-direction: column; gap: 0.65rem;
   box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+  max-height: 80vh; overflow-y: auto;
 }
 .modal-header { display: flex; align-items: center; justify-content: space-between; font-size: 0.85em; font-weight: 600; }
 .modal-close { background: none; border: none; font-size: 1.2em; cursor: pointer; color: var(--bulma-text-light); padding: 0 0.2rem; }
