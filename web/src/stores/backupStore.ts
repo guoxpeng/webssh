@@ -239,6 +239,9 @@ export const useBackupStore = defineStore('backup', () => {
       for (const conn of allData.connections || []) {
         if (!existingIds.includes(conn.id) && !existingNames.includes(conn.name)) {
           connStore.addConnection(conn);
+          if (conn.auth_value) {
+            connStore.saveCredentialToSessionStorage(conn.id, conn.auth_type, conn.auth_value);
+          }
           restored++;
         }
       }
