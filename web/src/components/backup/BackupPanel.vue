@@ -378,7 +378,7 @@ onMounted(() => {
 .backup-panel {
   background: var(--bulma-box-background-color);
   backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 540px; max-width: 95vw;
+  border-radius: 12px; overflow: hidden; width: 600px; max-width: 95vw;
   max-height: 85vh; overflow-y: auto;
 }
 .panel-header {
@@ -407,8 +407,8 @@ onMounted(() => {
 }
 .section-body { padding: 0.4rem 0.65rem 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
 .form-input {
-  border: 1px solid var(--bulma-border); border-radius: 6px; padding: 0.3rem 0.5rem;
-  font-size: 0.75em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none;
+  border: 1px solid var(--bulma-border); border-radius: 6px; padding: 0.45rem 0.55rem;
+  font-size: 0.8em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none;
   width: 100%; box-sizing: border-box;
   &:focus { border-color: var(--bulma-primary); }
 }
@@ -463,8 +463,8 @@ onMounted(() => {
 }
 .modal-body {
   background: var(--bulma-scheme-main); border-radius: 12px;
-  padding: 1.5rem; width: 520px; max-width: 94vw;
-  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 1.5rem 1.8rem; width: 580px; max-width: 96vw;
+  display: flex; flex-direction: column; gap: 0.65rem;
   box-shadow: 0 16px 48px rgba(0,0,0,0.2);
 }
 .modal-header { display: flex; align-items: center; justify-content: space-between; font-size: 0.85em; font-weight: 600; }
