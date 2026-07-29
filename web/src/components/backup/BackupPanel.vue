@@ -17,6 +17,7 @@
     </div>
 
     <!-- Create Modal -->
+    <Teleport to="body">
     <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
       <div class="modal-body">
         <div class="modal-header">
@@ -42,8 +43,10 @@
         </div>
       </div>
     </div>
+    </Teleport>
 
     <!-- Restore Password Modal -->
+    <Teleport to="body">
     <div v-if="showRestoreModal" class="modal-overlay" @click.self="showRestoreModal = false">
       <div class="modal-body">
         <div class="modal-header">
@@ -63,6 +66,7 @@
         </div>
       </div>
     </div>
+    </Teleport>
 
     <!-- AUTO-BACKUP -->
     <div class="panel-section">
