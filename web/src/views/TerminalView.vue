@@ -139,6 +139,7 @@ import SplitPaneTerminal from '@/components/terminal/SplitPaneTerminal.vue';
 import SftpBrowser from '@/components/sftp/SftpBrowser.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { ConnectionStatus } from '@/utils/constants';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useMacroStore } from '@/stores/macroStore';
 import { useNotifications } from '@/composables/useNotifications';
@@ -293,7 +294,13 @@ function startDrag(e) {
 }
 
 onMounted(() => {
+  connectionStore.setConnectionStatus(ConnectionStatus.CONNECTING);
   processPendingConnections();
+  // Reset connecting status if no sessions were created (e.g. credentials missing)
+  if (connectionStore.pendingConnections.length === 0 && (splitPaneRef.value?.panes?.length || 0) === 0) {
+    const saved = terminalStore.paneConfigs;
+    if (saved.length === 0) connectionStore.setConnectionStatus(ConnectionStatus.DISCONNECTED);
+  }
   // Restore saved pane configs if no pending connections were processed
   const saved = terminalStore.paneConfigs;
   if (saved.length > 0 && (splitPaneRef.value?.panes?.length || 0) === 0) {

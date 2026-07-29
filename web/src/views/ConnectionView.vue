@@ -152,6 +152,7 @@ import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
 import TunnelManager from '@/components/tunnel/TunnelManager.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { ConnectionStatus } from '@/utils/constants';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
 import {
@@ -171,6 +172,10 @@ const formInitialData = ref(null);
 onMounted(() => {
   if (connectionStore.currentNodeDetails) {
     formInitialData.value = { ...connectionStore.currentNodeDetails };
+  }
+  // Reset stuck connecting state (e.g. when navigation guard redirected back here)
+  if (connectionStore.connectionStatus === ConnectionStatus.CONNECTING) {
+    connectionStore.setConnectionStatus(ConnectionStatus.DISCONNECTED);
   }
 });
 const connectionToRemove = ref(null);
@@ -228,7 +233,9 @@ async function handleFormSave(nodeConfig) {
 }
 
 function handleFormConnect(nodeConfig) {
+  connectionStore.setConnectionStatus(ConnectionStatus.CONNECTING);
   formInitialData.value = null;
+  connectionStore.pendingConnections.splice(0);
   connectionStore.pendingConnections.push({ ...nodeConfig });
   if (router.currentRoute.value.name !== 'Terminal') router.push({ name: 'Terminal' });
 }
@@ -270,6 +277,8 @@ async function quickConnect(conn) {
 }
 
 function doConnect(conn, authType, authValue) {
+  connectionStore.setConnectionStatus(ConnectionStatus.CONNECTING);
+  connectionStore.pendingConnections.splice(0);
   connectionStore.pendingConnections.push({ ...conn, auth_type: authType, auth_value: authValue, rememberForSession: true, id: conn.id });
   if (router.currentRoute.value.name !== 'Terminal') router.push({ name: 'Terminal' });
 }
@@ -348,9 +357,12 @@ function deleteGroupAction() {
   if (connectionStore.deleteGroup(grp)) showSuccess(t('server.groupDeleted', { name: grp }));
 }
 async function connectAllInGroup() {
+  if (connectionStore.connectionStatus === ConnectionStatus.CONNECTING) return;
+  connectionStore.setConnectionStatus(ConnectionStatus.CONNECTING);
   groupMenuVisible.value = false;
   const conns = connectionStore.connectionsByGroup(groupMenuTarget.value);
   if (conns.length === 0) return;
+  connectionStore.pendingConnections.splice(0);
   for (const conn of conns) {
     const cred = await connectionStore.getCredentialFromSessionStorage(conn.id);
     const full = cred?.auth_value
