@@ -116,31 +116,32 @@ npm run desktop
 
 ---
 
-## Cloudflare Deployment (Pages Recommended)
+## Cloudflare Deployment (Pages recommended)
 
-Deploy directly to Cloudflare's global network — no server required.
+> ⚠ **Public servers only.** Private IPs (192.168.x.x etc.) cannot be reached. Use Docker or Windows client for LAN.
 
-> ⚠ **Public servers only.** Private IPs (192.168.x.x etc.) cannot be reached.
+### 1. Clone the repo
 
-### Steps
+Fork or clone this repository to your GitHub account.
 
-**1. Clone this repo to your GitHub account**
+### 2. Create R2 bucket
 
-Fork or directly clone to your own repository.
+Cloudflare Dashboard → **Storage & Databases** → **R2** → **Create bucket**
+- Name: `webssh-backups`
+- Region: default (Auto)
 
-**2. Create R2 bucket**
+### 3. Create Pages project
 
-Cloudflare Dashboard → **Storage & Databases** → **R2 Object Storage** → **Overview** → **Create bucket** → name: `webssh-backups` → Create.
+Cloudflare Dashboard → **Compute** → **Workers & Pages** → **Create application** → scroll to "Pages" card, click **Get started**
 
-**3. Connect repo & deploy**
-
-Cloudflare Dashboard → **Compute** → **Workers & Pages** → **Create application** → scroll to bottom → click **Start with Pages** → Connect your cloned repo → Begin clone → Fill in:
-
+- **Connect Git** → authorize and select your cloned repo
 - **Build command**: `npm run build && node core/build-worker.mjs`
-- **Build output directory**: `dist/client`
-- **Environment variables (advanced)**: Add `BACKUP_BUCKET` = `webssh-backups`
+- **Build output**: `dist/client`
+- **Environment variables (optional, for backup)**:
+  - Variable name: `BACKUP_BUCKET`
+  - Value: `webssh-backups`
 
-Click **Save and Deploy**. After a few minutes, visit `https://your-project.pages.dev`.
+Click **Save and Deploy**. Wait for the build to finish, then visit the generated URL.
 
 ### Known Limitations
 

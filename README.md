@@ -118,29 +118,30 @@ npm run desktop
 
 ## Cloudflare 部署（推荐 Pages）
 
-无需服务器，直接部署到 Cloudflare 全球网络。
+> ⚠ 仅支持**公网服务器**，内网地址（192.168.x.x 等）无法连接，请用 Docker 或 Windows 客户端。
 
-> ⚠ 仅支持**公网服务器**，内网地址（192.168.x.x 等）无法连接。
+### 1. 克隆仓库
 
-### 步骤
+Fork 或克隆本仓库到你的 GitHub 账号下。
 
-**1. 克隆本仓库到你的 GitHub 账号下**
+### 2. 建立 R2 存储
 
-先 Fork 或直接克隆到自己的仓库。
+Cloudflare Dashboard → **存储和数据库** → **R2 对象存储** → **创建存储桶**
+- 名称填写：`webssh-backups`
+- 区域：默认（Auto）
 
-**2. 建立 R2 存储桶**
+### 3. 创建 Pages 项目
 
-Cloudflare Dashboard → **存储和数据库** → **R2 对象存储** → **概述** → **创建存储桶** → 名称填写 `webssh-backups` → 创建。
+Cloudflare Dashboard → **计算** → **Workers 和 Pages** → **创建应用程序** → 拉到页面底部，在"Pages"卡片点击**开始使用**
 
-**3. 连接仓库并部署**
-
-Cloudflare Dashboard → **计算** → **Workers 和 Pages** → **创建应用程序** → 页面最下方找到"想要部署 Pages？开始使用"→ 点击**开始使用** → 连接你克隆的仓库 → 开始克隆 → 填写：
-
+- **连接 Git** → 授权后选择你克隆的仓库
 - **构建命令**：`npm run build && node core/build-worker.mjs`
-- **构建输出目录**：`dist/client`
-- **环境变量（高级）**：添加 `BACKUP_BUCKET` = `webssh-backups`
+- **构建输出**：`dist/client`
+- **环境变量（可选，用于备份）**：
+  - 变量名：`BACKUP_BUCKET`
+  - 值：`webssh-backups`
 
-点击**保存并部署**，等待几分钟即可访问 `https://你的项目名.pages.dev`。
+点击**保存并部署**，等待自动构建完成即可访问。
 
 ### 已知限制
 
