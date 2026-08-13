@@ -43,14 +43,18 @@
 
 ## 🚀 部署
 
-### Docker（推荐自托管）
+### 1. Docker（推荐自托管）
+
+**步骤：**
+
+1. 运行容器（需先设置 `AUTH_TOKEN` 为你的访问密码）：
 
 ```bash
 docker run -d --name webssh -p 9627:9627 --restart=unless-stopped \
   -e AUTH_TOKEN=你的密码 nameguoguo/webssh
 ```
 
-Docker Compose：
+2. （可选）用 Docker Compose 管理：
 
 ```yaml
 services:
@@ -64,7 +68,7 @@ services:
       - AUTH_TOKEN=你的密码
 ```
 
-如需 RDP/VNC 代理和 Docker 管理：
+3. （可选）如需 RDP/VNC 远程桌面和 Docker 管理，加上 `guacd` 服务：
 
 ```yaml
 services:
@@ -84,74 +88,134 @@ services:
     restart: unless-stopped
 ```
 
+4. 浏览器访问 `http://localhost:9627`。
+
 > 🖥️ **启用 RDP / VNC 远程桌面**：使用上面带 `guacd` 服务的 compose 配置
 > （`GUACD_HOST` 指向 guacd 容器），启动后在新建连接时选择 RDP 或 VNC 协议，
 > 画面直接在网页里显示（键盘 / 鼠标 / 触屏可用）。Cloudflare 部署无 guacd，
 > 选择这两个协议时会收到明确提示。
 
-### 一键 Linux 部署
+### 2. 一键 Linux 部署
+
+**步骤：**
+
+1. 执行脚本：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/scripts/deploy.sh | bash
 ```
 
-### 手动部署
+2. 脚本会安装依赖、启动服务并自动生成访问密码（详见「密码体系」）。
+
+### 3. 手动部署
+
+**步骤：**
+
+1. 拉取代码：
 
 ```bash
 git clone https://github.com/guoxpeng/webssh.git
+```
+
+2. 安装依赖并构建前端：
+
+```bash
 cd webssh && npm install && npm run build
+```
+
+3. 启动服务（公网部署必须固定访问密码）：
+
+```bash
 AUTH_TOKEN=你的密码 node core/server/index.mjs
 ```
+
+4. 浏览器访问 `http://localhost:9627`。
 
 > 💡 上面的 `AUTH_TOKEN=你的密码` 可以整行删掉——服务器会**自动生成一个临时
 > 访问密码**并直接传给页面，浏览器打开即用。只有公网部署 / 手机远程连 / MCP
 > 接入时才需要自己固定设一个（详见下文「密码体系」）。
 
-浏览器访问 `http://localhost:9627`
+### 4. GitHub Actions 自动构建（打 tag 即出全端安装包）
 
-### GitHub Actions 自动构建（打 tag 即出全端安装包）
+推送版本号标签后自动构建并附加到 GitHub Release，无需本地装任何环境。
 
-推送版本号标签后自动构建并附加到 GitHub Release，无需本地装任何环境：
+**步骤：**
+
+1. 提交代码并推送：
+
+```bash
+git add -A && git commit -m "release: v3.5.0"
+```
+
+2. 打版本标签并推送（触发全平台构建）：
 
 ```bash
 git tag v3.5.0 && git push origin v3.5.0
 ```
 
+3. 在 GitHub 仓库 Actions 页面查看「Build All Platforms」运行状态，构建完成后产物自动附加到对应的 **Release**。
+
 自动产出：**Windows 便携版**（exe）· **macOS**（dmg + zip，arm64/x64）·
 **Android APK**（debug 签名，直接安装）· **iOS 未签名构建包**（签名发布流程见 `IOS-SIGNING.md`）· Docker 镜像构建自检。
 也可以在仓库 Actions 页面手动触发（Build All Platforms → Run workflow）。
 
-### Windows 桌面端
+### 5. Windows 桌面端
 
-Windows 10+ 64 位，免安装运行时。下载便携版 zip → 解压 → 运行 `WebSSH.exe`；
-自行构建：`npm run desktop`。
+**步骤：**
 
-### macOS 桌面端
+1. 到 GitHub Release 下载便携版 zip。
+2. 解压 → 运行 `WebSSH.exe`（Windows 10+ 64 位，免安装）。
+3. 自行构建：`npm run desktop`。
+
+### 6. macOS 桌面端
 
 macOS 11+，Apple Silicon 与 Intel 均支持。在 Mac 上执行：
+
+**步骤：**
+
+1. 进入仓库目录，构建（需在 Mac 上执行）：
 
 ```bash
 npm run desktop:mac
 ```
 
-产物在 `release/`（arm64 / x64 的 dmg 与 zip）。未签名构建首次打开：
-右键 WebSSH.app → 打开，或 `xattr -dr com.apple.quarantine /Applications/WebSSH.app`。
-如需分发，在 `win/package.json` 的 `mac` 段配置开发者证书后重新构建。
+2. 产物在 `release/`（arm64 / x64 的 dmg 与 zip）。
 
-### Cloudflare Pages（公网免服务器）
+3. 未签名构建首次打开：右键 WebSSH.app → 打开，或
+   `xattr -dr com.apple.quarantine /Applications/WebSSH.app`。
+
+4. 如需分发，在 `win/package.json` 的 `mac` 段配置开发者证书后重新构建。
+
+### 7. Cloudflare Pages（公网免服务器）
 
 > ⚠ **公网部署必须设置一个后端访问密码**（环境变量名 `AUTH_TOKEN`，自己随便定一个即可；未设置时所有接口直接拒绝服务）；且仅支持连**公网**服务器。
 
+**步骤：**
+
 1. Fork 本仓库到你的 GitHub。
+
 2. Cloudflare Dashboard → R2 → 创建存储桶 `webssh-backups`（备份功能需要）。
+
 3. Workers 和 Pages → 创建 → Pages → 连接该仓库：
    - 构建命令：`npm run build && node core/build-worker.mjs`
    - 构建输出：`dist/client`
-   - 环境变量：`AUTH_TOKEN=你自己定的密码`（不需要去哪里找，随手定一个、自己记住即可，浏览器打开页面时会自动使用）
+   - 环境变量：`AUTH_TOKEN=你自己定的密码`（随手定一个、自己记住即可）
+
 4. （可选）Settings → Functions → R2 bucket bindings → 变量名 `BACKUP_BUCKET` 绑定上述桶，重新部署。
+
 5. （可选，MCP / 服务器注册表）Workers 和 Pages → KV → 创建命名空间，
    在 Settings → Functions → KV namespace bindings 以变量名 `MODEL_REGISTRY` 绑定后重新部署。
    之后即可在设置里开启「同步服务器到后端」，MCP 桥的 `WEBSSH_URL` 指向本部署地址。
+
+6. **首次使用：在页面「设置」里填写访问密码**（关键！）
+
+   Cloudflare 是纯静态构建，Worker 的 `AUTH_TOKEN` 只在云端运行时，**不会自动传给前端**。
+   打开部署页面后，进入 **设置 → 后端访问密码**，填入与第 3 步相同的 `AUTH_TOKEN` 值并保存，
+   否则 WebSocket 会因未认证被拒绝，连接服务器时提示 `WebSocket error`。
+   （「后端地址」留空即可，因为是同源部署。）
+
+   > 💡 若不想每次手动填，可在构建时把密码烘焙进前端：部署时给构建命令加环境变量
+   > `VITE_AUTH_TOKEN=你的密码`，这样所有用户打开页面即自动携带访问密码。
 
 **CF 已知限制**：仅 RSA 主机密钥 · 仅 CTR/CBC 加密（无 AES-GCM）· 不支持内网地址 · WebSocket 30 秒心跳保活 · 注册表依赖 KV，未绑定时 `/api/model/*` 返回 503 · 不支持串口与 RDP/VNC 远程桌面（依赖 guacd，请用自建服务器版）。
 

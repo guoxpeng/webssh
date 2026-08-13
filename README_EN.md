@@ -1,4 +1,4 @@
-# WebSSH v3.0 — A Full SSH Workstation in Your Browser
+# WebSSH v3.5 — A Full SSH Workstation in Your Browser
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>

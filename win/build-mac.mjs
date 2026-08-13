@@ -87,10 +87,18 @@ try {
   process.exit(1);
 }
 
-console.log('[2/3] Building macOS app (dmg + zip)...');
-execSync('npx electron-builder --mac', {
-  cwd: __dirname, stdio: 'inherit', timeout: 900000,
-});
+console.log('[2/3] Building macOS app (dmg + zip, arm64 then x64)...');
+// Build each architecture in a SEPARATE electron-builder invocation. Running a
+// single `--mac` for both arm64+x64 sequentially collides on the shared DMG
+// volume name (/Volumes/WebSSH), making the second build's `hdiutil detach`
+// fail on arm64 CI runners. Splitting per-arch lets each invocation detach its
+// own volume cleanly.
+for (const arch of ['arm64', 'x64']) {
+  console.log(`  [2/3] electron-builder --mac --${arch}...`);
+  execSync(`npx electron-builder --mac --${arch}`, {
+    cwd: __dirname, stdio: 'inherit', timeout: 900000,
+  });
+}
 
 // Build artifact — already copied into the app resources; keep tree clean.
 try { rmSync(join(__dirname, '..', 'core', 'server', 'index.bundle.mjs')); } catch {}
