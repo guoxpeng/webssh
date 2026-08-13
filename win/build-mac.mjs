@@ -93,14 +93,19 @@ console.log('[2/3] Building macOS app (dmg + zip, per-arch)...');
 // hits a known electron-builder `hdiutil detach` failure on /Volumes/WebSSH.
 const archs = (process.env.WEBSSH_MAC_ARCHS || 'arm64,x64')
   .split(',').map(a => a.trim()).filter(Boolean);
+// CI sets WEBSSH_MAC_TARGET=zip to skip DMG creation entirely: on GitHub's
+// arm64 runners `hdiutil detach /Volumes/WebSSH` fails even for the native
+// arch, and zip is perfectly usable for an unsigned build.
+const target = process.env.WEBSSH_MAC_TARGET;
+const targetArg = target ? ` ${target}` : '';
 // Build each architecture in a SEPARATE electron-builder invocation. Running a
 // single `--mac` for both arm64+x64 sequentially collides on the shared DMG
 // volume name (/Volumes/WebSSH), making the second build's `hdiutil detach`
 // fail on arm64 CI runners. Splitting per-arch lets each invocation detach its
 // own volume cleanly.
 for (const arch of archs) {
-  console.log(`  [2/3] electron-builder --mac --${arch}...`);
-  execSync(`npx electron-builder --mac --${arch}`, {
+  console.log(`  [2/3] electron-builder --mac${targetArg} --${arch}...`);
+  execSync(`npx electron-builder --mac${targetArg} --${arch}`, {
     cwd: __dirname, stdio: 'inherit', timeout: 900000,
   });
 }

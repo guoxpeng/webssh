@@ -37,11 +37,12 @@ jobs:
           name: webssh-win
           path: release/webssh-win.zip
 
-  # ── macOS（dmg + zip，arm64）──
+  # ── macOS（zip，arm64）──
   # macos-13 (Intel) runners have been retired by GitHub, so build on
-  # macos-latest (arm64). Cross-building the x64 DMG on Apple Silicon hits a
-  # known electron-builder `hdiutil detach` failure on /Volumes/WebSSH, so CI
-  # builds arm64 only (WEBSSH_MAC_ARCHS); local Mac builds still do both.
+  # macos-latest (arm64). On Apple Silicon runners `hdiutil detach
+  # /Volumes/WebSSH` fails even for the native arch, so CI builds a zip only
+  # (WEBSSH_MAC_TARGET=zip) — fine for an unsigned artifact. Local Mac builds
+  # still produce dmg+zip for both archs.
   macos:
     runs-on: macos-latest
     steps:
@@ -53,12 +54,13 @@ jobs:
         run: npm install
       - name: Install Electron dependencies
         run: cd win && npm install
-      - name: Build dmg + zip
+      - name: Build mac app (zip)
         env:
           # CI has no Apple certificates — never attempt identity discovery.
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          # arm64 only on Apple Silicon runners (see comment above).
+          # arm64 only, zip only on Apple Silicon runners (see comment above).
           WEBSSH_MAC_ARCHS: arm64
+          WEBSSH_MAC_TARGET: zip
         run: |
           set -o pipefail
           npm run desktop:mac 2>&1 | tee mac-build.log
@@ -75,6 +77,7 @@ jobs:
           path: |
             release/*.dmg
             release/*.zip
+          if-no-files-found: error
 
   # ── Android APK（debug 签名，可直接安装）──
   android:
