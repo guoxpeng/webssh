@@ -1,4 +1,4 @@
-# WebSSH v3.0 — 浏览器里的全能 SSH 工作站
+# WebSSH v3.5 — 浏览器里的全能 SSH 工作站
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
