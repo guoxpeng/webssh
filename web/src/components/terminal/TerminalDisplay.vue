@@ -491,7 +491,7 @@ const initializeTerminal = async () => {
   term.loadAddon(searchAddon);
   term.open(xtermContainerRef.value);
 
-  try { fitAddon.fit(); } catch (e) {
+  try { fitAddon.fit(); } catch {
     setTimeout(() => { try { fitAddon?.fit(); } catch {} }, 200);
   }
 

@@ -254,10 +254,6 @@ function stopRecordingNow() {
   showSuccess(t('macro.recordingStopped'));
 }
 
-function toggleSchedule(s) {
-  store.updateSchedule(s.id, { enabled: !s.enabled });
-}
-
 function onToggleSchedule(s) {
   store.updateSchedule(s.id, { enabled: !s.enabled });
   showSuccess(s.enabled ? t('macro.disabled') : t('macro.enabled'));

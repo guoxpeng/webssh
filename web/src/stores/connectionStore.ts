@@ -29,12 +29,7 @@ interface Credential {
   encrypted?: boolean;
 }
 
-interface TerminalCallbacks {
-  onOpen?: () => void;
-  onMessage?: (data: any) => void;
-  onClose?: (event: CloseEvent) => void;
-  onError?: (error: Error) => void;
-}
+
 
 interface TestResult {
   success: boolean;
@@ -211,12 +206,6 @@ export const useConnectionStore = defineStore('connection', () => {
     return null;
   }
 
-  function _xorObfuscate(text, key) {
-    const buf = new TextEncoder().encode(text);
-    const keyBytes = new TextEncoder().encode(key);
-    for (let i = 0; i < buf.length; i++) buf[i] ^= keyBytes[i % keyBytes.length];
-    return btoa(String.fromCharCode(...buf));
-  }
   function _xorDeobfuscate(encoded, key) {
     try {
       const buf = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));

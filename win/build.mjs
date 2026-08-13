@@ -128,7 +128,7 @@ try {
 
 // Step 3: Create portable zip (strip non-essential files to keep under 100MB)
 console.log('[3/3] Creating portable zip...');
-const zipPath = join(releaseDir, 'WebSSH-portable.zip');
+const zipPath = join(releaseDir, 'webssh-win.zip');
 const keepLocales = new Set(['en-US.pak', 'zh-CN.pak', 'zh-TW.pak']);
 const localeDir = join(unpackedDir, 'locales');
 if (existsSync(localeDir)) {

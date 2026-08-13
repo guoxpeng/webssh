@@ -84,7 +84,6 @@ import SshWebSocketService from '@/services/sshWebSocketService';
 
 const { t } = useI18n();
 const props = defineProps({ presetSteps: { type: Array, default: null } });
-const emit = defineEmits(['close']);
 const store = useMacroStore();
 const connStore = useConnectionStore();
 const snippetStore = useSnippetStore();

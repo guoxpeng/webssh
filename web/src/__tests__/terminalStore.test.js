@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useTerminalStore } from '../stores/terminalStore.js';
 
@@ -30,7 +30,7 @@ describe('terminalStore', () => {
 
   it('createSession uses name as fallback label', () => {
     const store = useTerminalStore();
-    const id = store.createSession({ host: '10.0.0.1' });
+    store.createSession({ host: '10.0.0.1' });
     expect(store.sessions[0].name).toBe('10.0.0.1');
   });
 
@@ -55,7 +55,7 @@ describe('terminalStore', () => {
   it('setActiveSession switches to existing session', () => {
     const store = useTerminalStore();
     const id1 = store.createSession({ name: 's1' });
-    const id2 = store.createSession({ name: 's2' });
+    store.createSession({ name: 's2' });
 
     store.setActiveSession(id1);
     expect(store.activeSessionId).toBe(id1);

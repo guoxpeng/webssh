@@ -227,11 +227,11 @@ import { ref, onMounted } from 'vue';
 import { useBackupStore } from '@/stores/backupStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
-import { encryptBackupData, decryptBackupData } from '@/utils/crypto';
-import { Database, Plus, Upload, Download, X, ChevronRight, Archive, RotateCcw, Trash2, Lock, ShieldCheck, Server, Code } from 'lucide-vue-next';
+import { decryptBackupData } from '@/utils/crypto';
+import { Database, Plus, Upload, Download, X, ChevronRight, Archive, RotateCcw, Trash2, Lock, Server, Code } from 'lucide-vue-next';
 
 const { t } = useI18n();
-const emit = defineEmits(['close']);
+defineEmits(['close']);
 const store = useBackupStore();
 const { showSuccess, showError } = useNotifications();
 

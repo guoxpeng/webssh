@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { encryptCredential, decryptCredential } from '@/utils/crypto.js';
 
 const MASTER_PW = 'test-master-password-42!';

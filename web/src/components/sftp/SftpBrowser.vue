@@ -241,7 +241,7 @@ const props = defineProps({
   nodeConfig: { type: Object, default: null },
 });
 
-const emit = defineEmits(['close']);
+defineEmits(['close']);
 
 const sftp = new SftpWsService();
 // Touch devices: no hover state, no reliable dblclick — used to switch
@@ -490,12 +490,6 @@ function formatTime(iso) {
   return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 }
 
-function formatMode(mode) {
-  if (!mode) return '';
-  const s = mode.toString(8);
-  return s.slice(-3);
-}
-
 function onContextMenu(e, entry) {
   contextEntry.value = entry;
   const rect = document.querySelector('.sftp-browser')?.getBoundingClientRect();
@@ -641,7 +635,6 @@ async function walkFolder(dirName) {
     const list = await api('list', { path: fullPath(current) });
     if (!list?.entries) continue;
     for (const f of list.entries) {
-      const rel = current === dirName ? f.name : current + '/' + f.name;
       if (f.type === 'dir') {
         stack.push(current + '/' + f.name);
       } else {

@@ -117,7 +117,7 @@ const props = defineProps({
   config: { type: Object, default: null },
 });
 
-const emit = defineEmits(['close']);
+defineEmits(['close']);
 
 const protocolLabel = computed(() => t(`protocol.${props.protocol}`));
 const iconComponent = computed(() => {

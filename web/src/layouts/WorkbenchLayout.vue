@@ -153,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, provide } from 'vue';
+import { ref, onMounted, onBeforeUnmount, provide } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppNavbar from '@/components/global/AppNavbar.vue';
 import AppNotification from '@/components/global/AppNotification.vue';
@@ -164,7 +164,6 @@ import { useUiStore } from '@/stores/uiStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
-import { useBackupStore } from '@/stores/backupStore';
 import { useMacroStore } from '@/stores/macroStore';
 import SnippetPanel from '@/components/snippets/SnippetPanel.vue';
 import CodeNotePanel from '@/components/codeNotes/CodeNotePanel.vue';

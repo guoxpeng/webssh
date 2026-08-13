@@ -34,8 +34,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: WebSSH-portable
-          path: release/WebSSH-portable.zip
+          name: webssh-win
+          path: release/webssh-win.zip
 
   # ── macOS（dmg + zip，arm64 / x64）──
   macos:

@@ -300,7 +300,7 @@ function preloadTerminal() {
   import('@/views/TerminalView.vue').catch(() => {});
 }
 
-function submit(action) {
+function submit(_action) {
   if (!validate()) return;
   emit('connect', { ...form.value });
 }

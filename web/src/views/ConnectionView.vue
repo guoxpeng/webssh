@@ -151,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted } from 'vue';
+import { ref, computed, nextTick, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ServerConnectForm from '@/components/connection/ServerConnectForm.vue';
 import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
@@ -287,7 +287,7 @@ async function quickConnect(conn) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
-  } catch (e) {
+  } catch {
     showError(t('server.quickConnectError'));
   }
 }
