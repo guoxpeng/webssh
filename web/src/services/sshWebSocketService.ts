@@ -1,4 +1,5 @@
-import { getWsBaseUrl, wsAuthProtocols, withLegacyToken } from '@/utils/constants';
+import { getWsBaseUrl, getApiBaseUrl, wsAuthProtocols, withLegacyToken, useBuiltinSsh } from '@/utils/constants';
+import { apiFetch } from '@/utils/api';
 
 export interface Callbacks {
   onOpen?: () => void;
@@ -55,7 +56,37 @@ class SshWebSocketService {
 
     this.generation += 1;
     this.legacyRetried = false;
-    this.createSocket(this.generation);
+    const gen = this.generation;
+    // Preflight: verify the backend access token BEFORE opening the terminal
+    // socket. A failed WebSocket handshake exposes no HTTP status, so without
+    // this users just see an opaque "WebSocket error" when the token is
+    // missing or wrong.
+    this.preflightAuth().then((authError) => {
+      if (gen !== this.generation) return;
+      if (authError) {
+        if (this.onErrorCallback) this.onErrorCallback(new Error(authError));
+        return;
+      }
+      this.createSocket(gen);
+    });
+  }
+
+  /** Returns an actionable error message when auth is broken, else null. */
+  private async preflightAuth(): Promise<string | null> {
+    // The in-APK gateway runs on loopback and needs no access token.
+    if (useBuiltinSsh()) return null;
+    try {
+      const res = await apiFetch(`${getApiBaseUrl()}/chat/config`);
+      if (res.status === 401 || res.status === 403) {
+        return '后端访问密码未填写或不正确：打开 设置 → 后端访问密码，填入部署时设置的密码（环境变量 AUTH_TOKEN 的值）后保存重试';
+      }
+      if (res.status === 503) {
+        return '后端未配置访问密码：请先在部署的环境变量里设置 AUTH_TOKEN 后重新部署';
+      }
+      return null; // gate accepted the token (route-level errors don't matter here)
+    } catch {
+      return null; // offline/network error — let the socket attempt report it
+    }
   }
 
   private createSocket(gen: number, legacyAuth: boolean = false): void {

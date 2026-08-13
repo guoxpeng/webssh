@@ -22,6 +22,36 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'File Manager' },
   },
   {
+    path: '/tunnels',
+    name: 'Tunnels',
+    component: () => import('@/views/TunnelsView.vue'),
+    meta: { title: 'Port Forwarding' },
+  },
+  {
+    path: '/keys',
+    name: 'Keys',
+    component: () => import('@/views/KeysView.vue'),
+    meta: { title: 'Keychain' },
+  },
+  {
+    path: '/history',
+    name: 'History',
+    component: () => import('@/views/HistoryView.vue'),
+    meta: { title: 'History' },
+  },
+  {
+    path: '/known-hosts',
+    name: 'KnownHosts',
+    component: () => import('@/views/KnownHostsView.vue'),
+    meta: { title: 'Known Hosts' },
+  },
+  {
+    path: '/help',
+    name: 'Help',
+    component: () => import('@/views/HelpView.vue'),
+    meta: { title: 'Help & Feedback' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),

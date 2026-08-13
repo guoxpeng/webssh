@@ -10,7 +10,9 @@
       </button>
     </div>
 
-    <div class="form-grid">
+    <div class="form-section">
+      <div class="form-section-title">{{ t('form.sectionBasic') }}</div>
+      <div class="form-grid">
       <div class="form-field span-2">
         <label for="scf-name">{{ t('form.label') }}</label>
         <div class="input-wrap">
@@ -30,7 +32,12 @@
           <option v-for="g in existingGroups" :key="g" :value="g"/>
         </datalist>
       </div>
+      </div>
+    </div>
 
+    <div class="form-section">
+      <div class="form-section-title">{{ t('form.sectionConnection') }}</div>
+      <div class="form-grid">
       <div class="form-field span-2">
         <label for="scf-host">{{ t('form.host') }}</label>
         <div class="input-wrap">
@@ -59,13 +66,6 @@
         </div>
       </div>
 
-      <div class="form-field span-2" v-if="form.protocol !== 'serial'">
-        <label for="scf-user">{{ t('form.username') }}</label>
-        <div class="input-wrap">
-          <User :size="15"/>
-          <input id="scf-user" v-model.trim="form.username" :placeholder="t('form.username')" :required="form.protocol !== 'serial'"/>
-        </div>
-      </div>
 
       <template v-if="form.protocol === 'serial'">
         <div class="form-field">
@@ -104,6 +104,20 @@
           </select>
         </div>
       </template>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">{{ t('form.sectionAuth') }}</div>
+      <div class="form-grid">
+      <div class="form-field span-2" v-if="form.protocol !== 'serial'">
+        <label for="scf-user">{{ t('form.username') }}</label>
+        <div class="input-wrap">
+          <User :size="15"/>
+          <input id="scf-user" v-model.trim="form.username" :placeholder="t('form.username')" :required="form.protocol !== 'serial'"/>
+        </div>
+      </div>
+
 
       <div class="form-field span-2">
         <label for="scf-auth">{{ t('form.authType') }}</label>
@@ -125,11 +139,20 @@
           <input v-else v-model="form.auth_value" type="password"
                  :placeholder="t('form.passwordPlaceholder')" :required="authValueRequired" autocomplete="new-password"
                  @focus="preloadTerminal"/>
-          <div v-if="form.auth_type === 'key'" class="key-actions">
+          <div v-if="form.auth_type === 'key'" class="key-actions" ref="keyActionsRef">
             <button type="button" class="key-upload-btn" @click="triggerKeyFileInput" :title="t('form.keyFileUpload')">
               <Upload :size="14"/>
             </button>
+            <button type="button" class="key-upload-btn" @click="toggleKeyPicker" :title="t('form.pickFromKeychain')">
+              <KeyRound :size="14"/>
+            </button>
             <input type="file" ref="keyFileInputRef" accept=".pem,.ppk,.key,.cer,.id_rsa,.id_ecdsa,.id_ed25519" style="display:none" @change="onKeyFileSelect"/>
+            <div v-if="showKeyPicker" class="keychain-picker">
+              <div v-if="keychainKeys.length === 0" class="keychain-picker-empty">{{ t('form.keychainEmpty') }}</div>
+              <button v-for="k in keychainKeys" :key="k.id" type="button" class="keychain-pick-item" @click="pickKey(k)">
+                <KeyRound :size="13"/> {{ k.name }}
+              </button>
+            </div>
           </div>
         </div>
         <div v-if="form.auth_type === 'key' && keyFileInfo" class="key-info">
@@ -140,8 +163,9 @@
           <CheckCircle :size="12"/> {{ t('form.usingRemembered') }}
         </p>
       </div>
-
+      </div>
     </div>
+
 
     <div class="form-actions">
       <button type="button" class="btn btn-outlined" @click="onSaveSubmit" :disabled="isLoading">
@@ -161,6 +185,7 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { ConnectionStatus } from '@/utils/constants';
 import { FileText, Folder, Network, Server as ServerIcon, User, KeyRound, TerminalSquare, RotateCcw, CheckCircle, Upload, Terminal, Monitor, Video, Wifi, Cable } from 'lucide-vue-next';
 import { useNotifications } from '@/composables/useNotifications';
+import { loadKeychain } from '@/utils/keychain';
 
 const { t } = useI18n();
 
@@ -198,6 +223,29 @@ function detectKeyType(content) {
 
 function triggerKeyFileInput() {
   keyFileInputRef.value?.click();
+}
+
+// ── Keychain picker ──
+const showKeyPicker = ref(false);
+const keychainKeys = ref([]);
+const keyActionsRef = ref(null);
+
+function toggleKeyPicker() {
+  showKeyPicker.value = !showKeyPicker.value;
+  if (showKeyPicker.value) {
+    keychainKeys.value = loadKeychain();
+    setTimeout(() => document.addEventListener('click', onDocClickClosePicker, { once: true }), 0);
+  }
+}
+function onDocClickClosePicker(e) {
+  if (keyActionsRef.value && !keyActionsRef.value.contains(e.target)) {
+    showKeyPicker.value = false;
+  }
+}
+function pickKey(k) {
+  form.value.auth_value = k.content;
+  showKeyPicker.value = false;
+  keyFileInfo.value = detectKeyType(k.content);
 }
 
 function onKeyFileSelect(e) {
@@ -317,8 +365,8 @@ const onSaveSubmit = () => {
   background: var(--bulma-box-background-color);
   backdrop-filter: blur(12px);
   border: 1px solid var(--bulma-border-light);
-  border-radius: 12px;
-  padding: 1.25rem;
+  border-radius: 14px;
+  padding: 1.4rem;
   transition: box-shadow 0.2s;
   &:hover { box-shadow: var(--bulma-shadow-lg, 0 12px 40px rgba(30,25,60,0.08)); }
 }
@@ -338,8 +386,17 @@ const onSaveSubmit = () => {
   &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
 }
 
+.form-section { margin-bottom: 1.25rem; }
+.form-section:last-of-type { margin-bottom: 0; }
+.form-section-title {
+  display: flex; align-items: center; gap: 0.55rem;
+  font-size: 0.68em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em;
+  color: var(--bulma-text-light); opacity: .8; margin-bottom: 0.6rem;
+  &::after { content: ''; flex: 1; height: 1px; background: var(--bulma-border-light); }
+}
+
 .form-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;
 }
 
 .form-field {
@@ -349,7 +406,7 @@ const onSaveSubmit = () => {
 
 .input-wrap {
   display: flex; align-items: center; gap: 0.4rem;
-  padding: 0.4rem 0.6rem; border-radius: 8px;
+  padding: 0.48rem 0.65rem; border-radius: 10px;
   border: 1.5px solid var(--bulma-border); background: var(--bulma-input-background-color);
   transition: border-color 0.15s, box-shadow 0.15s;
   &:focus-within { border-color: var(--bulma-primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
@@ -366,7 +423,24 @@ const onSaveSubmit = () => {
   min-height: 70px;
 }
 
+
+.keychain-picker {
+  position: absolute; right: 4px; top: calc(100% + 6px); z-index: 30;
+  min-width: 210px; max-width: 300px; max-height: 240px; overflow: auto;
+  background: var(--app-surface); border: 1px solid var(--app-border);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  padding: 5px; display: flex; flex-direction: column; gap: 2px;
+}
+.keychain-picker-empty { padding: 12px 10px; font-size: 12.5px; color: var(--app-text-dim); text-align: center; }
+.keychain-pick-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  border: none; background: none; color: var(--app-text);
+  font-size: 13px; padding: 8px 10px; border-radius: 7px; cursor: pointer; text-align: left;
+}
+.keychain-pick-item:hover { background: var(--app-surface-hover); }
+
 .key-actions {
+  position: relative;
   display: flex; flex-direction: column; gap: 2px; align-self: stretch;
   justify-content: flex-start; padding-top: 2px;
 }
@@ -409,29 +483,37 @@ const onSaveSubmit = () => {
 }
 
 .protocol-selector {
-  display: flex; gap: 3px;
+  display: flex; gap: 4px; padding: 4px; border-radius: 10px;
+  background: color-mix(in srgb, var(--bulma-text) 6%, transparent);
 }
 
 .proto-btn {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 0.35rem 0; border: 1.5px solid var(--bulma-border);
-  background: var(--bulma-input-background-color); border-radius: 8px;
+  padding: 0.38rem 0; border: none;
+  background: transparent; border-radius: 7px;
   cursor: pointer; color: var(--bulma-text-light); font-size: 0.65em; font-weight: 600;
   transition: all 0.12s;
-  &:hover { border-color: var(--bulma-primary); color: var(--bulma-primary); }
-  &.is-selected { border-color: var(--bulma-primary); background: rgba(99,102,241,0.08); color: var(--bulma-primary); }
+  &:hover { color: var(--bulma-text); }
+  &.is-selected {
+    background: var(--bulma-box-background-color); color: var(--bulma-primary);
+    box-shadow: 0 1px 5px rgba(0,0,0,0.12);
+  }
   .lucide { transition: none; }
 }
 
 .auth-tabs {
-  display: flex; border-radius: 8px; overflow: hidden; border: 1.5px solid var(--bulma-border);
+  display: flex; gap: 4px; padding: 4px; border-radius: 10px;
+  background: color-mix(in srgb, var(--bulma-text) 6%, transparent);
 }
 
 .auth-tab {
-  flex: 1; padding: 0.35rem 0; border: none; background: var(--bulma-input-background-color);
+  flex: 1; padding: 0.42rem 0; border: none; background: transparent; border-radius: 7px;
   font-size: 0.8em; cursor: pointer; color: var(--bulma-text-light); transition: all 0.12s;
-  &.is-active { background: var(--bulma-primary); color: white; font-weight: 500; }
-  &:not(.is-active):hover { background: var(--bulma-scheme-main-ter); }
+  &.is-active {
+    background: var(--bulma-box-background-color); color: var(--bulma-primary);
+    font-weight: 600; box-shadow: 0 1px 5px rgba(0,0,0,0.12);
+  }
+  &:not(.is-active):hover { color: var(--bulma-text); }
 }
 
 .checkbox-label {
@@ -447,12 +529,12 @@ const onSaveSubmit = () => {
 }
 
 .form-actions {
-  display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;
+  display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.35rem;
 }
 
 .btn {
   display: inline-flex; align-items: center; gap: 0.35rem;
-  padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85em; font-weight: 500;
+  padding: 0.55rem 1.15rem; border-radius: 10px; font-size: 0.85em; font-weight: 500;
   border: none; cursor: pointer; transition: all 0.15s;
   &.btn-primary { background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%)); color: white;
     &:hover { box-shadow: 0 4px 16px rgba(99,102,241,0.3); transform: translateY(-1px); }

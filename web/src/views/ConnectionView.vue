@@ -113,7 +113,6 @@
           </div>
         </div>
 
-        <TunnelManager/>
       </aside>
     </div>
 
@@ -155,7 +154,6 @@ import { ref, computed, nextTick, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ServerConnectForm from '@/components/connection/ServerConnectForm.vue';
 import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
-import TunnelManager from '@/components/tunnel/TunnelManager.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 import { useConnectionStore, FAILED_GROUP } from '@/stores/connectionStore';
 import { ConnectionStatus } from '@/utils/constants';

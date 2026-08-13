@@ -20,7 +20,7 @@ const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
 const KNOWN_HOSTS_PATH = join(DATA_DIR, 'known_hosts.json');
 let knownHostsCache = null;
 
-function loadKnownHosts() {
+export function loadKnownHosts() {
   if (knownHostsCache) return knownHostsCache;
   try {
     knownHostsCache = existsSync(KNOWN_HOSTS_PATH) ? JSON.parse(readFileSync(KNOWN_HOSTS_PATH, 'utf8')) : {};

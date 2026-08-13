@@ -9,7 +9,7 @@ import { get as httpsGet } from 'https';
 import { timingSafeEqual, randomBytes } from 'crypto';
 
 import { PORT, WS_PATH, DIST_DIR, GUACD_HOST, GUACD_PORT } from './lib/config.mjs';
-import { makeSSHConfig, setupSSHClient, json, parseBody, checkRate, serveStatic, serveSuicideSW, getLocalIP, originAllowed, setInjectedAuthToken } from './lib/utils.mjs';
+import { makeSSHConfig, setupSSHClient, json, parseBody, checkRate, serveStatic, serveSuicideSW, getLocalIP, originAllowed, setInjectedAuthToken, loadKnownHosts } from './lib/utils.mjs';
 import { findSession, withSessionSftp } from './lib/session.mjs';
 import { handleSSH } from './lib/ssh.mjs';
 import { handleSFTP } from './lib/sftp.mjs';
@@ -126,13 +126,18 @@ export const server = createServer(async (req, res) => {
   // SECURITY (L2): previously GET APIs were dead code (unreachable behind the
   // POST-only gate). Read-only endpoints are now explicitly GET-allowed
   // (still behind the Bearer-token authCheck above).
-  const GET_ALLOWED_API = new Set(['/api/chat/config', '/api/audit', '/api/model/servers', '/api/server-info']);
+  const GET_ALLOWED_API = new Set(['/api/chat/config', '/api/audit', '/api/model/servers', '/api/server-info', '/api/known-hosts']);
   if (req.method !== 'POST' && !(req.method === 'GET' && GET_ALLOWED_API.has(req.url))) {
     res.writeHead(404); res.end(); return;
   }
   // ── Server self-description ──
   // Lets any client (esp. phones on the LAN) discover the address they should
   // point at: reports the server's own non-internal IPv4 addresses + port.
+  if (req.method === 'GET' && req.url === '/api/known-hosts') {
+    // TOFU host fingerprints collected by this gateway (read-only view).
+    json(res, { hosts: loadKnownHosts() });
+    return;
+  }
   if (req.method === 'GET' && req.url === '/api/server-info') {
     const lan = [];
     try {

@@ -10,7 +10,7 @@
           <button class="sidebar-close" @click="mobileMenuOpen = false" aria-label="Close menu">&times;</button>
         </div>
         <nav class="sidebar-nav" @click="onSidebarNavClick">
-<router-link to="/" class="sidebar-item" :class="{ 'is-active': $route.name === 'ConnectionHome' }"
+          <router-link to="/" class="sidebar-item" :class="{ 'is-active': $route.name === 'ConnectionHome' }"
                         @click="closeMobileMenu" :title="t('nav.servers')" aria-current="page">
             <Server :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.servers') }}</span>
@@ -25,18 +25,49 @@
             <FolderOpen :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.sftp') }}</span>
           </router-link>
-          <div class="sidebar-spacer"></div>
+          <router-link to="/tunnels" class="sidebar-item" :class="{ 'is-active': $route.name === 'Tunnels' }"
+                        @click="closeMobileMenu" :title="t('nav.tunnels')">
+            <GitBranch :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.tunnels') }}</span>
+          </router-link>
           <a class="sidebar-item" @click="showSnippets = !showSnippets; closeMobileMenu()" :title="t('nav.snippets')" role="button" tabindex="0">
             <Star :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
           </a>
-          <a class="sidebar-item" @click="showCodeNotes = !showCodeNotes; closeMobileMenu()" :title="t('codeNotes.title')" role="button" tabindex="0">
-            <FileCode :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('codeNotes.title') }}</span>
+          <router-link to="/keys" class="sidebar-item" :class="{ 'is-active': $route.name === 'Keys' }"
+                        @click="closeMobileMenu" :title="t('nav.keys')">
+            <KeyRound :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.keys') }}</span>
+          </router-link>
+          <router-link to="/history" class="sidebar-item" :class="{ 'is-active': $route.name === 'History' }"
+                        @click="closeMobileMenu" :title="t('nav.history')">
+            <History :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.history') }}</span>
+          </router-link>
+          <router-link to="/known-hosts" class="sidebar-item" :class="{ 'is-active': $route.name === 'KnownHosts' }"
+                        @click="closeMobileMenu" :title="t('nav.knownHosts')">
+            <ShieldCheck :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.knownHosts') }}</span>
+          </router-link>
+          <a class="sidebar-item" @click="showSettings = true; closeMobileMenu()" :title="t('nav.settings')" role="button" tabindex="0">
+            <Settings :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.settings') }}</span>
           </a>
+          <router-link to="/help" class="sidebar-item" :class="{ 'is-active': $route.name === 'Help' }"
+                        @click="closeMobileMenu" :title="t('nav.help')">
+            <LifeBuoy :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.help') }}</span>
+          </router-link>
+
+          <div class="sidebar-spacer"></div>
+          <div class="sidebar-group-label" v-show="!sidebarCollapsed">{{ t('nav.more') }}</div>
           <a class="sidebar-item" @click="showChat = !showChat; closeMobileMenu()" :title="t('chat.title')" role="button" tabindex="0">
             <MessageSquare :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('chat.title') }}</span>
+          </a>
+          <a class="sidebar-item" @click="showCodeNotes = !showCodeNotes; closeMobileMenu()" :title="t('codeNotes.title')" role="button" tabindex="0">
+            <FileCode :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('codeNotes.title') }}</span>
           </a>
           <a class="sidebar-item" @click="showMacro = true; closeMobileMenu()" :title="t('macro.title')" role="button" tabindex="0">
             <PlayCircle :size="22" stroke-width="1.5"/>
@@ -46,9 +77,9 @@
             <Database :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.backup') }}</span>
           </a>
-          <a class="sidebar-item" @click="showSettings = true; closeMobileMenu()" :title="t('nav.settings')" role="button" tabindex="0">
-            <Settings :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.settings') }}</span>
+          <a class="sidebar-item" @click="showAudit = !showAudit; closeMobileMenu()" :title="t('nav.audit')" role="button" tabindex="0">
+            <ScrollText :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.audit') }}</span>
           </a>
           <a class="sidebar-item" @click="toggleTheme(); closeMobileMenu()" :title="t('nav.toggleTheme')" role="button" tabindex="0">
             <Sun v-if="uiStore.currentTheme === 'light'" :size="22" stroke-width="1.5"/>
@@ -56,10 +87,6 @@
             <span class="sidebar-label" v-show="!sidebarCollapsed">
               {{ uiStore.currentTheme === 'light' ? t('settings.light') : t('settings.dark') }}
             </span>
-          </a>
-          <a class="sidebar-item" @click="showAudit = !showAudit; closeMobileMenu()" :title="t('nav.audit')" role="button" tabindex="0">
-            <ScrollText :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.audit') }}</span>
           </a>
           <a class="sidebar-item is-collapse-toggle" @click="sidebarCollapsed = !sidebarCollapsed" :title="t('common.close')"
              role="button" tabindex="0" :aria-expanded="!sidebarCollapsed">
@@ -171,7 +198,7 @@ import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import AuditPanel from '@/components/audit/AuditPanel.vue';
-import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText } from 'lucide-vue-next';
+import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText, GitBranch, KeyRound, History, ShieldCheck, LifeBuoy } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -310,6 +337,11 @@ onBeforeUnmount(() => {
   &.is-active .sidebar-label { font-weight: 500; }
 }
 .sidebar-label { font-size: 0.9em; line-height: 1; }
+.sidebar-group-label {
+  font-size: 11px; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--app-text-dim); opacity: .65;
+  padding: 10px 18px 4px; user-select: none;
+}
 .sidebar-spacer { flex: 1; }
 .collapse-icon { transition: transform 0.2s ease; &.is-rotated { transform: rotate(180deg); } }
 

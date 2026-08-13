@@ -1,6 +1,6 @@
 <template>
   <div class="terminal-wrapper">
-    <div v-if="!isRemoteDesktop" ref="xtermContainerRef" class="xterm-container-parent" @contextmenu="onTerminalContextMenu"></div>
+    <div v-if="!isRemoteDesktop" ref="xtermContainerRef" class="xterm-container-parent" @contextmenu="onTerminalContextMenu" @pointerup="onTerminalTap"></div>
     <RemoteDisplay v-else ref="remoteDisplayRef" :node-config="nodeConfig"
                    @status-change="(s) => emit('status-change', s)"
                    @error-message="onRemoteError"
@@ -62,6 +62,10 @@
     </div>
 
     <div class="mobile-keys-toolbar is-hidden-tablet">
+      <div class="mobile-keys-row mobile-keys-row-sym">
+        <button v-for="ch in ['/', '.', '-', '_', ':', '|', '>', '<', '~', '*', '&', '?']" :key="'sym-' + ch"
+                class="mkey mkey-sym" @pointerdown.prevent="sendChar(ch)">{{ ch }}</button>
+      </div>
       <div class="mobile-keys-row mobile-keys-row-main">
         <button class="mkey mkey-sm" @pointerdown.prevent="sendKey('ESC')" title="Escape">ESC</button>
         <button class="mkey mkey-sm" @pointerdown.prevent="sendKey('TAB')" title="Tab">TAB</button>
@@ -121,6 +125,7 @@ import SshWebSocketService from '@/services/sshWebSocketService';
 import { useTerminalStore } from '@/stores/terminalStore';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useHistoryStore } from '@/stores/historyStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
@@ -139,6 +144,7 @@ const toggleChat = inject('toggleChat', () => {});
 const showCmdMenu = ref(false);
 const cmdDropdownRef = ref(null);
 const uiStore = useUiStore();
+const historyStore = useHistoryStore();
 
 // ── Host resource monitor (FinalShell-style status strip) ──────────────────
 // Polls the backend every 4s over the existing SSH websocket. Only shown on
@@ -541,6 +547,7 @@ const callbacks = {
       acquireWakeLock();
       emit('status-change', 'connected');
       const cfg = props.nodeConfig;
+      if (cfg) historyStore.record(cfg, 'success');
       if (cfg?.id && cfg?.auth_value) {
         connectionStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value);
       }
@@ -552,6 +559,14 @@ const callbacks = {
       term?.focus();
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
       startStatsPolling();
+      // Sync the remote pty with the actual xterm grid (gateways open the
+      // shell at a default 120x30; worker format is resize:<rows>:<cols>).
+      if (term) {
+        const { rows, cols } = term;
+        setTimeout(() => {
+          try { wsService?.sendMessage(`resize:${rows}:${cols}`); } catch {}
+        }, 200);
+      }
     },
     // ⚠ DO NOT intercept/filter onMessage — terminal data must pass through as-is.
     // Any JSON parsing here will break SSH when shell outputs JSON-like text.
@@ -575,6 +590,7 @@ const callbacks = {
       // Write translated error to terminal instead of raw [Error] text
       term?.writeln(`\r\n\x1b[31m${friendly}\x1b[0m\r\n`);
       const cfg = props.nodeConfig;
+      if (cfg) historyStore.record(cfg, 'failed', rawMsg);
       if (cfg && (cfg.host || cfg.name)) {
         connectionStore.saveFailedConnection(cfg);
       }
@@ -620,6 +636,7 @@ const callbacks = {
       term?.writeln(`\x1b[33m└─────────────────────────────────────┘\x1b[0m`);
       uiStore.addNotification({ message: errorMessage, type: 'danger', duration: 5000 });
       const cfg = props.nodeConfig;
+      if (cfg) historyStore.record(cfg, 'failed', errorMessage);
       if (cfg && (cfg.host || cfg.name)) {
         connectionStore.saveFailedConnection(cfg);
       }
@@ -634,6 +651,11 @@ emit('status-change', 'connecting');
   term.onData((data) => {
     wsService?.sendMessage(data);
     terminalStore.recordInput(data);
+  });
+
+  // Keep the remote pty size in step with the local grid (fit/rotate/panel drag).
+  term.onResize(({ rows, cols }) => {
+    try { wsService?.sendMessage(`resize:${rows}:${cols}`); } catch {}
   });
 
 
@@ -765,6 +787,18 @@ const sendKey = (keyType) => {
   term.focus();
 };
 
+// Direct character insert from the symbols toolbar (mobile).
+const sendChar = (ch) => {
+  if (!term || !wsService) return;
+  wsService.sendMessage(ch);
+  term.focus();
+};
+
+// Tapping the terminal surface should always bring up the soft keyboard.
+const onTerminalTap = () => {
+  if (window.matchMedia('(max-width: 768px)').matches) term?.focus();
+};
+
 watch(() => uiStore.currentTheme, () => {
   if (!term) return;
   const theme = defaultTerminalTheme();
@@ -860,7 +894,12 @@ onBeforeUnmount(() => {
   display: flex; justify-content: center; gap: 0.2rem; flex-wrap: wrap;
 }
 .mobile-keys-row-main { gap: 0.15rem; }
-.mobile-keys-row-ctrl { gap: 0.15rem; }
+.mobile-keys-row-sym, .mobile-keys-row-ctrl {
+  flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto;
+  scrollbar-width: none; &::-webkit-scrollbar { display: none; }
+  padding-bottom: 1px;
+}
+.mkey-sym { min-width: 2rem; font-size: 0.75rem; font-family: var(--bulma-family-monospace, monospace); }
 .mkey {
   background-color: var(--term-border); color: var(--term-text); border: 1px solid var(--term-text-dim);
   border-radius: 5px; padding: 0.25rem 0.45rem; min-width: 2rem; min-height: 2rem;

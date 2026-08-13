@@ -1,4 +1,5 @@
 import { getAuthToken } from './api';
+import { isAndroidApp, getNativeSshPort } from './nativeSsh';
 
 export const ConnectionStatus = Object.freeze({
   DISCONNECTED: 'disconnected',
@@ -55,6 +56,34 @@ export function setRuntimeBackendBase(url: string): boolean {
   }
 }
 
+// ── Built-in SSH gateway (Android APK) ──────────────────────────────────────
+// The APK embeds a Java WebSocket→SSH gateway; when enabled the terminal and
+// SFTP sockets point at ws://127.0.0.1:<port> and need no remote backend or
+// access token.
+const BUILTIN_SSH_KEY = 'webssh_builtin_ssh';
+
+export function isBuiltinSshEnabled(): boolean {
+  try {
+    return localStorage.getItem(BUILTIN_SSH_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setBuiltinSshEnabled(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(BUILTIN_SSH_KEY, '1');
+    else localStorage.removeItem(BUILTIN_SSH_KEY);
+  } catch {
+    // storage unavailable — nothing sensible to do
+  }
+}
+
+/** True when sockets should target the in-APK gateway (Android APK only). */
+export function useBuiltinSsh(): boolean {
+  return isBuiltinSshEnabled() && isAndroidApp();
+}
+
 function appendToken(url: string): string {
   const token = getAuthToken();
   if (!token) return url;
@@ -62,6 +91,10 @@ function appendToken(url: string): string {
 }
 
 function buildWsUrl(pathSuffix: string): string {
+  // Built-in gateway inside the Android APK: always loopback, no token needed.
+  if (useBuiltinSsh()) {
+    return `ws://127.0.0.1:${getNativeSshPort()}${pathSuffix}`;
+  }
   // SECURITY: the auth token is NOT part of the WS URL (it would leak into
   // proxy/access logs). It travels via the Sec-WebSocket-Protocol header —
   // see wsAuthProtocols() below. Legacy servers that only accept ?token=
@@ -90,6 +123,8 @@ function buildWsUrl(pathSuffix: string): string {
 // Subprotocol list carrying the auth token for `new WebSocket(url, protocols)`.
 // The marker name goes first; the token itself is the second entry.
 export function wsAuthProtocols(): string[] | undefined {
+  // The in-APK gateway runs on loopback and authenticates nothing.
+  if (useBuiltinSsh()) return undefined;
   const token = getAuthToken();
   return token ? ['webssh-auth', token] : undefined;
 }

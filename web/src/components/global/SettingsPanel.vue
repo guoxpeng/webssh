@@ -35,6 +35,24 @@
             </div>
           </div>
 
+          <div class="settings-section" v-if="nativeMode">
+            <h4 class="settings-section-title">{{ t('settings.builtinTitle') }}</h4>
+            <p class="model-api-hint">{{ t('settings.builtinHint') }}</p>
+            <div class="settings-row">
+              <span class="row-label">{{ t('settings.builtinEnable') }}</span>
+              <button class="switch" :class="{ 'is-active': builtinEnabled }"
+                      @click="toggleBuiltin"
+                      :aria-label="`Built-in SSH ${builtinEnabled ? 'on' : 'off'}`">
+                <span class="switch-slider"></span>
+              </button>
+            </div>
+            <p class="lan-tip" v-if="builtinEnabled">
+              {{ builtinRunning
+                 ? t('settings.builtinRunning', { port: builtinPort })
+                 : t('settings.builtinStopped') }}
+            </p>
+          </div>
+
           <div class="settings-section">
             <h4 class="settings-section-title">{{ t('settings.themePresets') }}</h4>
             <div class="theme-grid">
@@ -207,7 +225,8 @@ import { useNotifications } from '@/composables/useNotifications';
 import { verifyMasterPassword, setupMasterPassword } from '@/utils/crypto';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { Settings as SettingsIcon, Lock, Trash2 as Trash2Icon, Copy as CopyIcon, Server as ServerIcon } from 'lucide-vue-next';
-import { getRuntimeBackendBase, setRuntimeBackendBase, getApiBaseUrl } from '@/utils/constants';
+import { getRuntimeBackendBase, setRuntimeBackendBase, getApiBaseUrl, isBuiltinSshEnabled, setBuiltinSshEnabled } from '@/utils/constants';
+import { isAndroidApp, refreshNativeSshStatus } from '@/utils/nativeSsh';
 import { getBackendToken, setBackendToken, apiFetch } from '@/utils/api';
 const { t, locale } = useI18n();
   const { showSuccess, showError, showInfo } = useNotifications();
@@ -455,6 +474,34 @@ function clearBackend() {
   showInfo(t('settings.backendCleared'));
 }
 
+// ── Built-in SSH gateway (Android APK only) ──
+const nativeMode = isAndroidApp(); // built-in SSH is Android-only (no iOS SshBridge)
+const builtinEnabled = ref(isBuiltinSshEnabled());
+const builtinPort = ref(8725);
+const builtinRunning = ref(false);
+
+async function loadBuiltinStatus() {
+  const s = await refreshNativeSshStatus();
+  if (s) {
+    builtinRunning.value = s.running;
+    builtinPort.value = s.port || 8725;
+  }
+}
+
+function toggleBuiltin() {
+  builtinEnabled.value = !builtinEnabled.value;
+  setBuiltinSshEnabled(builtinEnabled.value);
+  if (builtinEnabled.value) {
+    // The in-APK gateway replaces any remote backend while enabled.
+    loadBuiltinStatus();
+    showSuccess(t('settings.builtinOn'));
+  } else {
+    showInfo(t('settings.builtinOff'));
+  }
+}
+
+if (nativeMode) loadBuiltinStatus();
+
 // ── LAN address discovery ──
 // Ask the (current or embedded) server for its own LAN IPv4 addresses so a
 // phone on the same network can be pointed at it without guessing.
@@ -511,7 +558,7 @@ function copyMcpConfig() {
 /* ── Overlay & panel shell (centered modal card, unified with panel system) ── */
 .settings-overlay {
   position: fixed; inset: 0; z-index: 9000;
-  background: rgba(15, 15, 25, 0.45); backdrop-filter: blur(4px);
+  background: rgba(15, 15, 25, 0.45);
   display: flex; align-items: center; justify-content: center;
   animation: panelFadeIn 0.15s ease-out;
 }

@@ -756,7 +756,16 @@ async function handleTerminalWS(request) {
       conn.connect({ ...sshCfg, sock: stream, keepaliveInterval: 15000, keepaliveCountMax: 3 });
     } catch (e) {
       logError('openSSH', e);
-      try { server.send(`\r\n\x1b[31m[Connection Error] ${e.message}\x1b[0m\r\n`); } catch {}
+      let msg = e.message;
+      // Translate Cloudflare's opaque TCP errors into actionable guidance —
+      // the #1 cause is targeting a private/intranet address, which Workers
+      // can never reach (only public IPs work).
+      if (/proxy request failed|cannot connect/i.test(msg)) {
+        msg += ' —— Cloudflare 只能连接公网地址：请确认服务器是公网 IP 且 22 端口放行；内网服务器请改用自建部署（Docker/桌面版）';
+      } else if (msg === 'TCP connection timeout') {
+        msg += ' —— 连接超时：请确认服务器公网端口已放行';
+      }
+      try { server.send(`\r\n\x1b[31m[Connection Error] ${msg}\x1b[0m\r\n`); } catch {}
       cleanup();
     }
   }
