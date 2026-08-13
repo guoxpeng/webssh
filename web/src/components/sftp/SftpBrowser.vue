@@ -244,6 +244,9 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const sftp = new SftpWsService();
+// Touch devices: no hover state, no reliable dblclick — used to switch
+// row interactions to tap-friendly equivalents.
+const isCoarsePointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
 const loading = ref(false);
 const error = ref('');
 const entries = ref([]);
@@ -313,7 +316,9 @@ async function loadEditorContent() {
   try {
     const data = await api('read', { path: editFilePath.value });
     if (!data?.content) return;
-    const decoded = atob(data.content);
+    // Decode base64 → bytes → UTF-8 (raw atob mangles non-Latin-1 text)
+    const bytes = Uint8Array.from(atob(data.content), c => c.charCodeAt(0));
+    const decoded = new TextDecoder('utf-8').decode(bytes);
     editContent.value = decoded;
     editOriginal.value = decoded;
     editorDirty.value = false;
@@ -328,7 +333,7 @@ async function loadEditorContent() {
 async function saveEditor() {
   saving.value = true;
   try {
-    await api('write', { path: editFilePath.value, content: btoa(editContent.value), encoding: 'base64' });
+    await api('write', { path: editFilePath.value, content: utf8ToBase64(editContent.value), encoding: 'base64' });
     editOriginal.value = editContent.value;
     editorDirty.value = false;
     editorJustSaved.value = true;
@@ -453,6 +458,10 @@ function enterDir(entry) {
 }
 
 function toggleSelect(entry) {
+  // Touch devices have no reliable dblclick: a tap on a folder enters it.
+  // Files still toggle selection; folders can be selected via long-press
+  // context menu actions.
+  if (isCoarsePointer && entry.type === 'dir') { enterDir(entry); return; }
   const s = new Set(selected.value);
   if (s.has(entry.name)) s.delete(entry.name); else s.add(entry.name);
   selected.value = s;
@@ -508,10 +517,12 @@ async function onUploadFiles(e) {
     uploadFileName.value = file.name;
     uploadProgress.value = 0;
     const reader = new FileReader();
-    const content = await new Promise((resolve) => {
+    const content = await new Promise((resolve, reject) => {
       reader.onload = (ev) => resolve(ev.target.result.split(',')[1] || '');
+      reader.onerror = () => reject(new Error('read failed'));
       reader.readAsDataURL(file);
-    });
+    }).catch(() => null);
+    if (content == null) { showError(t('sftp.uploadFailed', { name: file.name, error: 'FileReader error' })); continue; }
     try {
       await api('write', { path: (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + file.name, content, encoding: 'base64' });
       uploadProgress.value = 100;
@@ -642,8 +653,22 @@ async function walkFolder(dirName) {
 }
 
 function fullPath(name) {
-  const safe = name.replace(/\.\./g, '').replace(/\/\//g, '/');
-  return (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + safe;
+  // Reject path-traversal segments outright instead of mangling the name —
+  // the old replace() turned legitimate names like "file..txt" into "file.txt".
+  if (typeof name !== 'string' || name.split('/').includes('..')) return currentPath.value;
+  const joined = (currentPath.value.endsWith('/') ? currentPath.value : currentPath.value + '/') + name;
+  return joined.replace(/\/\//g, '/');
+}
+
+// UTF-8-safe base64 (btoa alone throws on chars > 0xFF)
+function utf8ToBase64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
 }
 
 function editFile(entry) {
@@ -904,6 +929,9 @@ watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
 .item-actions {
   display: none; gap: 1px;
   .sftp-item:hover & { display: flex; }
+  /* Touch screens have no hover — keep actions reachable */
+  @media (pointer: coarse) { display: flex; }
+  @media screen and (max-width: 768px) { display: flex; }
 }
 
 .item-action-btn {

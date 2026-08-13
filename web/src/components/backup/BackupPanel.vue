@@ -25,10 +25,17 @@
           <button class="modal-close" @click="showCreateModal = false">&times;</button>
         </div>
         <input type="text" v-model="backupLabel" :placeholder="t('backup.label')" class="form-input"/>
-        <input type="password" v-model="backupPassword" :placeholder="t('backup.password')" class="form-input"
-               @keydown.enter="confirmCreate"/>
-        <input type="password" v-model="backupPasswordConfirm" :placeholder="t('backup.confirmPassword')" class="form-input"
-               @keydown.enter="confirmCreate"/>
+        <label class="masterpw-toggle">
+          <input type="checkbox" v-model="useMasterPw"/>
+          <span>{{ t('backup.useMasterPassword') }}</span>
+        </label>
+        <p v-if="useMasterPw" class="hint-text">{{ t('backup.useMasterPasswordHint') }}</p>
+        <template v-else>
+          <input type="password" v-model="backupPassword" :placeholder="t('backup.password')" class="form-input"
+                 @keydown.enter="confirmCreate"/>
+          <input type="password" v-model="backupPasswordConfirm" :placeholder="t('backup.confirmPassword')" class="form-input"
+                 @keydown.enter="confirmCreate"/>
+        </template>
         <p v-if="passwordError" class="warn-text">{{ passwordError }}</p>
         <div class="inventory-panel" v-if="inv.connectionCount || inv.snippetCount">
           <div class="inv-item"><Server :size="12"/> <span>{{ t('backup.connections', { count: inv.connectionCount }) }}</span></div>
@@ -56,11 +63,43 @@
         <p class="info-text">{{ t('backup.enterPassword') }}</p>
         <input type="password" v-model="restorePassword" :placeholder="t('backup.password')" class="form-input"
                @keydown.enter="confirmRestore"/>
+        <button class="modal-btn fill-master-btn" @click="restorePassword = masterPw()" :disabled="!masterPw()">
+          <Lock :size="13"/> {{ t('backup.fillMasterPassword') }}
+        </button>
         <p v-if="restoreError" class="warn-text">{{ restoreError }}</p>
         <div v-if="store.restoring" class="modal-creating"><div class="loading-spinner"></div> {{ t('backup.restoring') }}...</div>
         <div class="modal-actions">
           <button class="modal-btn" @click="showRestoreModal = false">{{ t('common.cancel') }}</button>
           <button class="modal-btn is-primary" @click="confirmRestore" :disabled="store.restoring">
+            <RotateCcw :size="14"/> {{ t('backup.restore') }}
+          </button>
+        </div>
+      </div>
+    </div>
+    </Teleport>
+
+    <!-- Import Password Modal (encrypted backup file from any platform) -->
+    <Teleport to="body">
+    <div v-if="showImportModal" class="modal-overlay" @click.self="showImportModal = false">
+      <div class="modal-body">
+        <div class="modal-header">
+          <span>{{ t('backup.importTitle') }}</span>
+          <button class="modal-close" @click="showImportModal = false">&times;</button>
+        </div>
+        <p class="info-text">{{ t('backup.importPasswordHint') }}</p>
+        <input type="password" v-model="importPassword" :placeholder="t('backup.password')" class="form-input"
+               @keydown.enter="confirmImportRestore"/>
+        <button class="modal-btn fill-master-btn" @click="importPassword = masterPw()" :disabled="!masterPw()">
+          <Lock :size="13"/> {{ t('backup.fillMasterPassword') }}
+        </button>
+        <p v-if="importError" class="warn-text">{{ importError }}</p>
+        <div v-if="store.restoring" class="modal-creating"><div class="loading-spinner"></div> {{ t('backup.restoring') }}...</div>
+        <div class="modal-actions">
+          <button class="modal-btn" @click="showImportModal = false">{{ t('common.cancel') }}</button>
+          <button class="modal-btn" @click="confirmImportToList" :disabled="store.restoring">
+            <Archive :size="14"/> {{ t('backup.importToList') }}
+          </button>
+          <button class="modal-btn is-primary" @click="confirmImportRestore" :disabled="store.restoring">
             <RotateCcw :size="14"/> {{ t('backup.restore') }}
           </button>
         </div>
@@ -202,6 +241,12 @@ const backupLabel = ref('');
 const backupPassword = ref('');
 const backupPasswordConfirm = ref('');
 const passwordError = ref('');
+// Default: encrypt backups with the master password (the one used to unlock
+// the app) so users only ever remember ONE password across all devices.
+const useMasterPw = ref(true);
+function masterPw() {
+  try { return sessionStorage.getItem('webssh_master') || ''; } catch { return ''; }
+}
 
 // Restore modal
 const showRestoreModal = ref(false);
@@ -212,6 +257,10 @@ const restoreError = ref('');
 const showScheduleForm = ref(false);
 const showCloudForm = ref(false);
 const importInput = ref(null);
+const showImportModal = ref(false);
+const importPayload = ref(null);
+const importPassword = ref('');
+const importError = ref('');
 const syncUploading = ref(false);
 const syncDownloading = ref(false);
 
@@ -242,10 +291,17 @@ function defaultLabel() {
 
 async function confirmCreate() {
   passwordError.value = '';
-  if (!backupPassword.value) { passwordError.value = t('backup.passwordRequired'); return; }
-  if (backupPassword.value !== backupPasswordConfirm.value) { passwordError.value = t('backup.passwordMismatch'); return; }
+  let pw;
+  if (useMasterPw.value) {
+    pw = masterPw();
+    if (!pw) { passwordError.value = t('backup.passwordRequired'); return; }
+  } else {
+    if (!backupPassword.value) { passwordError.value = t('backup.passwordRequired'); return; }
+    if (backupPassword.value !== backupPasswordConfirm.value) { passwordError.value = t('backup.passwordMismatch'); return; }
+    pw = backupPassword.value;
+  }
   try {
-    const bak = await store.createBackup(backupLabel.value || '', backupPassword.value);
+    const bak = await store.createBackup(backupLabel.value || '', pw);
     showSuccess(t('backup.created', { label: bak.label }));
     store.cleanupOldBackups();
     showCreateModal.value = false;
@@ -280,7 +336,9 @@ async function confirmRestore() {
   }
   const result = await store.restoreBackup(restoreTarget.value.id, restorePassword.value || '');
   if (result.error) {
-    restoreError.value = result.error;
+    // Known error codes map to i18n keys; anything else is shown as-is.
+    const i18nKey = `backup.err.${result.error}`;
+    restoreError.value = t(i18nKey) === i18nKey ? result.error : t(i18nKey);
     return;
   }
   showSuccess(t('backup.restored', { count: result.restored }));
@@ -316,17 +374,52 @@ async function onImportFile(e) {
   if (!file) return;
   const text = await file.text();
   e.target.value = '';
-  // Try direct JSON import (new .json format)
-  if (store.importBackup(text)) { showSuccess(t('backup.imported')); return; }
-  // Fallback: try decryption (old .enc format)
-  const pwd = prompt(t('backup.importPasswordPrompt'));
-  if (!pwd) { showError(t('backup.importFailed')); return; }
-  const { decryptBackupData } = await import('@/utils/crypto');
-  const decrypted = await decryptBackupData(text.trim(), pwd);
-  if (decrypted?.data && store.importBackup(JSON.stringify(decrypted.data))) {
-    showSuccess(t('backup.imported')); return;
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch {}
+  if (parsed && !parsed.encryptedPayload) {
+    // Plain JSON backup → straight into the list (works on every platform)
+    if (store.importBackup(text)) showSuccess(t('backup.imported'));
+    else showError(t('backup.importFailed'));
+    return;
   }
-  showError(t('backup.importFailed'));
+  // Encrypted payload: legacy .enc ciphertext or exported .json with
+  // encryptedPayload — ask for the password in-app (prompt() does not exist
+  // in Android WebView).
+  importPayload.value = { text, ciphertext: parsed?.encryptedPayload || text };
+  importPassword.value = '';
+  importError.value = '';
+  showImportModal.value = true;
+}
+
+async function confirmImportRestore() {
+  if (!importPayload.value) return;
+  if (!importPassword.value) { importError.value = t('backup.passwordRequired'); return; }
+  const r = await store.restoreFromCiphertext(importPayload.value.ciphertext, importPassword.value);
+  if (r.error) {
+    importError.value = r.error === 'wrongPassword' ? t('backup.err.wrongPassword') : r.error;
+    return;
+  }
+  showImportModal.value = false;
+  showSuccess(t('backup.restored', { count: r.restored }));
+}
+
+async function confirmImportToList() {
+  if (!importPayload.value) return;
+  if (!importPassword.value) { importError.value = t('backup.passwordRequired'); return; }
+  const payload = importPayload.value;
+  let ok = false;
+  if (payload.text.trim().startsWith('{')) {
+    // Exported .json — keep it encrypted in the list as-is
+    ok = store.importBackup(payload.text);
+  } else {
+    // Legacy .enc — decrypt first, store as a plain entry
+    const decrypted = await decryptBackupData(payload.ciphertext.trim(), importPassword.value);
+    if (!decrypted?.data) { importError.value = t('backup.err.wrongPassword'); return; }
+    ok = store.importBackup(JSON.stringify({ ...decrypted.data, label: defaultLabel() }));
+  }
+  if (!ok) { importError.value = t('backup.importFailed'); return; }
+  showImportModal.value = false;
+  showSuccess(t('backup.imported'));
 }
 
 function updateSched() {
@@ -386,110 +479,37 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.backup-panel {
-  background: var(--bulma-scheme-main);
-  backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 640px; max-width: 96vw;
-  max-height: 90vh; overflow-y: auto;
-}
-.panel-header {
-  display: flex; align-items: center; padding: 0.5rem 0.65rem;
-  border-bottom: 1px solid var(--bulma-border-light);
-}
-.panel-title { font-size: 0.8em; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.35rem; flex: 1; }
-.panel-actions { display: flex; gap: 2px; }
-.panel-action-btn {
-  background: none; border: none; padding: 0.2rem 0.35rem; border-radius: 4px; cursor: pointer;
-  color: var(--bulma-text-light); display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.7em;
-  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-  &:disabled { opacity: 0.4; cursor: not-allowed; }
-}
-.panel-section { border-bottom: 1px solid var(--bulma-border-light); }
-.section-header {
-  display: flex; align-items: center; gap: 0.3rem; padding: 0.4rem 0.65rem;
-  font-size: 0.72em; font-weight: 500; cursor: pointer; user-select: none; color: var(--bulma-text);
-  &:hover { background: var(--bulma-scheme-main-ter); }
-}
-.section-chevron { transition: transform 0.15s; flex-shrink: 0; color: var(--bulma-text-light); &.is-open { transform: rotate(90deg); } }
-.section-badge {
-  margin-left: auto; font-size: 0.85em; padding: 0 6px; border-radius: 4px;
-  background: var(--bulma-border-light); color: var(--bulma-text-light);
-  &.is-disabled { opacity: 0.5; } &.is-size { font-size: 0.75em; font-family: monospace; }
-}
-.section-body { padding: 0.4rem 0.65rem 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
-.form-input {
-  border: 1px solid var(--bulma-border); border-radius: 6px; padding: 0.45rem 0.55rem;
-  font-size: 0.8em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none;
-  width: 100%; box-sizing: border-box;
-  &:focus { border-color: var(--bulma-primary); }
-}
-.form-select {
-  border: 1px solid var(--bulma-border); border-radius: 6px; padding: 0.25rem 0.4rem;
-  font-size: 0.75em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none;
-}
-.input-sm { width: 60px; display: inline-block; }
+.backup-panel { width: 640px; max-width: 96vw; max-height: 90vh; overflow-y: auto; }
+.input-sm { width: 64px; display: inline-block; }
 .inventory-panel {
-  background: var(--bulma-scheme-main-ter); border-radius: 6px; padding: 0.3rem 0.45rem;
-  display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.7em;
+  background: var(--bulma-scheme-main-ter); border-radius: 8px; padding: 0.4rem 0.55rem;
+  display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75em;
 }
-.inv-item { display: flex; align-items: center; gap: 0.3rem; color: var(--bulma-text-light); }
+.inv-item { display: flex; align-items: center; gap: 0.35rem; color: var(--bulma-text-light); }
 .inv-lock { color: var(--bulma-success); flex-shrink: 0; }
-.warn-text { display: flex; align-items: center; gap: 0.25rem; font-size: 0.65em; color: var(--bulma-danger); margin: 0; }
-.info-text { font-size: 0.6em; color: var(--bulma-text-light); margin: 0; display: flex; align-items: center; gap: 0.3rem; &.is-ok { color: var(--bulma-success); } &.is-err { color: var(--bulma-danger); } }
 .sync-indicator { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; &.is-ok { background: var(--bulma-success); } &.is-err { background: var(--bulma-danger); } }
-.toggle-label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.75em; cursor: pointer; input { accent-color: var(--bulma-primary); } }
-.schedule-fields, .cloud-fields { display: flex; flex-direction: column; gap: 0.3rem; }
-.field-row { display: flex; align-items: center; gap: 0.3rem; font-size: 0.7em; }
-.field-label { color: var(--bulma-text-light); }
-.field-hint { color: var(--bulma-text-light); }
-.cloud-actions { display: flex; gap: 0.3rem; }
+.schedule-fields, .cloud-fields { display: flex; flex-direction: column; gap: 0.35rem; }
+.cloud-actions { display: flex; gap: 0.4rem; }
 .cloud-btn {
-  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem;
-  padding: 0.25rem; border: 1px solid var(--bulma-border); border-radius: 6px; font-size: 0.65em;
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
+  padding: 0.35rem 0.5rem; border: 1px solid var(--bulma-border); border-radius: 8px; font-size: 0.72em;
   background: var(--bulma-input-background-color); color: var(--bulma-text); cursor: pointer;
+  transition: border-color 0.12s;
   &:hover { border-color: var(--bulma-primary); } &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .backups-section { border-bottom: none; }
-.empty-state { padding: 1rem; text-align: center; font-size: 0.7em; color: var(--bulma-text-light); }
 .backup-list { max-height: 360px; overflow-y: auto; }
-.backup-item { padding: 0.35rem 0.6rem; & + & { border-top: 1px solid var(--bulma-border-light); } }
-.backup-top { display: flex; align-items: center; gap: 0.35rem; }
+.backup-top { display: flex; align-items: center; gap: 0.4rem; }
 .backup-info { flex: 1; min-width: 0; }
-.backup-label { display: block; font-size: 0.72em; font-weight: 500; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 0.2rem; }
-.backup-meta { display: block; font-size: 0.6em; color: var(--bulma-text-light); }
+.backup-label { font-size: 0.78em; font-weight: 500; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 0.3rem; }
+.backup-meta { display: block; font-size: 0.65em; color: var(--bulma-text-light); margin-top: 1px; }
 .backup-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; .backup-item:hover & { opacity: 1; } }
-.bak-btn {
-  background: none; border: none; padding: 0.2rem; border-radius: 4px; cursor: pointer;
-  color: var(--bulma-text-light); display: flex;
-  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-  &.is-restore:hover { color: var(--bulma-primary); } &.is-cloud:hover { color: var(--bulma-info); } &.is-danger:hover { color: var(--bulma-danger); }
-  &:disabled { opacity: 0.3; cursor: not-allowed; }
+.modal-creating { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78em; color: var(--bulma-text-light); }
+.masterpw-toggle {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.8em; cursor: pointer; user-select: none;
+  input { accent-color: var(--bulma-primary); width: 15px; height: 15px; }
 }
-.loading-spinner { width: 14px; height: 14px; border: 2px solid var(--bulma-border-light); border-top-color: var(--bulma-primary); border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 10000;
-  background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center;
-}
-.modal-body {
-  background: var(--bulma-scheme-main); border-radius: 12px;
-  padding: 1.8rem 2.2rem; width: 640px; max-width: 96vw;
-  display: flex; flex-direction: column; gap: 0.75rem;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.2);
-  max-height: 85vh; overflow-y: auto;
-  .form-input { padding: 0.55rem 0.65rem; font-size: 0.85em; }
-}
-.modal-header { display: flex; align-items: center; justify-content: space-between; font-size: 0.85em; font-weight: 600; }
-.modal-close { background: none; border: none; font-size: 1.2em; cursor: pointer; color: var(--bulma-text-light); padding: 0 0.2rem; }
-.modal-creating { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75em; color: var(--bulma-text-light); }
-.modal-actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
-.modal-btn {
-  display: inline-flex; align-items: center; gap: 0.3rem;
-  padding: 0.35rem 0.7rem; border: 1px solid var(--bulma-border);
-  border-radius: 6px; font-size: 0.75em; cursor: pointer;
-  background: var(--bulma-input-background-color); color: var(--bulma-text);
-  &.is-primary { background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%)); color: white; border: none; &:hover { box-shadow: 0 2px 8px rgba(99,102,241,0.3); } }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
-}
+.hint-text { font-size: 0.72em; color: var(--bulma-text-light); margin: -0.2rem 0 0; line-height: 1.5; }
+.fill-master-btn { align-self: flex-start; font-size: 0.72em; padding: 0.3rem 0.7rem; }
 </style>

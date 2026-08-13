@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  webssh connects to user-provided servers, often on private networks over
+  plain http/ws. Allow cleartext traffic; TLS remains the default for https
+  origins. Scoped to the WebView's loads via allowsCleartextTraffic.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

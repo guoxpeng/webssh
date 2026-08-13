@@ -6,7 +6,9 @@ const __dirname = join(fileURLToPath(import.meta.url), '..', '..', '..');
 
 export const PORT = parseInt(process.env.PORT || '9627', 10);
 export const WS_PATH = process.env.WS_PATH || '/ws/ssh';
-export const DIST_DIR = join(__dirname, '..', 'dist', 'client');
+// WEBSSH_DIST_DIR lets the desktop shell (whose bundled single-file server has
+// a different import.meta.url depth) point at the frontend explicitly.
+export const DIST_DIR = process.env.WEBSSH_DIST_DIR || join(__dirname, '..', 'dist', 'client');
 
 export const MIME = {
   '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',

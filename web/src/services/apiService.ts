@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '@/utils/constants';
+import { apiFetch } from '@/utils/api';
 
 export interface NodeConfig {
   name?: string;
@@ -27,7 +28,8 @@ export async function testSshConnection(
   cmds: string[] = ["echo 'Connection test OK' && date"]
 ): Promise<SshTestResponse> {
   try {
-    const response = await fetch(`${getApiBaseUrl()}/ssh/test`, {
+    // apiFetch attaches the Bearer token (VITE_AUTH_TOKEN) when configured
+    const response = await apiFetch(`${getApiBaseUrl()}/ssh/test`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ node: nodeConfig, cmds }),

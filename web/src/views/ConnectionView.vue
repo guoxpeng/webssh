@@ -2,6 +2,10 @@
   <div class="conn-view app-page">
     <div class="conn-header">
       <h1 class="conn-title"><Server :size="26"/> {{ t('server.title') }}</h1>
+      <div class="conn-count" v-if="connectionStore.savedConnections.length > 0">
+        <span class="count-num">{{ connectionStore.savedConnections.length }}</span>
+        <span class="count-label">{{ t('server.savedLabel') }}</span>
+      </div>
     </div>
 
     <div class="conn-layout">
@@ -21,7 +25,9 @@
           <div class="sidebar-card-header">
             <History :size="16"/> {{ t('server.savedServers') }}
             <div class="sidebar-header-actions">
+              <button class="header-action-btn" @click="sshConfigInputRef?.click()" :title="t('server.importSshConfig')"><FileUp :size="14"/></button>
               <button class="header-action-btn" @click="showNewGroupInput = true" :title="t('server.newGroup')"><FolderPlus :size="14"/></button>
+              <input type="file" ref="sshConfigInputRef" accept=".conf,.cfg,.txt,.config" style="display:none" @change="onSshConfigFile"/>
             </div>
             <span class="sidebar-badge">{{ connectionStore.savedConnections.length }}</span>
           </div>
@@ -40,7 +46,7 @@
             <div v-for="conn in connectionStore.pinnedConnections" :key="conn.id"
                  class="saved-item pinned-item"
                  @click="onSavedItemClick(conn, $event)"
-                 :draggable="conn.group !== '未成功连接'" @dragstart="onDragStart($event, conn)"
+                 :draggable="conn.group !== FAILED_GROUP" @dragstart="onDragStart($event, conn)"
                  @dragover.prevent @dragenter.prevent @dragend="onDragEnd">
               <div class="saved-item-left">
                 <ProtocolBadge :protocol="conn.protocol || 'ssh'"/>
@@ -74,11 +80,11 @@
               </div>
               <template v-if="!connectionStore.isGroupCollapsed(grp)">
                 <div v-for="(conn, idx) in groupConnections(grp)" :key="conn.id"
-                     :ref="el => setItemRef(el, idx)"
-                     class="saved-item" :class="{ 'is-focused': focusedIndex === idx, 'is-dragging': dragConnId === conn.id }"
+                     :ref="el => setItemRef(el, conn.id)"
+                     class="saved-item" :class="{ 'is-focused': focusedConnId === conn.id, 'is-dragging': dragConnId === conn.id }"
                      @click="onSavedItemClick(conn, $event)"
                      @keydown.enter="quickConnect(conn)"
-                     :draggable="conn.group !== '未成功连接'" @dragstart="onDragStart($event, conn)"
+                     :draggable="conn.group !== FAILED_GROUP" @dragstart="onDragStart($event, conn)"
                       @dragover.prevent="onDragOver($event, conn, grp)"
                       @dragleave="onDragLeave"
                       @drop.prevent.stop="onDrop($event, conn, grp)"
@@ -113,8 +119,8 @@
 
     <!-- Group context menu -->
     <div v-if="groupMenuVisible" class="context-menu" :style="groupMenuStyle" @click.stop>
-      <div class="context-item" @click="renameGroupAction" v-if="groupMenuTarget !== 'Ungrouped' && groupMenuTarget !== '未成功连接'">{{ t('server.renameGroup') }}</div>
-      <div class="context-item" @click="connectAllInGroup" v-if="groupMenuTarget !== '未成功连接'">{{ t('server.connectAll') }}</div>
+      <div class="context-item" @click="renameGroupAction" v-if="groupMenuTarget !== 'Ungrouped' && groupMenuTarget !== FAILED_GROUP">{{ t('server.renameGroup') }}</div>
+      <div class="context-item" @click="connectAllInGroup" v-if="groupMenuTarget !== FAILED_GROUP">{{ t('server.connectAll') }}</div>
       <div class="context-item is-danger" @click="deleteGroupAction" v-if="groupMenuTarget !== 'Ungrouped'">{{ t('server.deleteGroup') }}</div>
     </div>
 
@@ -151,21 +157,24 @@ import ServerConnectForm from '@/components/connection/ServerConnectForm.vue';
 import ProtocolBadge from '@/components/global/ProtocolBadge.vue';
 import TunnelManager from '@/components/tunnel/TunnelManager.vue';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
-import { useConnectionStore } from '@/stores/connectionStore';
+import { useConnectionStore, FAILED_GROUP } from '@/stores/connectionStore';
 import { ConnectionStatus } from '@/utils/constants';
 import { useRouter } from 'vue-router';
 import { useNotifications } from '@/composables/useNotifications';
 import {
   Server, History, Edit3, Trash2, Play, FolderSearch,
-  ChevronRight, FolderPlus, Star, MoreHorizontal,
+  ChevronRight, FolderPlus, Star, MoreHorizontal, FileUp,
 } from 'lucide-vue-next';
+import { parseSshConfig } from '@/utils/sshConfig';
 
 const connectionStore = useConnectionStore();
 const router = useRouter();
 const { t } = useI18n();
 const { showSuccess, showError, showWarning } = useNotifications();
 
-const groupLabel = (g) => g === 'Ungrouped' ? t('server.ungrouped') : g;
+const groupLabel = (g) => g === 'Ungrouped' ? t('server.ungrouped')
+  : g === FAILED_GROUP ? t('server.failedGroup')
+  : g;
 
 const formInitialData = ref(null);
 
@@ -181,8 +190,11 @@ onMounted(() => {
 const connectionToRemove = ref(null);
 
 const sidebarListRef = ref(null);
-const itemRefs = ref([]);
+// Keyed by connection id: per-group indexes would collide across groups and
+// leave stale refs behind, breaking arrow-key focus.
+const itemRefs = ref({});
 const focusedIndex = ref(-1);
+const focusedConnId = computed(() => connectionStore.savedConnections[focusedIndex.value]?.id ?? null);
 const showNewGroupInput = ref(false);
 const newGroupName = ref('');
 const newGroupInputRef = ref(null);
@@ -201,7 +213,11 @@ function groupConnections(grp) {
   return connectionStore.connectionsByGroup(grp);
 }
 
-function setItemRef(el, idx) { if (el) itemRefs.value[idx] = el; }
+function setItemRef(el, id) {
+  if (id == null) return;
+  if (el) itemRefs.value[id] = el;
+  else delete itemRefs.value[id];
+}
 
 function onSidebarKeydown(e) {
   const all = connectionStore.savedConnections;
@@ -209,11 +225,11 @@ function onSidebarKeydown(e) {
   if (e.key === 'ArrowDown') {
     e.preventDefault();
     focusedIndex.value = focusedIndex.value < all.length - 1 ? focusedIndex.value + 1 : 0;
-    itemRefs.value[focusedIndex.value]?.focus();
+    itemRefs.value[all[focusedIndex.value]?.id]?.focus();
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
     focusedIndex.value = focusedIndex.value > 0 ? focusedIndex.value - 1 : all.length - 1;
-    itemRefs.value[focusedIndex.value]?.focus();
+    itemRefs.value[all[focusedIndex.value]?.id]?.focus();
   }
 }
 
@@ -227,7 +243,7 @@ async function handleFormSave(nodeConfig) {
   const saved = connectionStore.addConnection(nodeConfig);
   if (nodeConfig.auth_value) {
     await connectionStore.saveCredentialToSessionStorage(saved.id, nodeConfig.auth_type || 'password', nodeConfig.auth_value);
-    connectionStore.saveCredentialToLocalStorage(saved.id, nodeConfig.auth_type || 'password', nodeConfig.auth_value);
+    await connectionStore.saveCredentialToLocalStorage(saved.id, nodeConfig.auth_type || 'password', nodeConfig.auth_value);
   }
   showSuccess(t('form.saved', { name: saved.name }));
 }
@@ -240,8 +256,8 @@ function handleFormConnect(nodeConfig) {
   if (router.currentRoute.value.name !== 'Terminal') router.push({ name: 'Terminal' });
 }
 
-function loadForEditing(id) {
-  connectionStore.loadConnectionForEditing(id);
+async function loadForEditing(id) {
+  await connectionStore.loadConnectionForEditing(id);
   if (connectionStore.currentNodeDetails) {
     formInitialData.value = { ...connectionStore.currentNodeDetails };
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -257,7 +273,7 @@ async function quickConnect(conn) {
   try {
     let remembered = await connectionStore.getCredentialFromSessionStorage(conn.id);
     if (!remembered?.auth_value) {
-      remembered = connectionStore.getCredentialFromLocalStorage(conn.id);
+      remembered = await connectionStore.getCredentialFromLocalStorage(conn.id);
       if (remembered?.auth_value) {
         connectionStore.saveCredentialToSessionStorage(conn.id, remembered.auth_type, remembered.auth_value);
       }
@@ -265,7 +281,7 @@ async function quickConnect(conn) {
     if (remembered?.auth_value) {
       doConnect(conn, remembered.auth_type, remembered.auth_value);
     } else {
-      connectionStore.loadConnectionForEditing(conn.id);
+      await connectionStore.loadConnectionForEditing(conn.id);
       if (connectionStore.currentNodeDetails) {
         formInitialData.value = { ...connectionStore.currentNodeDetails };
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -309,6 +325,35 @@ function confirmCreateGroup() {
   newGroupName.value = '';
 }
 function cancelCreateGroup() { showNewGroupInput.value = false; newGroupName.value = ''; }
+
+// --- SSH config import (~/.ssh/config) ---
+const sshConfigInputRef = ref(null);
+async function onSshConfigFile(e) {
+  const file = e.target?.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const hosts = parseSshConfig(text);
+    if (!hosts.length) { showWarning(t('server.sshConfigEmpty')); return; }
+    let added = 0, skipped = 0;
+    for (const h of hosts) {
+      const dup = connectionStore.savedConnections.find(
+        c => c.host === h.host && c.port === h.port && c.username === h.username
+      );
+      if (dup) { skipped++; continue; }
+      connectionStore.addConnection({
+        name: h.name, host: h.host, port: h.port, username: h.username,
+        protocol: 'ssh', auth_type: h.hasKey ? 'key' : 'password',
+      });
+      added++;
+    }
+    if (added) showSuccess(t('server.sshConfigImported', { added, skipped }));
+    else showWarning(t('server.sshConfigAllDup', { skipped }));
+  } catch {
+    showError(t('server.sshConfigFailed'));
+  }
+}
 
 // --- Group Context Menu ---
 const groupMenuVisible = ref(false);
@@ -358,10 +403,12 @@ function deleteGroupAction() {
 }
 async function connectAllInGroup() {
   if (connectionStore.connectionStatus === ConnectionStatus.CONNECTING) return;
-  connectionStore.setConnectionStatus(ConnectionStatus.CONNECTING);
   groupMenuVisible.value = false;
   const conns = connectionStore.connectionsByGroup(groupMenuTarget.value);
+  // Check BEFORE flipping status — an empty group must not wedge the store in
+  // CONNECTING forever.
   if (conns.length === 0) return;
+  connectionStore.setConnectionStatus(ConnectionStatus.CONNECTING);
   connectionStore.pendingConnections.splice(0);
   for (const conn of conns) {
     const cred = await connectionStore.getCredentialFromSessionStorage(conn.id);
@@ -419,11 +466,11 @@ function onDrop(e, conn, targetGroup) {
 </script>
 
 <style lang="scss" scoped>
-.conn-view { max-width: 1200px; margin: 0 auto; overflow-y: auto; height: 100%; }
+.conn-view { max-width: 1200px; margin: 0 auto; overflow-y: auto; height: 100%; padding: 1.25rem 1.5rem 2rem; }
 .conn-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
-.conn-title { font-size: 1.4em; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+.conn-title { font-size: 1.4em; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; margin: 0; letter-spacing: -0.01em; }
 .conn-subtitle { font-size: 0.8em; color: var(--bulma-text-light); margin: 0; }
-.conn-count { display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, hsl(235,40%,45%), hsl(235,50%,58%)); color: white; padding: 0.4rem 0.8rem; border-radius: 10px; line-height: 1.2; }
+.conn-count { display: flex; flex-direction: column; align-items: center; background: linear-gradient(135deg, var(--bulma-primary), var(--bulma-link, var(--bulma-primary))); color: white; padding: 0.4rem 0.9rem; border-radius: 10px; line-height: 1.2; box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
 .count-num { font-size: 1.4em; font-weight: 700; }
 .count-label { font-size: 0.6em; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8; }
 .conn-layout { display: grid; grid-template-columns: 1fr minmax(260px, 360px); gap: 1.5rem; align-items: start; }
@@ -436,12 +483,12 @@ function onDrop(e, conn, targetGroup) {
 .test-result.is-danger { border-color: var(--bulma-danger); }
 .test-result.is-warning { border-color: var(--bulma-warning); }
 .test-result-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem; font-size: 0.8em; }
-.test-result.is-success & { background: hsl(155,30%,95%); }
-.test-result.is-danger & { background: hsl(350,30%,95%); }
-.test-result.is-warning & { background: hsl(38,30%,95%); }
-:root.is-dark-mode .test-result.is-success & { background: hsla(155,30%,20%,0.4); }
-:root.is-dark-mode .test-result.is-danger & { background: hsla(350,30%,20%,0.4); }
-:root.is-dark-mode .test-result.is-warning & { background: hsla(38,30%,20%,0.4); }
+.test-result.is-success .test-result-header { background: hsl(155,30%,95%); }
+.test-result.is-danger .test-result-header { background: hsl(350,30%,95%); }
+.test-result.is-warning .test-result-header { background: hsl(38,30%,95%); }
+:root.is-dark-mode .test-result.is-success .test-result-header { background: hsla(155,30%,20%,0.4); }
+:root.is-dark-mode .test-result.is-danger .test-result-header { background: hsla(350,30%,20%,0.4); }
+:root.is-dark-mode .test-result.is-warning .test-result-header { background: hsla(38,30%,20%,0.4); }
 .test-result-title { font-weight: 600; flex: 1; }
 .test-result-status { font-weight: 500; }
 .test-result-time { color: var(--bulma-text-light); font-family: var(--bulma-family-monospace); font-size: 0.9em; }
@@ -510,18 +557,44 @@ function onDrop(e, conn, targetGroup) {
 .rename-btn { flex: 1; border: none; border-radius: 6px; padding: 0.35rem; font-size: 0.8em; cursor: pointer; font-weight: 500; background: var(--bulma-primary); color: white; &.cancel { background: var(--bulma-border-light); color: var(--bulma-text); } }
 
 @media (max-width: 768px) {
-  .conn-layout { grid-template-columns: 1fr; }
-  .saved-item-actions { opacity: 1; }
+  .conn-layout { grid-template-columns: 1fr; gap: 1rem; }
+  /* Termius-style: hosts list first, connection form below */
+  .conn-sidebar { order: -1; }
   .conn-header { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
-  .sidebar-card { border-left: none; padding-left: 0; margin-left: 0; }
-  .sidebar-list { max-height: none; }
+  .sidebar-card { border-left: none; padding-left: 0; margin-left: 0; background: transparent; border: none; box-shadow: none; }
+  .sidebar-card-header {
+    background: transparent; border: none; padding: 0.4rem 0.25rem;
+    font-size: 0.9em;
+  }
+  .sidebar-list { max-height: none; padding: 0.25rem; }
   .conn-view { overflow-y: auto; height: 100%; }
+
+  /* Each host becomes a tappable rounded card */
+  .saved-item {
+    background: var(--bulma-box-background-color);
+    border: 1px solid var(--bulma-border-light);
+    border-radius: 14px;
+    margin-bottom: 0.5rem;
+    padding: 0.7rem 0.8rem;
+    min-height: 58px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    & + .saved-item { border-top: 1px solid var(--bulma-border-light); }
+    &:active { transform: scale(0.985); }
+  }
+  :root.is-dark-mode .saved-item { background: var(--app-surface); border-color: var(--app-border); }
+  .pinned-section { padding: 0.25rem; }
+  .pinned-item { margin-bottom: 0.5rem; }
+  .saved-item-name { font-size: 0.95em; font-weight: 600; }
+  .saved-item-desc { font-size: 0.75em; margin-top: 1px; }
+  .saved-item-actions { opacity: 1; gap: 6px; }
+  .icon-btn { padding: 0.5rem; border-radius: 10px; }
+  .group-header { padding: 0.6rem 0.5rem 0.35rem; font-size: 0.72em; }
+  .group-menu-btn { opacity: 1; padding: 8px; }
+  .new-group-row { padding: 0.4rem 0.25rem; }
+  .new-group-input { font-size: 16px; }
 }
 @media (max-width: 480px) {
   .conn-view { padding: 0.5rem; }
   .conn-header { margin-bottom: 0.75rem; }
-  .saved-item { padding: 0.5rem 0.6rem; }
-  .saved-item-name { font-size: 0.8rem; }
-  .saved-item-desc { font-size: 0.65rem; }
 }
 </style>

@@ -42,6 +42,12 @@
           {{ btnText }}
         </button>
 
+        <label v-if="!isElectron" class="remember-device">
+          <input type="checkbox" v-model="rememberDevice"/>
+          <span>{{ t('unlock.rememberDevice') }}</span>
+        </label>
+        <p v-if="!isElectron && rememberDevice" class="remember-hint">{{ t('unlock.rememberHint') }}</p>
+
         <div v-if="!isSetup" class="unlock-forgot">
           <button class="forgot-link" @click="clearConfirmVisible = true">
             {{ t('unlock.forgotPassword') }}
@@ -84,6 +90,10 @@ const error = ref('');
 const loading = ref(false);
 const inputRef = ref(null);
 const clearConfirmVisible = ref(false);
+// Device-level auto-unlock (opt-in). LAN/desktop clients can skip typing the
+// password on every launch; the master password is kept in localStorage.
+const rememberDevice = ref(false);
+const SAVED_MASTER_KEY = 'webssh_saved_master';
 
 async function cloudApi(action, payload = {}) {
   try {
@@ -129,6 +139,16 @@ onMounted(async () => {
     }
   }
 
+  // Device-level auto-unlock (user opted in with "remember this device")
+  const savedMaster = localStorage.getItem(SAVED_MASTER_KEY);
+  if (savedMaster) {
+    sessionStorage.setItem('webssh_master', savedMaster);
+    locked.value = false;
+    checking.value = false;
+    emit('unlocked', savedMaster);
+    return;
+  }
+
   // Check localStorage first, then fall back to R2
   if (localStorage.getItem(STORAGE_VERIFY_KEY)) {
     isSetup.value = false;
@@ -168,6 +188,16 @@ function onInput() {
   if (!_preloaded) { _preloaded = true; import('@/views/TerminalView.vue').catch(() => {}); }
 }
 
+// Opt-in device-level auto-unlock: keep (or drop) the master password so the
+// next launch skips the password screen. Only used outside Electron, which
+// already persists its own copy.
+function persistRemember(master) {
+  try {
+    if (rememberDevice.value) localStorage.setItem(SAVED_MASTER_KEY, master);
+    else localStorage.removeItem(SAVED_MASTER_KEY);
+  } catch {}
+}
+
 async function trySubmit() {
   if (!canSubmit.value || loading.value) return;
   error.value = '';
@@ -177,6 +207,7 @@ async function trySubmit() {
       await setupMasterPassword(password.value);
       sessionStorage.setItem('webssh_master', password.value);
       if (isElectron) localStorage.setItem('webssh_exe_master', password.value);
+      persistRemember(password.value);
       // Sync verify data to R2 so it persists across deployments
       pushVerifyToCloud().catch(() => {});
       locked.value = false;
@@ -186,6 +217,7 @@ async function trySubmit() {
       if (ok) {
         sessionStorage.setItem('webssh_master', password.value);
         if (isElectron) localStorage.setItem('webssh_exe_master', password.value);
+        persistRemember(password.value);
         locked.value = false;
         emit('unlocked', password.value);
       } else {
@@ -201,18 +233,15 @@ async function trySubmit() {
 
 function clearAllData() {
   clearConfirmVisible.value = false;
-  const localKeys = Object.keys(localStorage);
-  for (const key of localKeys) {
-    if (key.startsWith('sshWebAppCredLocal_') || key === 'sshWebAppConnections_configs'
-        || key === 'webssh_verify' || key === 'webssh_verify_salt'
-        || key === 'webssh_exe_master') {
-      localStorage.removeItem(key);
-    }
-  }
-  const sessionKeys = Object.keys(sessionStorage);
-  for (const key of sessionKeys) {
-    if (key.startsWith('sshWebAppCred_') || key === 'webssh_master') {
-      sessionStorage.removeItem(key);
+  // Full reset: wipe every webssh-owned key so the next launch behaves like a
+  // fresh install. This removes saved servers, all credentials, backups,
+  // snippets, macros, notes and the password verifier — nothing recoverable.
+  for (const store of [localStorage, sessionStorage]) {
+    const keys = Object.keys(store);
+    for (const key of keys) {
+      if (key.startsWith('sshWebApp') || key.startsWith('webssh_')) {
+        store.removeItem(key);
+      }
     }
   }
   window.location.reload();
@@ -275,6 +304,16 @@ function clearAllData() {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .unlock-forgot { margin-top: 1rem; }
+.remember-device {
+  display: flex; align-items: center; justify-content: center; gap: 0.45rem;
+  margin-top: 0.7rem; font-size: 0.8em; cursor: pointer; user-select: none;
+  color: var(--bulma-text-light);
+  input { accent-color: hsl(235, 50%, 52%); width: 15px; height: 15px; }
+}
+.remember-hint {
+  margin: 0.2rem auto 0; max-width: 320px;
+  font-size: 0.68em; color: var(--bulma-text-light); opacity: 0.85; line-height: 1.5;
+}
 .forgot-link {
   background: none; border: none; cursor: pointer;
   color: var(--bulma-text-light); font-size: 0.78em;

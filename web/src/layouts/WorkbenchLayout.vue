@@ -141,10 +141,12 @@
       </div>
     </div>
     <SettingsPanel :visible="showSettings" @close="showSettings = false" />
+    <OnboardingGuide v-if="showOnboarding" @dismiss="dismissOnboarding" />
     <div v-if="showMacro" class="snippet-overlay">
       <div class="snippet-overlay-backdrop" @click="showMacro = false"></div>
       <div class="snippet-overlay-panel">
-        <MacroPanel @close="showMacro = false" @run="onRunMacro"/>
+        <MacroPanel ref="macroPanelRef" @close="showMacro = false" @run="onRunMacro"
+                    @record-start="onRecordStart" @record-stop="onRecordStop"/>
       </div>
     </div>
   </div>
@@ -156,6 +158,7 @@ import { useI18n } from 'vue-i18n';
 import AppNavbar from '@/components/global/AppNavbar.vue';
 import AppNotification from '@/components/global/AppNotification.vue';
 import SettingsPanel from '@/components/global/SettingsPanel.vue';
+import OnboardingGuide from '@/components/global/OnboardingGuide.vue';
 import SkipToContent from '@/components/global/SkipToContent.vue';
 import { useUiStore } from '@/stores/uiStore';
 import { useNotifications } from '@/composables/useNotifications';
@@ -182,6 +185,13 @@ const mobileMenuOpen = ref(false);
 const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
 const showMacro = ref(false);
 const showSettings = ref(false);
+// First-run onboarding — shown once, dismissed forever via localStorage flag.
+const ONBOARD_KEY = 'webssh_onboarded_v3';
+const showOnboarding = ref(false);
+function dismissOnboarding() {
+  showOnboarding.value = false;
+  try { localStorage.setItem(ONBOARD_KEY, '1'); } catch {}
+}
 const showSnippets = ref(false);
 const showBackup = ref(false);
 const showAudit = ref(false);
@@ -200,6 +210,10 @@ function onGlobalKeydown(e) {
   const isCtrl = e.ctrlKey || e.metaKey;
   if (isCtrl && e.key === 'p') { e.preventDefault(); showMacro.value = !showMacro.value; }
 }
+
+// Named handlers so add/removeEventListener use the same reference (leak fix)
+function onOpenSettings() { showSettings.value = true; }
+function onOpenMacro() { showMacro.value = true; }
 
 function onRunSnippet(snippet) {
   showSnippets.value = false;
@@ -227,7 +241,27 @@ function onRunMacro(macro) {
   }
 }
 
-function toggleTheme() { 
+// ── Macro recording: capture typed commands from the active terminal ──
+const macroPanelRef = ref(null);
+function onRecordStart() {
+  if (!terminalStore.activeSendFunction) {
+    showWarning(t('terminal.connectFirst'));
+    // Roll the panel's local recording flag back
+    nextTick(() => { if (macroPanelRef.value) macroPanelRef.value.isRecording = false; });
+    return;
+  }
+  terminalStore.startRecording();
+}
+function onRecordStop() {
+  const steps = terminalStore.stopRecording();
+  if (steps.length && macroPanelRef.value) {
+    macroPanelRef.value.populateFromRecording(steps);
+  } else if (!steps.length) {
+    showWarning(t('macro.nothingRecorded'));
+  }
+}
+
+function toggleTheme() {
   const isDark = uiStore.currentTheme === 'dark';
   uiStore.toggleTheme(); 
   sidebarCollapsed.value = false; 
@@ -236,15 +270,17 @@ function toggleTheme() {
 
 onMounted(() => {
   document.addEventListener('keydown', onGlobalKeydown);
-  document.addEventListener('open-settings', () => { showSettings.value = true; });
-  document.addEventListener('open-macro', () => { showMacro.value = true; });
+  document.addEventListener('open-settings', onOpenSettings);
+  document.addEventListener('open-macro', onOpenMacro);
   connectionStore.loadCredentialsFromSessionStorage?.()?.catch(() => {});
+  // First-run onboarding guide (shown once per browser profile).
+  try { if (!localStorage.getItem(ONBOARD_KEY)) showOnboarding.value = true; } catch {}
   // Auto-backup skipped: manual backup with password required
 });
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onGlobalKeydown);
-  document.removeEventListener('open-settings', () => {});
-  document.removeEventListener('open-macro', () => {});
+  document.removeEventListener('open-settings', onOpenSettings);
+  document.removeEventListener('open-macro', onOpenMacro);
 });
 </script>
 
@@ -253,7 +289,7 @@ onBeforeUnmount(() => {
 .workbench-body { display: flex; flex: 1; min-height: 0; max-height: 100%; overflow: hidden; }
 .is-electron .workbench-body { margin-top: 0; }
 .workbench-sidebar {
-  position: fixed; top: 3.25rem; left: 0; bottom: 24px; z-index: 100;
+  position: fixed; top: var(--navbar-h, 3.25rem); left: 0; bottom: 24px; z-index: 100;
   .is-electron & { top: 0; }
   width: 200px; background: var(--app-surface);
   border-right: 1px solid var(--app-border); padding: 1.5rem 0 0.75rem;
@@ -267,7 +303,11 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
   &:hover { background: var(--app-surface-hover); color: var(--bulma-text); }
-  &.is-active { background: var(--bulma-primary); color: white; }
+  &.is-active {
+    background: linear-gradient(135deg, var(--bulma-primary), var(--bulma-link, var(--bulma-primary)));
+    color: white;
+    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.28);
+  }
   &.is-active .sidebar-label { font-weight: 500; }
 }
 .sidebar-label { font-size: 0.9em; line-height: 1; }
@@ -350,7 +390,7 @@ onBeforeUnmount(() => {
 @media screen and (max-width: 768px) {
   .workbench-body { flex-direction: column; }
   .workbench-sidebar {
-    position: fixed; top: 3.25rem; left: 0; bottom: 0; z-index: 90;
+    position: fixed; top: var(--navbar-h, 3.25rem); left: 0; bottom: 0; z-index: 90;
     width: 240px !important; min-width: 240px; max-width: 240px;
     transform: translateX(-100%); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     background: var(--app-surface);
@@ -419,5 +459,19 @@ onBeforeUnmount(() => {
   font-size: 0.85em; cursor: pointer; background: var(--bulma-scheme-main-ter); color: var(--bulma-text);
   &.is-primary { background: var(--bulma-primary); color: white; border-color: transparent; }
   &:hover { opacity: 0.9; }
+}
+
+/* Termius-style mobile: popup panels dock as full-width bottom sheets */
+@media screen and (max-width: 768px) {
+  .snippet-overlay { align-items: flex-end; }
+  .snippet-overlay-panel {
+    width: 100%; max-height: 92dvh;
+    display: flex; flex-direction: column;
+    animation: sheetIn 0.22s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+}
+@keyframes sheetIn {
+  from { opacity: 0.4; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

@@ -28,6 +28,14 @@
         <button class="pane-tab-add" @click="$emit('addTab')" :title="t('terminal.addTab')">+</button>
       </div>
       <div class="pane-toolbar-actions">
+        <button class="pane-split-btn" :class="{ 'is-active': splitMode === 'vertical' }"
+                @click="toggleSplit('vertical')" :title="t('terminal.splitVertical')">
+          <Columns2 :size="14"/>
+        </button>
+        <button class="pane-split-btn" :class="{ 'is-active': splitMode === 'horizontal' }"
+                @click="toggleSplit('horizontal')" :title="t('terminal.splitHorizontal')">
+          <Rows2 :size="14"/>
+        </button>
         <button class="pane-hint-btn" :title="t('terminal.tabShortcut')" @click="showTabHint = !showTabHint">
           <GripHorizontal :size="13"/>
         </button>
@@ -48,9 +56,13 @@
         <button v-if="panes.length > 1" class="tab-close-btn" @click="closePane(activeMenuIdx)">{{ t('common.close') }}</button>
       </div>
     </div>
-    <div class="pane-body">
+    <div class="pane-body" :class="splitMode !== 'none' ? `is-split is-${splitMode}` : ''">
       <template v-for="(pane, idx) in panes" :key="pane.id">
-        <div v-show="idx === activePane" class="pane-content">
+        <div v-show="splitMode !== 'none' || idx === activePane"
+             class="pane-content"
+             :class="{ 'is-split-active': splitMode !== 'none' && idx === activePane }"
+             :style="splitMode !== 'none' ? { flexBasis: (splitSizes[idx] || 0) + '%', flexGrow: 0, flexShrink: 1 } : {}"
+             @mousedown.capture="onSplitCellFocus(idx)">
           <TerminalDisplay :node-config="pane.config" :term-settings="pane.termSettings" v-if="pane.type === 'terminal' && pane.status !== 'error'"
                            @status-change="(s) => onPaneStatus(idx, s)"
                            @error-message="(m) => onPaneError(idx, m)"
@@ -67,6 +79,9 @@
             <p>{{ t('terminal.paneSession', { protocol: pane.protocol.toUpperCase(), name: pane.name }) }}</p>
           </div>
         </div>
+        <div v-if="splitMode !== 'none' && idx < panes.length - 1" :key="'divider-' + pane.id"
+             class="split-divider" :class="'is-' + splitMode"
+             @mousedown.prevent="startSplitDrag($event, idx)"></div>
       </template>
     </div>
   </div>
@@ -82,7 +97,7 @@ import TerminalDisplay from './TerminalDisplay.vue';
 import ConnectionErrorPanel from './ConnectionErrorPanel.vue';
 import ProtocolInfoPanel from './ProtocolInfoPanel.vue';
 import DockerPanel from '@/components/docker/DockerPanel.vue';
-import { Terminal, Monitor, Video, Wifi, GripVertical, GripHorizontal } from 'lucide-vue-next';
+import { Terminal, Monitor, Video, Wifi, GripVertical, GripHorizontal, Columns2, Rows2 } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -91,6 +106,54 @@ const { showSuccess, showInfo } = useNotifications();
 const panes = ref([]);
 const activePane = ref(0);
 const showTabHint = ref(false);
+
+// ── Split layout: show all panes on screen at once ──
+// splitMode 'none' = classic tabs; 'vertical' = side by side;
+// 'horizontal' = stacked. splitSizes holds each pane's percentage.
+const splitMode = ref('none');
+const splitSizes = ref([]);
+function evenSizes(n) { return Array.from({ length: n }, () => 100 / n); }
+function toggleSplit(mode) {
+  if (splitMode.value === mode) {
+    splitMode.value = 'none';
+    return;
+  }
+  splitMode.value = mode;
+  splitSizes.value = evenSizes(panes.value.length);
+}
+function onSplitCellFocus(idx) {
+  if (splitMode.value !== 'none') activePane.value = idx;
+}
+function startSplitDrag(e, idx) {
+  const body = e.target.closest('.pane-body');
+  if (!body) return;
+  const rect = body.getBoundingClientRect();
+  const vertical = splitMode.value === 'vertical';
+  const total = vertical ? rect.width : rect.height;
+  const startPos = vertical ? e.clientX : e.clientY;
+  const startA = splitSizes.value[idx];
+  const startB = splitSizes.value[idx + 1];
+  const onMove = (ev) => {
+    const cur = vertical ? ev.clientX : ev.clientY;
+    let deltaPct = ((cur - startPos) / total) * 100;
+    let a = startA + deltaPct;
+    let b = startB - deltaPct;
+    // Keep both panes usable (min 12% each).
+    if (a < 12) { a = 12; b = startA + startB - 12; }
+    if (b < 12) { b = 12; a = startA + startB - 12; }
+    splitSizes.value[idx] = a;
+    splitSizes.value[idx + 1] = b;
+    splitSizes.value = [...splitSizes.value];
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+  };
+  document.body.style.cursor = vertical ? 'col-resize' : 'row-resize';
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
 
 const tabColors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316'];
 const tabMenuVisible = ref(false);
@@ -118,6 +181,9 @@ function startRename(idx) {
   });
 }
 function finishRename(idx, e) {
+  // Enter calls blur() after renaming — guard against the blur firing the
+  // rename a second time (duplicate toast / duplicate save).
+  if (renamingIdx.value === null) return;
   let newName;
   if (e.type === 'blur' && e.currentTarget) {
     newName = e.currentTarget.value.trim();
@@ -160,12 +226,14 @@ function addPane(type, protocol, config) {
     protocol, type, config: config || null, status: 'disconnected', lastError: ''
   });
   activePane.value = panes.value.length - 1;
+  if (splitMode.value !== 'none') splitSizes.value = evenSizes(panes.value.length);
 }
 
 function closePane(idx) {
   if (panes.value.length <= 1) return;
   panes.value.splice(idx, 1);
   if (activePane.value >= panes.value.length) activePane.value = panes.value.length - 1;
+  if (splitMode.value !== 'none') splitSizes.value = evenSizes(panes.value.length);
   showInfo(t('terminal.paneClosed'));
 }
 
@@ -181,12 +249,12 @@ function retryPane(idx) {
   pane.status = 'disconnected';
   pane.lastError = '';
 }
-function editPane(idx) {
+async function editPane(idx) {
   const pane = panes.value[idx];
   if (!pane || !pane.config) return;
   const connId = pane.config.id;
   if (connId) {
-    connStore.loadConnectionForEditing(connId);
+    await connStore.loadConnectionForEditing(connId);
   } else {
     connStore.setCurrentNodeDetails({ ...pane.config });
   }
@@ -258,6 +326,7 @@ function setupKeyboard() {
 }
 
 let touchHandler = null;
+let touchEndHandler = null;
 function setupPinchZoom() {
   touchHandler = (e) => {
     if (e.touches.length !== 2) return;
@@ -272,11 +341,13 @@ function setupPinchZoom() {
       panes.value = [...panes.value];
     }
   };
+  touchEndHandler = () => { pinchInitialDistance = 0; pinchBaseFontSize = 13; };
   document.addEventListener('touchmove', touchHandler, { passive: true });
-  document.addEventListener('touchend', () => { pinchInitialDistance = 0; pinchBaseFontSize = 13; });
+  document.addEventListener('touchend', touchEndHandler);
 }
 function cleanupTouch() {
   if (touchHandler) { document.removeEventListener('touchmove', touchHandler); touchHandler = null; }
+  if (touchEndHandler) { document.removeEventListener('touchend', touchEndHandler); touchEndHandler = null; }
 }
 
 onMounted(() => { setupKeyboard(); setupPinchZoom(); });
@@ -361,6 +432,31 @@ defineExpose({ panes, activePane, addPane,
 }
 .pane-body { flex: 1; min-height: 0; overflow: hidden; position: relative; }
 .pane-content { position: absolute; inset: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+/* ── Split layout ── */
+.pane-split-btn {
+  background: none; border: none; padding: 0.3rem; border-radius: 4px; cursor: pointer;
+  color: var(--bulma-text-light); display: flex; transition: all 0.1s;
+  &:hover { background: var(--bulma-scheme-main-bis); color: var(--bulma-text); }
+  &.is-active { color: var(--bulma-primary); background: color-mix(in srgb, var(--bulma-primary) 12%, transparent); }
+}
+.pane-body.is-split { display: flex; }
+.pane-body.is-split.is-vertical { flex-direction: row; }
+.pane-body.is-split.is-horizontal { flex-direction: column; }
+.pane-body.is-split .pane-content { position: relative; inset: auto; min-width: 0; min-height: 0; }
+.pane-content.is-split-active {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--bulma-primary) 55%, transparent);
+}
+.split-divider {
+  flex: 0 0 5px; background: var(--bulma-border-light); z-index: 2;
+  transition: background 0.12s;
+  &:hover { background: var(--bulma-primary); }
+  &.is-vertical { cursor: col-resize; }
+  &.is-horizontal { cursor: row-resize; }
+}
+@media (max-width: 768px) {
+  .pane-split-btn { display: none; }
+}
 .pane-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100%; opacity: 0.4; gap: 0.5rem;

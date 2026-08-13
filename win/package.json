@@ -1,11 +1,12 @@
 {
   "name": "webssh-desktop",
-  "version": "1.0.0",
+  "version": "3.3.0",
   "description": "WebSSH Desktop Client",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "build:mac": "node build-mac.mjs"
   },
   "build": {
     "appId": "com.webssh.desktop",
@@ -15,13 +16,34 @@
     "extraResources": [
       { "from": "../core", "to": "core", "filter": ["**/*", "!**/node_modules/**"] },
       { "from": "../dist", "to": "dist" },
-      { "from": "icon.ico", "to": "icon.ico" }
+      { "from": "icon.ico", "to": "icon.ico" },
+      { "from": "icon.png", "to": "icon.png" },
+      { "from": "iconTemplate.png", "to": "iconTemplate.png" },
+      { "from": "iconTemplate@2x.png", "to": "iconTemplate@2x.png" }
     ],
     "win": {
       "target": "dir",
       "icon": "icon.ico",
       "signDlls": false,
       "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ],
+      "icon": "icon.png",
+      "category": "public.app-category.developer-tools",
+      "darkModeSupport": true,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "WebSSH",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
     }
   },
   "devDependencies": {

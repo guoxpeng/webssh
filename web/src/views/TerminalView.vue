@@ -43,8 +43,8 @@
           <div v-else class="sftp-panel-empty">
             <div class="empty-header">
               <FolderOpen :size="32" class="empty-icon"/>
-              <h3>未选择连接</h3>
-              <p>选择一台已保存的服务器浏览文件。</p>
+              <h3>{{ t('sftp.noConnection') }}</h3>
+              <p>{{ t('sftp.selectHint') }}</p>
             </div>
             <div v-if="savedConns.length > 0" class="history-list">
               <div class="history-title"><History :size="14"/><span>{{ t('terminal.recentConnections') }}</span></div>
@@ -70,8 +70,8 @@
       <div v-if="paneCount === 0" class="terminal-empty">
         <div class="empty-header">
           <Terminal :size="32" class="empty-icon"/>
-          <h3>未选择连接</h3>
-          <p>选择一台已保存的服务器浏览文件。</p>
+          <h3>{{ t('terminal.noSessions') }}</h3>
+          <p>{{ t('terminal.noSessionsHint') }}</p>
         </div>
         <div v-if="savedConns.length > 0" class="history-list">
           <div class="history-title"><History :size="14"/><span>{{ t('terminal.recentConnections') }}</span></div>

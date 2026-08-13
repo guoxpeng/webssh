@@ -174,6 +174,20 @@ export const useUiStore = defineStore('ui', () => {
     }
   }
 
+  // Hover-to-pause: clear the auto-dismiss timer while the pointer is over
+  // the notification, restart it (full duration) when the pointer leaves.
+  function pauseNotification(id: number): void {
+    const timer = notificationTimers.get(id);
+    if (timer) { clearTimeout(timer); notificationTimers.delete(id); }
+  }
+
+  function resumeNotification(id: number): void {
+    const n = notifications.value.find(x => x.id === id);
+    if (!n || n.duration <= 0 || notificationTimers.has(id)) return;
+    const timer = setTimeout(() => removeNotification(id), n.duration);
+    notificationTimers.set(id, timer);
+  }
+
   function removeNotification(id: number): void {
     const timer = notificationTimers.get(id);
     if (timer) { clearTimeout(timer); notificationTimers.delete(id); }
@@ -183,5 +197,6 @@ export const useUiStore = defineStore('ui', () => {
   return {
     currentTheme, currentPreset, notifications,
     initializeTheme, setThemePreset, toggleTheme, addNotification, removeNotification,
+    pauseNotification, resumeNotification,
   };
 });

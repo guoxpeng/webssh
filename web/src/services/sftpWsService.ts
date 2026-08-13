@@ -1,4 +1,4 @@
-import { getWsBaseUrl } from '@/utils/constants';
+import { getWsSftpUrl, wsAuthProtocols, withLegacyToken } from '@/utils/constants';
 
 type Callbacks = {
   onStatus?: (status: string, error?: string) => void;
@@ -17,6 +17,8 @@ class SftpWsService {
   private closed = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private connTimeout: ReturnType<typeof setTimeout> | null = null;
+  // One-shot fallback when a legacy gateway rejects the subprotocol handshake.
+  private legacyRetried = false;
 
   get connected() { return this._connected; }
   get error() { return this._error; }
@@ -26,13 +28,18 @@ class SftpWsService {
     this.config = config;
     this.callbacks = callbacks;
     this._error = '';
+    this.legacyRetried = false;
     this.createSocket();
   }
 
-  private createSocket() {
+  private createSocket(legacyAuth: boolean = false) {
+    // Auth token rides in Sec-WebSocket-Protocol, not the URL (no log leaks).
+    // Legacy gateways that can't negotiate subprotocols → one retry with ?token=.
+    const protocols = legacyAuth ? undefined : wsAuthProtocols();
+    const url = legacyAuth ? withLegacyToken(getWsSftpUrl()) : getWsSftpUrl();
+    let opened = false;
     try {
-      const url = getWsBaseUrl().replace('/ws/ssh', '/ws/sftp');
-      this.ws = new WebSocket(url);
+      this.ws = protocols ? new WebSocket(url, protocols) : new WebSocket(url);
     } catch {
       this._error = 'Failed to create WebSocket';
       this.callbacks.onStatus?.('error', this._error);
@@ -40,6 +47,7 @@ class SftpWsService {
     }
 
     this.ws.onopen = () => {
+      opened = true;
       this.connTimeout = setTimeout(() => {
         if (!this._connected) {
           this.closed = true;
@@ -80,6 +88,14 @@ class SftpWsService {
     };
 
     this.ws.onclose = () => {
+      // Subprotocol handshake rejected by a legacy gateway → retry once with
+      // the old ?token= query parameter.
+      if (!opened && !legacyAuth && !this.legacyRetried && !this.closed) {
+        this.legacyRetried = true;
+        this.ws = null;
+        this.createSocket(true);
+        return;
+      }
       this._connected = false;
       if (!this.closed) {
         this.callbacks.onStatus?.('disconnected');
@@ -90,6 +106,8 @@ class SftpWsService {
     };
 
     this.ws.onerror = () => {
+      // Pre-open errors are handled by the close-time legacy retry.
+      if (!opened && !legacyAuth && !this.legacyRetried) return;
       this._error = 'WebSocket error';
       this.callbacks.onStatus?.('error', this._error);
     };

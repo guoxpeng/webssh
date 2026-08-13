@@ -2,9 +2,11 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { testSshConnection as apiTestSsh } from '@/services/apiService';
 import SshWebSocketService from '@/services/sshWebSocketService';
-import { ConnectionStatus, SESSION_STORAGE_CRED_PREFIX, LOCAL_STORAGE_CRED_PREFIX, SESSION_STORAGE_CONNECTIONS_KEY } from '@/utils/constants';
+import { ConnectionStatus, SESSION_STORAGE_CRED_PREFIX, LOCAL_STORAGE_CRED_PREFIX, SESSION_STORAGE_CONNECTIONS_KEY, getApiBaseUrl } from '@/utils/constants';
 import type { ConnectionStatusType } from '@/utils/constants';
 import { encrypt, decrypt } from '@/utils/cryptoService';
+import { encryptCredential, decryptCredential } from '@/utils/crypto';
+import { apiFetch } from '@/utils/api';
 
 export interface NodeConfig {
   id?: string;
@@ -50,14 +52,14 @@ function loadJSON(key, fallback) {
   try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch { return fallback; }
 }
 
-const FAILED_GROUP = '未成功连接';
+export const FAILED_GROUP = '未成功连接';
 
 export const useConnectionStore = defineStore('connection', () => {
   const currentNodeDetails = ref<NodeConfig | null>(null);
   const connectionStatus = ref<ConnectionStatusType>(ConnectionStatus.DISCONNECTED);
   const sshTestResult = ref<TestResult | null>(null);
   const sshTestLoading = ref<boolean>(false);
-  const savedConnections = ref<NodeConfig[]>(JSON.parse(localStorage.getItem(SESSION_STORAGE_CONNECTIONS_KEY) || '[]'));
+  const savedConnections = ref<NodeConfig[]>(loadJSON(SESSION_STORAGE_CONNECTIONS_KEY, []));
   const sessionRememberedCredentials = ref<Record<string, Credential>>({});
   const wsService = new SshWebSocketService();
   const pendingConnections = ref<NodeConfig[]>([]);
@@ -224,20 +226,44 @@ export const useConnectionStore = defineStore('connection', () => {
     } catch { return null; }
   }
 
-  function saveCredentialToLocalStorage(serverId, authType, authValue) {
+  // Local (persistent) credentials are AES-GCM encrypted with the master
+  // password (v2). Legacy v1 entries used XOR keyed by serverId — those are
+  // decoded on read and transparently migrated to v2.
+  async function saveCredentialToLocalStorage(serverId, authType, authValue) {
     if (!serverId || !authValue) return;
-    const encoded = _xorObfuscate(authValue, serverId);
-    localStorage.setItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`, JSON.stringify({ auth_type: authType, auth_value: encoded }));
+    let master = '';
+    try { master = sessionStorage.getItem('webssh_master') || ''; } catch {}
+    if (!master) return; // locked — never persist plaintext fallbacks
+    try {
+      const enc = await encryptCredential(authValue, master);
+      localStorage.setItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`, JSON.stringify({ auth_type: authType, auth_value: enc, enc: 'v2' }));
+    } catch {}
   }
 
-  function getCredentialFromLocalStorage(serverId) {
+  async function getCredentialFromLocalStorage(serverId) {
     if (!serverId) return null;
     const raw = localStorage.getItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`);
     if (!raw) return null;
+    let master = '';
+    try { master = sessionStorage.getItem('webssh_master') || ''; } catch {}
     try {
       const parsed = JSON.parse(raw);
+      if (parsed.enc === 'v2') {
+        if (!master) return null;
+        const decoded = await decryptCredential(parsed.auth_value, master);
+        if (decoded) return { auth_type: parsed.auth_type, auth_value: decoded };
+        return null;
+      }
+      // Legacy v1 (XOR obfuscation) — decode, then migrate to AES in place.
       const decoded = _xorDeobfuscate(parsed.auth_value, serverId);
-      if (decoded) return { auth_type: parsed.auth_type, auth_value: decoded };
+      if (decoded) {
+        if (master) {
+          encryptCredential(decoded, master)
+            .then((enc) => localStorage.setItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`, JSON.stringify({ auth_type: parsed.auth_type, auth_value: enc, enc: 'v2' })))
+            .catch(() => {});
+        }
+        return { auth_type: parsed.auth_type, auth_value: decoded };
+      }
     } catch {}
     return null;
   }
@@ -261,6 +287,105 @@ export const useConnectionStore = defineStore('connection', () => {
     }
     keysToRemove.forEach(key => sessionStorage.removeItem(key));
     sessionRememberedCredentials.value = {};
+  }
+
+  // Remove every locally persisted credential (localStorage, XOR-obfuscated).
+  function clearAllLocalCredentials() {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(LOCAL_STORAGE_CRED_PREFIX)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    return keysToRemove.length;
+  }
+
+  // Re-encrypt remembered session credentials after a master-password change.
+  // They are AES-locked to the OLD password; without this rotation they would
+  // silently fail to decrypt after the user changes the password.
+  async function reencryptSessionCredentials(oldPassword: string, newPassword: string): Promise<number> {
+    let moved = 0;
+    const keys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(SESSION_STORAGE_CRED_PREFIX)) keys.push(key);
+    }
+    for (const key of keys) {
+      try {
+        const parsed = JSON.parse(sessionStorage.getItem(key) || '');
+        if (!parsed?.encrypted) continue;
+        const plain = await decryptCredential(parsed.auth_value, oldPassword);
+        parsed.auth_value = await encryptCredential(plain, newPassword);
+        sessionStorage.setItem(key, JSON.stringify(parsed));
+        moved++;
+      } catch { /* entry from another password generation — leave untouched */ }
+    }
+    return moved;
+  }
+
+  const MODEL_SYNC_KEY = 'webssh_model_sync';
+
+  function isModelSyncEnabled(): boolean {
+    return localStorage.getItem(MODEL_SYNC_KEY) === 'true';
+  }
+
+  function setModelSyncEnabled(val: boolean) {
+    if (val) localStorage.setItem(MODEL_SYNC_KEY, 'true');
+    else localStorage.removeItem(MODEL_SYNC_KEY);
+  }
+
+  // Push saved connections (with locally stored credentials) to the server-side
+  // model registry so the local-model API (/api/model/*) can log in and exec.
+  // Opt-in only: does nothing unless the user enabled it in Settings.
+  async function syncSavedServersToBackend(): Promise<{ success: boolean; synced?: number; error?: string }> {
+    if (!isModelSyncEnabled()) return { success: false, error: 'model sync disabled' };
+    const servers = [];
+    for (const conn of savedConnections.value) {
+      if (!conn.host || !conn.username) continue;
+      if (conn.protocol && conn.protocol !== 'ssh') continue;
+      let authValue = '';
+      let authType = conn.auth_type || 'password';
+      const localCred = conn.id ? await getCredentialFromLocalStorage(conn.id) : null;
+      if (localCred?.auth_value) { authValue = localCred.auth_value; authType = localCred.auth_type; }
+      else {
+        const sessionCred = conn.id ? sessionRememberedCredentials.value[conn.id] : null;
+        if (sessionCred?.auth_value) { authValue = sessionCred.auth_value; authType = sessionCred.auth_type; }
+      }
+      if (!authValue) continue; // only servers we can actually log in to
+      servers.push({
+        name: conn.name || `${conn.username}@${conn.host}`,
+        host: conn.host, port: conn.port || 22, username: conn.username,
+        auth_type: authType, auth_value: authValue,
+      });
+    }
+    try {
+      const res = await apiFetch(`${getApiBaseUrl()}/model/servers/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ servers }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { success: false, error: data?.error || `HTTP ${res.status}` };
+      // Guard against non-JSON 200 responses (e.g. SPA fallback on hosts without
+      // the model API, like Cloudflare Workers) — treat as a failed sync.
+      if (data?.success !== true) return { success: false, error: 'Model API not available on this backend' };
+      return { success: true, synced: data.synced?.length ?? servers.length };
+    } catch (e) { return { success: false, error: e.message }; }
+  }
+
+  // Wipe the server-side model registry (used when the sync toggle is turned off).
+  async function clearBackendModelServers(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const res = await apiFetch(`${getApiBaseUrl()}/model/servers/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ servers: [] }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { success: false, error: data?.error || `HTTP ${res.status}` };
+      if (data?.success !== true) return { success: false, error: 'Model API not available on this backend' };
+      return { success: true };
+    } catch (e) { return { success: false, error: e.message }; }
   }
 
   function _saveConnectionsToSessionStorage() {
@@ -289,6 +414,7 @@ export const useConnectionStore = defineStore('connection', () => {
     }
 
     _saveConnectionsToSessionStorage();
+    void syncSavedServersToBackend();
     return { ...nodeConfigPassed, id: definitiveId };
   }
 
@@ -300,27 +426,28 @@ export const useConnectionStore = defineStore('connection', () => {
       clearCredentialFromSessionStorage(id);
       clearCredentialFromLocalStorage(id);
       if (currentNodeDetails.value && currentNodeDetails.value.id === id) currentNodeDetails.value = null;
+      void syncSavedServersToBackend();
     }
   }
 
   function loadConnectionForEditing(id) {
     const conn = savedConnections.value.find(c => c.id === id);
-    if (conn) {
-      getCredentialFromSessionStorage(id).then(async remembered => {
-        if (!remembered?.auth_value) {
-          remembered = getCredentialFromLocalStorage(id);
-          if (remembered?.auth_value) {
-            await saveCredentialToSessionStorage(id, remembered.auth_type, remembered.auth_value);
-          }
+    if (!conn) return Promise.resolve();
+    // Returns the promise so callers can await before reading currentNodeDetails
+    return getCredentialFromSessionStorage(id).then(async remembered => {
+      if (!remembered?.auth_value) {
+        remembered = await getCredentialFromLocalStorage(id);
+        if (remembered?.auth_value) {
+          await saveCredentialToSessionStorage(id, remembered.auth_type, remembered.auth_value);
         }
-        setCurrentNodeDetails({
-          ...conn,
-          auth_type: remembered ? remembered.auth_type : (conn.auth_type || 'password'),
-          auth_value: remembered?.auth_value || '',
-          rememberForSession: !!remembered
-        });
+      }
+      setCurrentNodeDetails({
+        ...conn,
+        auth_type: remembered ? remembered.auth_type : (conn.auth_type || 'password'),
+        auth_value: remembered?.auth_value || '',
+        rememberForSession: !!remembered
       });
-    }
+    });
   }
 
   function setCurrentNodeDetails(details) { currentNodeDetails.value = details; }
@@ -465,8 +592,10 @@ export const useConnectionStore = defineStore('connection', () => {
     connectToShell, sendShellData, setOnCommandSentCallback, disconnectShell,
     addConnection, removeConnection, loadConnectionForEditing,
     getCredentialFromSessionStorage, saveCredentialToSessionStorage, loadCredentialsFromSessionStorage, clearAllSessionCredentials,
-    saveCredentialToLocalStorage, getCredentialFromLocalStorage, clearCredentialFromLocalStorage,
+    saveCredentialToLocalStorage, getCredentialFromLocalStorage, clearCredentialFromLocalStorage, clearAllLocalCredentials,
+    reencryptSessionCredentials,
     createGroup, renameGroup, deleteGroup, moveConnectionToGroup, moveConnectionOutOfFailedGroup,
     saveFailedConnection, toggleGroupCollapsed, isGroupCollapsed, togglePinConnection,
+    isModelSyncEnabled, setModelSyncEnabled, syncSavedServersToBackend, clearBackendModelServers,
   };
 });

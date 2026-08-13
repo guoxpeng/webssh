@@ -51,6 +51,23 @@
     </div>
     <div v-else-if="!loading" class="audit-empty">{{ t('audit.noEvents') }}</div>
     <div v-if="loading" class="audit-loading">{{ t('sftp.loading') }}</div>
+
+    <!-- Clear confirm modal -->
+    <Teleport to="body">
+    <div v-if="showClearConfirm" class="modal-overlay" @click.self="showClearConfirm = false">
+      <div class="modal-body">
+        <div class="modal-header">
+          <span>{{ t('common.deleteAll') }}</span>
+          <button class="modal-close" @click="showClearConfirm = false">&times;</button>
+        </div>
+        <p class="info-text">{{ t('audit.clearConfirm') }}</p>
+        <div class="modal-actions">
+          <button class="modal-btn" @click="showClearConfirm = false">{{ t('common.cancel') }}</button>
+          <button class="modal-btn is-danger" @click="confirmClear"><Trash2 :size="14"/> {{ t('common.confirm') }}</button>
+        </div>
+      </div>
+    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -62,10 +79,11 @@ import { apiFetch } from '@/utils/api';
 import { ScrollText, RefreshCw, Trash2, X, Download } from 'lucide-vue-next';
 
 const { t } = useI18n();
-const { showSuccess } = useNotifications();
+const { showSuccess, showError } = useNotifications();
 const entries = ref([]);
 const loading = ref(false);
 const filter = ref('');
+const showClearConfirm = ref(false);
 
 const filtered = computed(() => {
   if (!filter.value) return entries.value;
@@ -84,14 +102,22 @@ async function refreshData() {
       const data = await res.json();
       entries.value = (data.entries || []).reverse();
       showSuccess(t('audit.refreshed'));
+    } else {
+      showError(t('audit.loadFailed'));
     }
-  } catch {} finally {
+  } catch {
+    showError(t('audit.loadFailed'));
+  } finally {
     loading.value = false;
   }
 }
 
 async function clearLog() {
-  if (!confirm(t('audit.clearConfirm'))) return;
+  showClearConfirm.value = true;
+}
+
+async function confirmClear() {
+  showClearConfirm.value = false;
   await apiFetch('/api/audit/clear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   entries.value = [];
   showSuccess(t('audit.cleared'));
@@ -147,30 +173,27 @@ onMounted(refreshData);
 
 <style lang="scss" scoped>
 .audit-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.panel-header { display: flex; align-items: center; padding: 0.7rem 0.85rem; gap: 0.5rem; border-bottom: 1px solid var(--bulma-border-light); flex-shrink: 0; }
-.panel-title { flex: 1; font-size: 0.82em; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; color: var(--bulma-text); }
-.panel-actions { display: flex; gap: 0.25rem; }
-.panel-action-btn { background: none; border: none; cursor: pointer; padding: 0.3rem; border-radius: 4px; color: var(--bulma-text-light); display: flex; align-items: center; }
-.panel-action-btn:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-.panel-action-btn.is-danger:hover { color: var(--bulma-danger); }
 
-.audit-stats { display: flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.65rem; font-size: 0.7em; color: var(--bulma-text-light); border-bottom: 1px solid var(--bulma-border-light); flex-shrink: 0; flex-wrap: wrap; }
+.audit-stats { display: flex; align-items: center; gap: 0.3rem; padding: 0.45rem 0.9rem; font-size: 0.72em; color: var(--bulma-text-light); border-bottom: 1px solid var(--bulma-border-light); flex-shrink: 0; flex-wrap: wrap; }
 .stat-item { margin-right: auto; }
-.stat-filter { background: none; border: 1px solid var(--bulma-border-light); padding: 0.15rem 0.4rem; border-radius: 3px; cursor: pointer; font-size: 0.85em; color: var(--bulma-text-light); }
+.stat-filter {
+  background: none; border: 1px solid var(--bulma-border-light);
+  padding: 0.2rem 0.55rem; border-radius: 999px; cursor: pointer;
+  font-size: 0.9em; color: var(--bulma-text-light); transition: all 0.12s;
+}
 .stat-filter.is-active, .stat-filter:hover { background: var(--bulma-primary); color: white; border-color: var(--bulma-primary); }
 
-.audit-list { flex: 1; overflow-y: auto; padding: 0.25rem; }
-.audit-empty, .audit-loading { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--bulma-text-light); font-size: 0.78em; }
-.audit-item { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--bulma-border-light); font-size: 0.72em; }
+.audit-list { flex: 1; overflow-y: auto; padding: 0.25rem 0; }
+.audit-item { padding: 0.5rem 0.9rem; font-size: 0.75em; }
 .audit-item.is-error { border-left: 3px solid var(--bulma-danger); background: var(--bulma-danger-bis); }
 .audit-item.is-success { border-left: 3px solid var(--bulma-success); }
 .audit-item.is-ai { border-left: 3px solid #a855f7; }
-.audit-top { display: flex; justify-content: space-between; margin-bottom: 0.1rem; }
+.audit-top { display: flex; justify-content: space-between; margin-bottom: 0.15rem; gap: 0.5rem; }
 .audit-event { font-weight: 600; color: var(--bulma-text); }
-.audit-time { color: var(--bulma-text-light); font-size: 0.9em; }
+.audit-time { color: var(--bulma-text-light); font-size: 0.9em; white-space: nowrap; }
 .audit-detail { color: var(--bulma-text-light); display: flex; flex-wrap: wrap; gap: 0.15rem 0.5rem; }
 .audit-key { color: var(--bulma-text-light); font-weight: 500; }
-.audit-detail code { font-family: monospace; font-size: 0.9em; background: var(--bulma-scheme-main-ter); padding: 0.1rem 0.25rem; border-radius: 2px; }
+.audit-detail code { font-family: var(--bulma-family-monospace); font-size: 0.9em; background: var(--bulma-scheme-main-ter); padding: 0.1rem 0.3rem; border-radius: 4px; }
 .audit-success { color: var(--bulma-success); font-weight: 500; }
 .audit-error { color: var(--bulma-danger); font-weight: 500; }
 </style>

@@ -1,7 +1,8 @@
 @charset "utf-8";
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+/* PERF: remote Google Fonts @imports removed — they were render-blocking and
+   broke offline/desktop-first usage. The font stacks below fall back to the
+   best system UI font per platform (Segoe UI on Windows, Roboto on Android). */
 
 $family-sans-serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", Helvetica, sans-serif;
 $family-monospace: "JetBrains Mono", "Fira Code", SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
@@ -56,6 +57,7 @@ $navbar-dropdown-border-top: 1px solid $border-light;
 $navbar-burger-color: $navbar-item-color;
 
 @import "bulma";
+@import "panel-system";
 
 html, body, #app { font-feature-settings: "liga" on, "calt" on; text-rendering: optimizeLegibility; }
 
@@ -115,6 +117,24 @@ body::before {
 
 .lucide { display: inline-block; }
 
+/* POLISH: consistent keyboard focus ring (a11y) without disturbing mouse clicks */
+:focus-visible {
+  outline: 2px solid var(--bulma-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* POLISH: text selection follows the app accent color */
+::selection {
+  background: rgba(99, 102, 241, 0.25);
+}
+:root.is-dark-mode ::selection {
+  background: rgba(139, 148, 255, 0.35);
+}
+
+/* POLISH: headings read a bit more composed */
+h1, h2, h3, h4 { letter-spacing: -0.01em; }
+
 /* ── Mobile / Responsive Overrides ── */
 
 /* Safe area insets for notched mobile devices */
@@ -123,6 +143,8 @@ body::before {
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  /* navbar height incl. top safe area — consumed by fixed layouts below it */
+  --navbar-h: calc(3.25rem + env(safe-area-inset-top, 0px));
 }
 
 html, body {
@@ -175,6 +197,40 @@ html, body {
   input, select, textarea {
     font-size: 16px !important; /* prevent iOS zoom on focus */
   }
+
+  /* TOUCH: buttons/rows react instantly — kills the double-tap-zoom delay */
+  button, .button, a, .saved-item, .sidebar-item, .snippet-item, .macro-item,
+  .backup-item, input, select, textarea, .panel-block, .navbar-item {
+    touch-action: manipulation;
+  }
+
+  /* TOUCH: no blue tap flash, no long-press text/image popups on controls */
+  body { -webkit-tap-highlight-color: transparent; }
+  button, .button, .icon-btn, .toolbar-btn, .navbar-item, .saved-item-actions,
+  .group-menu-btn, .snippet-actions, .macro-actions, .backup-actions {
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* TOUCH: action groups that only appear on hover must stay visible */
+  .group-menu-btn, .backup-actions, .snippet-actions, .macro-actions,
+  .saved-item-actions {
+    opacity: 1 !important;
+  }
+
+  /* TOUCH: pressed feedback replaces hover states */
+  .button:active, .icon-btn:active, .saved-item:active, .sidebar-item:active {
+    transform: scale(0.97);
+    filter: brightness(0.96);
+  }
+
+  /* TOUCH: drop custom thin scrollbars, let the platform do native
+     momentum scrolling with its own overlay indicator */
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar { width: 0; height: 0; display: none; }
 }
 
 /* Responsive padding tweaks */

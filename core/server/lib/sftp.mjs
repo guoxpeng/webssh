@@ -1,10 +1,14 @@
 import { withSessionSftp } from './session.mjs';
 import { logger } from './logger.mjs';
 
+const log = logger('SFTP');
+
+// SECURITY (M3): refuse to buffer unbounded remote files over the WS channel
+const MAX_READ_BYTES = 16 * 1024 * 1024;
+
 export function handleSFTP(ws, config) {
   let sftpSession = null;
   let closed = false;
-  const log = logger('SFTP');
   log.info(`handleSFTP: ${config?.host} ${config?.username} ${config?.auth_type} ${config?.auth_value ? '***' : 'NO_AUTH'}`);
 
   const close = () => {
@@ -66,9 +70,14 @@ export function handleSFTP(ws, config) {
                 }
                 case 'read': {
                   const chunks = [];
+                  let size = 0;
                   await new Promise((resolve, reject) => {
                     const stream = sftp.createReadStream(path);
-                    stream.on('data', c => chunks.push(c));
+                    stream.on('data', c => {
+                      size += c.length;
+                      if (size > MAX_READ_BYTES) { stream.destroy(); reject(new Error('File too large to read via WS')); return; }
+                      chunks.push(c);
+                    });
                     stream.on('error', reject);
                     stream.on('end', resolve);
                   });

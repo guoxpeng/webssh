@@ -1,172 +1,173 @@
-# WebSSH v3.2 — SSH Client in Your Browser
+# WebSSH v3.0 — A Full SSH Workstation in Your Browser
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
-</p>
-<p align="center">
-  <img alt="CI" src="https://github.com/guoxpeng/webssh/actions/workflows/ci.yml/badge.svg">
+  &nbsp;·&nbsp; <img alt="CI" src="https://github.com/guoxpeng/webssh/actions/workflows/ci.yml/badge.svg">
 </p>
 
----
+A ready-to-use web SSH client. Connect to servers, manage files, and run batch
+commands — all from a browser tab. Ships as Windows / macOS desktop apps,
+Android / iOS apps, Docker, and Cloudflare.
 
-## Overview
-
-WebSSH is a web-based SSH client that runs in your browser. No local terminal emulator required. Connect to servers, transfer files, manage Docker containers, and automate batch operations — all from a browser tab. Supports Docker deployment, Windows desktop client, and Cloudflare Workers.
-
----
+<img width="1214" alt="screenshot" src="https://github.com/user-attachments/assets/1a44d2b0-31df-41bd-a6ee-46a3e26e5a23" />
 
 ---
 
-## Deployment
+## ✨ Features
+
+| Feature | Notes |
+|---|---|
+| **SSH terminal** | Tabs, split panes, auto-reconnect, themes, in-terminal search, mobile key bar |
+| **Host monitor** | Live CPU / memory / load / disk / network / uptime bar per session (agentless) |
+| **SFTP** | Browse, upload, download, rename, chmod, edit text files in place |
+| **Batch ops** | Macros: record commands, run across many servers, scheduled tasks |
+| **Snippets & history** | Saved commands, auto-recorded history, one-click resend |
+| **Encrypted backups** | One-click encrypted backup; restore on any device |
+| **SSH tunnels** | Local / remote / SOCKS5 dynamic forwarding |
+| **MCP agent** | Let Claude / Cursor list servers and run commands via MCP |
+| **Multi-protocol** | SSH / Telnet / serial; RDP / VNC handoff (with guacd) |
+| **Audit log** | Connection & AI actions logged; filter / export / clear |
+| **i18n** | Full English & Chinese UI, auto-detected |
+
+## 📱 Clients
+
+| Client | Form | Notes |
+|---|---|---|
+| Web | Any browser | PWA installable |
+| Windows | Portable zip | Built-in server, tray app, no runtime needed |
+| macOS | dmg / zip | Apple Silicon + Intel |
+| Android | APK (Capacitor) | Point at any webssh server via Settings → Backend Gateway |
+| iOS | Xcode build (Capacitor) | Same; ATS + touch already configured |
+| Cloudflare | Workers / Pages | Serverless public deploy (reduced feature set) |
+
+---
+
+## 🚀 Deployment
 
 ### Docker (recommended)
 
 ```bash
-docker run -d --name webssh -p 9627:9627 --restart=unless-stopped nameguoguo/webssh
+docker run -d --name webssh -p 9627:9627 --restart=unless-stopped \
+  -e AUTH_TOKEN=your_secret nameguoguo/webssh
 ```
 
-Docker Compose:
-
-```yaml
-services:
-  webssh:
-    image: nameguoguo/webssh
-    container_name: webssh
-    restart: unless-stopped
-    ports:
-      - "9627:9627"
-```
-
-For RDP/VNC proxy and Docker socket access:
-
-```yaml
-services:
-  webssh:
-    image: nameguoguo/webssh
-    container_name: webssh
-    restart: unless-stopped
-    ports:
-      - "9627:9627"
-    environment:
-      - GUACD_HOST=guacd
-      - DOCKER_SOCKET=/var/run/docker.sock
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-  guacd:
-    image: guacamole/guacd
-    container_name: guacd
-    restart: unless-stopped
-```
-
-### One-click Linux deployment
+### One-line Linux install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/scripts/deploy.sh | bash
 ```
 
-### Manual installation
+### Manual
 
 ```bash
 git clone https://github.com/guoxpeng/webssh.git
 cd webssh && npm install && npm run build
-node core/server/index.mjs
+AUTH_TOKEN=your_secret node core/server/index.mjs
 ```
 
-Open `http://localhost:9627` in your browser.
+Open `http://localhost:9627`.
 
-### Windows Desktop Client
+### Windows desktop
 
-#### System Requirements
+Windows 10+ 64-bit, no runtime required. Download the portable zip → run `WebSSH.exe`.
+Build yourself: `npm run desktop`.
 
-- Windows 10 64-bit or later
-- No Node.js or additional runtime required — the executable is self-contained.
+### macOS desktop
 
-#### Download
-
-| Package | Location |
-|---|---|
-| Portable (zip) | `release/WebSSH-portable.zip` — extract and run `WebSSH.exe` |
-
-#### Build from source
+macOS 11+, Apple Silicon and Intel. Build **on a Mac**:
 
 ```bash
-npm run desktop
+npm run desktop:mac
 ```
 
----
+Outputs arm64/x64 dmg + zip in `release/`. Unsigned builds: right-click → Open, or
+`xattr -dr com.apple.quarantine /Applications/WebSSH.app`.
 
-## Cloudflare Deployment (Pages recommended)
+### Cloudflare Pages (serverless)
 
-> ⚠ **Public deployment warning:** Cloudflare Workers are public by default — **`AUTH_TOKEN` is mandatory**. Additional limitations:
-> - Only **servers with public IPs** are reachable (RFC 1918 private addresses cannot be connected)
-> - AES-256-GCM unavailable on Workers; only CTR/CBC ciphers supported
-> - RSA host keys only (no ECDSA)
+> ⚠ Public deploy — you MUST set `AUTH_TOKEN`; only public servers are reachable.
 
-### 1. Clone the repo
+1. Fork this repo.
+2. Create an R2 bucket `webssh-backups` (for cloud backups).
+3. Workers & Pages → Create → Pages → connect the repo:
+   - Build command: `npm run build && node core/build-worker.mjs`
+   - Output directory: `dist/client`
+   - Env var: `AUTH_TOKEN=your_secret`
+4. (Optional) Bind the R2 bucket as `BACKUP_BUCKET` under Functions → R2 bindings, redeploy.
 
-Fork or clone this repository to your GitHub account.
-
-### 2. Create R2 bucket
-
-Cloudflare Dashboard → **Storage & Databases** → **R2** → **Create bucket**
-- Name: `webssh-backups`
-- Region: default (Auto)
-
-### 3. Create Pages project
-
-Cloudflare Dashboard → **Compute** → **Workers & Pages** → **Create application** → scroll to "Pages" card, click **Get started**
-
-- **Connect Git** → authorize and select your cloned repo
-- **Build command**: `npm run build && node core/build-worker.mjs`
-- **Build output**: `dist/client`
-
-Click **Save and Deploy**. Wait for the build to finish, then visit the generated URL.
-
-> **Enable backup (optional):** After deployment, go to Pages project → **Settings** → **Functions** → **R2 bucket bindings** → **Add binding**. Variable name: `BACKUP_BUCKET`, R2 bucket: select `webssh-backups`. Save and redeploy. This is an R2 binding, not a plain environment variable.
-
-### Known Limitations
-
-| Limitation | Description |
-|---|---|
-| RSA host keys only | ECDSA removed from algorithm list |
-| CTR/CBC ciphers only | AES-256-GCM unavailable in workerd |
-| No private IP support | Workers cannot connect to RFC 1918 addresses |
-| WebSocket idle timeout | Heartbeat every 30 seconds |
+**CF limits**: RSA host keys only · CTR/CBC only (no AES-GCM) · no private IPs · 30s WS keep-alive.
 
 ---
 
-## Getting Started
+## 🔑 Passwords at a glance
 
-1. After deployment, set a **master password** on first launch. All stored credentials are encrypted with this password.
-2. Fill in the server details (name, host, username, password or private key) and click Connect.
-3. Saved servers can be recalled without re-entering credentials.
-4. Use drag-and-drop and the right-click context menu to organize server groups. A "Connect All" option is available per group.
-5. Record a macro once, then replay it across multiple servers or schedule it for later execution.
+| Password | Purpose | Where |
+|---|---|---|
+| **Master password** | Unlocks the app; encrypts stored credentials; default backup key | First launch; Settings → Change password |
+| **AUTH_TOKEN** | Server API / WebSocket auth; required for public deploys | Env var at deploy; Settings → Backend token on clients |
+| **Backup password** | Encrypts backup files; defaults to master password | Chosen at backup creation |
+
+- **LAN use** (desktop / Docker / phones): backups are encrypted with the master
+  password, so restoring on any device only needs that one password.
+- **Public use** (Linux / CF): AUTH_TOKEN is the "login" secret. Set the master
+  password equal to AUTH_TOKEN and you only ever remember one password.
+- Backup files are portable across all clients.
+
+## 📲 Connect a phone to a LAN server
+
+1. Run webssh on a PC / NAS (Docker or desktop app).
+2. Desktop → Settings → Backend Gateway shows the **server's LAN address** — click to copy.
+3. On the phone app, paste it into Settings → Backend Gateway + enter AUTH_TOKEN.
+
+## 🤖 MCP agent
+
+Copy the snippet from Settings → MCP Connection into Claude Desktop / Claude Code / Cursor:
+
+```json
+{
+  "mcpServers": {
+    "webssh": {
+      "command": "node",
+      "args": ["webssh/core/mcp/server.mjs"],
+      "env": { "WEBSSH_URL": "http://127.0.0.1:9627", "WEBSSH_TOKEN": "your_AUTH_TOKEN" }
+    }
+  }
+}
+```
+
+Tools: list servers, probe connectivity, run commands, add/remove servers. See [MCP.md](MCP.md).
 
 ---
 
-## Development
+## Quick start
+
+1. Set a **master password** on first launch (encrypts credentials, never leaves your device).
+2. Fill in host / port / user / password (or key) and connect.
+3. Save connections for one-click reconnect; drag to group.
+4. Watch live host stats in the terminal status bar; manage files in SFTP.
+5. Record macros and run them across many servers, on a schedule.
+
+## 🧑‍💻 Development
 
 ```bash
-# Terminal 1: start backend
-node core/server/index.mjs
-
-# Terminal 2: start frontend dev server (hot reload)
-npm run dev
+npm install
+npm run dev:all        # backend :9627 + frontend HMR :5173
+npm test               # frontend + server tests
+npm run typecheck      # type check
+npm run worker:build   # CF worker build
 ```
 
----
+**Stack**: Node.js (http + ws + ssh2, no framework) · Vue 3 + Pinia + Bulma + xterm.js ·
+Electron (Win/mac) · Capacitor (Android/iOS) · Cloudflare Workers (standalone).
 
-## Tech Stack
+## 📄 Docs
 
-Vue 3 · xterm.js · WebSocket · ssh2 · AES-256-GCM · Bulma · Vite · Pinia · Docker · Electron
-
----
-
-[AGPL-3.0 License](LICENSE) — Licensed under GNU Affero General Public License v3.0.
+[SECURITY.md](SECURITY.md) · [ARCHITECTURE.md](ARCHITECTURE.md) ·
+[MCP.md](MCP.md) · [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-> **Security:** WebSSH defaults to **intranet/VPN-only trust model**. Public deployments **must** configure `AUTH_TOKEN` + HTTPS. See [SECURITY.md](SECURITY.md) for the full threat model and deployment checklist.
+[AGPL-3.0 License](LICENSE).
 
-> **Audit Log:** Server-side audit records SSH connect/disconnect/error events (JSONL, 5 MB auto-rotation). The UI panel supports type filtering, JSON export, and one-click clear. Audit logs **never** contain passwords, keys, or session data.
+> **Security**: WebSSH assumes a LAN/VPN by default. For public deploys you must set
+> `AUTH_TOKEN` and use HTTPS. Audit logs never contain passwords, keys, or session data.

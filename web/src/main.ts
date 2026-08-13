@@ -4,7 +4,9 @@ import App from './App.vue';
 import router from './router';
 import { i18n } from '@/i18n';
 import { useUiStore } from '@/stores/uiStore';
-import 'bulma/css/bulma.min.css';
+// PERF: dropped the prebuilt bulma.min.css — main.scss already compiles the
+// full Bulma framework from source with the app's theme variables, so the
+// prebuilt copy was a ~66KB (gzip) duplicate.
 import '@/assets/scss/main.scss';
 
 const app = createApp(App);

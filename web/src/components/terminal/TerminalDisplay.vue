@@ -59,34 +59,36 @@
 
     <div class="mobile-keys-toolbar is-hidden-tablet">
       <div class="mobile-keys-row mobile-keys-row-main">
-        <button class="mkey mkey-sm" @mousedown.prevent="sendKey('ESC')" title="Escape">ESC</button>
-        <button class="mkey mkey-sm" @mousedown.prevent="sendKey('TAB')" title="Tab">TAB</button>
+        <button class="mkey mkey-sm" @pointerdown.prevent="sendKey('ESC')" title="Escape">ESC</button>
+        <button class="mkey mkey-sm" @pointerdown.prevent="sendKey('TAB')" title="Tab">TAB</button>
         <span class="mkey-sep"></span>
-        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('UP')" title="Up">▲</button>
-        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('DOWN')" title="Down">▼</button>
-        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('LEFT')" title="Left">◀</button>
-        <button class="mkey mkey-arrow" @mousedown.prevent="sendKey('RIGHT')" title="Right">▶</button>
+        <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('UP')" title="Up">▲</button>
+        <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('DOWN')" title="Down">▼</button>
+        <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('LEFT')" title="Left">◀</button>
+        <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('RIGHT')" title="Right">▶</button>
         <span class="mkey-sep"></span>
-        <button class="mkey" @mousedown.prevent="sendKey('ENTER')" title="Enter">↵</button>
-        <button class="mkey mkey-wider" @mousedown.prevent="sendKey('SPACE')" title="Space">␣</button>
+        <button class="mkey" @pointerdown.prevent="sendKey('ENTER')" title="Enter">↵</button>
+        <button class="mkey mkey-wider" @pointerdown.prevent="sendKey('SPACE')" title="Space">␣</button>
       </div>
       <div class="mobile-keys-row mobile-keys-row-ctrl">
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_C')" title="Ctrl+C (Break)">^C</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_D')" title="Ctrl+D (EOF)">^D</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_Z')" title="Ctrl+Z (Suspend)">^Z</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_X')" title="Ctrl+X">^X</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_L')" title="Ctrl+L (Clear)">^L</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_U')" title="Ctrl+U (Kill)">^U</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_A')" title="Ctrl+A (Home)">^A</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_E')" title="Ctrl+E (End)">^E</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_W')" title="Ctrl+W (Word)">^W</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_K')" title="Ctrl+K (Cut)">^K</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_R')" title="Ctrl+R (Search)">^R</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_Y')" title="Ctrl+Y (Paste)">^Y</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_P')" title="Ctrl+P (Prev)">^P</button>
-        <button class="mkey mkey-xs" @mousedown.prevent="sendKey('CTRL_N')" title="Ctrl+N (Next)">^N</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_C')" title="Ctrl+C (Break)">^C</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_D')" title="Ctrl+D (EOF)">^D</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_Z')" title="Ctrl+Z (Suspend)">^Z</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_X')" title="Ctrl+X">^X</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_L')" title="Ctrl+L (Clear)">^L</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_U')" title="Ctrl+U (Kill)">^U</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_A')" title="Ctrl+A (Home)">^A</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_E')" title="Ctrl+E (End)">^E</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_W')" title="Ctrl+W (Word)">^W</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_K')" title="Ctrl+K (Cut)">^K</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_R')" title="Ctrl+R (Search)">^R</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_Y')" title="Ctrl+Y (Paste)">^Y</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_P')" title="Ctrl+P (Prev)">^P</button>
+        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_N')" title="Ctrl+N (Next)">^N</button>
       </div>
     </div>
+
+    <HostMonitorBar :stats="hostStats" :history="hostHistory" />
 
     <div v-if="showPasteFallback" class="paste-fallback-overlay" @click.self="cancelPasteFallback">
       <div class="paste-fallback-box" @keydown.escape="cancelPasteFallback">
@@ -119,6 +121,7 @@ import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
 import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Menu, Bot, TerminalSquare, Settings, PlayCircle, Trash2 } from 'lucide-vue-next';
+import HostMonitorBar from './HostMonitorBar.vue';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
@@ -131,6 +134,25 @@ const toggleChat = inject('toggleChat', () => {});
 const showCmdMenu = ref(false);
 const cmdDropdownRef = ref(null);
 const uiStore = useUiStore();
+
+// ── Host resource monitor (FinalShell-style status strip) ──────────────────
+// Polls the backend every 4s over the existing SSH websocket. Only shown on
+// wide screens (see HostMonitorBar media query); phones keep all rows for the
+// terminal. If the backend ever stops answering we quietly hide the bar.
+const hostStats = ref(null);
+// Rolling history for the sparkline (last ~30 samples ≈ 2 minutes at 4s poll).
+const hostHistory = ref([]);
+let statsTimer = null;
+function startStatsPolling() {
+  stopStatsPolling();
+  hostHistory.value = [];
+  const tick = () => { try { wsService?.sendMessage('stats:1'); } catch {} };
+  tick();
+  statsTimer = setInterval(tick, 4000);
+}
+function stopStatsPolling() {
+  if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
+}
 
 function openSettings() {
   document.dispatchEvent(new CustomEvent('open-settings'));
@@ -160,6 +182,7 @@ let fitAddon = null;
 let searchAddon = null;
 let wsService = null;
 let destroyed = false;
+let reconnectTimer = null;
 
 const quickSnippets = computed(() => snippetStore.snippets.filter(s => s.favorite).slice(0, 12));
 
@@ -431,7 +454,10 @@ const initializeTerminal = async () => {
     fontFamily: '"Fira Code", Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace',
     fontSize: ts.fontSize || parseInt(localStorage.getItem('appFontSize')) || (isMobile ? Math.max(11, Math.floor(fitWidth / 28)) : 13),
     letterSpacing: 0.5, lineHeight: 1.25, rows: 24,
-    allowProposedApi: true, scrollback: 2000, convertEol: true,
+    allowProposedApi: true,
+    // Honor the "scrollback lines" setting from the settings panel (was hardcoded)
+    scrollback: Math.max(200, parseInt(localStorage.getItem('termScrollback')) || 5000),
+    convertEol: true,
     theme,
   });
 
@@ -451,6 +477,31 @@ const initializeTerminal = async () => {
   }
 
   let connected = false;
+  // ── Auto-reconnect state (network switches / device sleep drop the WS) ──
+  let connectedEver = false;      // only reconnect sessions that worked once
+  let suppressReconnect = false;  // auth/config errors never fix themselves
+  let reconnectAttempts = 0;
+  const MAX_RECONNECTS = 5;
+
+  // ── Screen wake lock: keep the display on while a session is live ──
+  let wakeLockSentinel = null;
+  async function acquireWakeLock() {
+    try {
+      if (navigator.wakeLock && !wakeLockSentinel) {
+        wakeLockSentinel = await navigator.wakeLock.request('screen');
+        wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+      }
+    } catch {}
+  }
+  function releaseWakeLock() {
+    try { wakeLockSentinel?.release(); } catch {}
+    wakeLockSentinel = null;
+  }
+  // Browsers drop the lock when the tab is hidden — re-acquire when visible again
+  function onVisibilityForWake() {
+    if (document.visibilityState === 'visible' && connected) acquireWakeLock();
+  }
+  document.addEventListener('visibilitychange', onVisibilityForWake);
 
   function friendlyError(msg) {
   const raw = msg || '';
@@ -466,6 +517,9 @@ const callbacks = {
     onOpen: () => {
       if (destroyed || connected) return;
       connected = true;
+      connectedEver = true;
+      reconnectAttempts = 0;
+      acquireWakeLock();
       emit('status-change', 'connected');
       const cfg = props.nodeConfig;
       if (cfg?.id && cfg?.auth_value) {
@@ -478,6 +532,7 @@ const callbacks = {
   term?.writeln(`\r\n\x1b[32m${t('terminal.connected')}\x1b[0m`);
       term?.focus();
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
+      startStatsPolling();
     },
     // ⚠ DO NOT intercept/filter onMessage — terminal data must pass through as-is.
     // Any JSON parsing here will break SSH when shell outputs JSON-like text.
@@ -486,8 +541,15 @@ const callbacks = {
         term?.write(typeof data === 'string' ? data : new Uint8Array(data));
       }
     },
+    onHostStats: (stats) => {
+      hostStats.value = stats;
+      const memPct = stats.memTotal ? Math.round((stats.memUsed / stats.memTotal) * 100) : 0;
+      hostHistory.value.push({ cpu: stats.cpu || 0, mem: memPct });
+      if (hostHistory.value.length > 30) hostHistory.value.shift();
+    },
     onServerError: (rawMsg) => {
       const friendly = friendlyError(rawMsg);
+      suppressReconnect = true; // auth/config errors won't fix themselves
       uiStore.addNotification({ message: friendly, type: 'danger', duration: 5000 });
       emit('status-change', 'error');
       emit('error-message', friendly);
@@ -501,10 +563,30 @@ const callbacks = {
     onClose: (event, manual) => {
       if (destroyed) return;
       connected = false;
+      releaseWakeLock();
+      stopStatsPolling();
       emit('status-change', 'disconnected');
       terminalStore.setActiveSendFunction(null);
       if (event && event.wasClean && !manual && event.code === 1000) {
         emit('shell-exit');
+        return;
+      }
+      // Unexpected drop (network switch, sleep, server restart): retry with
+      // exponential backoff, but only for sessions that connected before.
+      if (!manual && !suppressReconnect && connectedEver) {
+        if (reconnectAttempts >= MAX_RECONNECTS) {
+          term?.writeln(`\r\n\x1b[31m${t('terminal.maxReconnects')}\x1b[0m`);
+          return;
+        }
+        reconnectAttempts += 1;
+        const delaySec = Math.min(2 ** reconnectAttempts, 15);
+        term?.writeln(`\r\n\x1b[33m⏳ ${t('terminal.reconnecting', { sec: delaySec, attempt: reconnectAttempts })}\x1b[0m`);
+        emit('status-change', 'connecting');
+        reconnectTimer = setTimeout(() => {
+          reconnectTimer = null;
+          if (destroyed || connected) return;
+          try { wsService?.connect(props.nodeConfig, callbacks); } catch {}
+        }, delaySec * 1000);
       }
     },
     onError: (errorEventOrMessage) => {
@@ -532,6 +614,7 @@ emit('status-change', 'connecting');
 
   term.onData((data) => {
     wsService?.sendMessage(data);
+    terminalStore.recordInput(data);
   });
 
 
@@ -548,8 +631,15 @@ emit('status-change', 'connecting');
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', handleResize);
   }
+  // Refit whenever this pane's own box changes (split layout drag, SFTP
+  // panel toggle, window resize all funnel through here).
+  if (typeof ResizeObserver !== 'undefined' && xtermContainerRef.value) {
+    containerResizeObserver = new ResizeObserver(() => handleResize());
+    containerResizeObserver.observe(xtermContainerRef.value);
+  }
 };
 
+let containerResizeObserver = null;
 let resizeTimer = null;
 const handleResize = () => {
   clearTimeout(resizeTimer);
@@ -689,6 +779,7 @@ function onTermSettingsChange(e) {
   if (detail.cursorStyle) term.options.cursorStyle = detail.cursorStyle;
   if (detail.cursorBlink !== undefined) term.options.cursorBlink = detail.cursorBlink;
   if (detail.fontSize) { term.options.fontSize = detail.fontSize; fitAddon?.fit(); }
+  if (detail.scrollback) term.options.scrollback = Math.max(200, Number(detail.scrollback) || 5000);
 }
 
 function onDocClickForMenu(e) {
@@ -711,9 +802,17 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   destroyed = true;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  stopStatsPolling();
   document.removeEventListener('click', onDocClickForMenu, { capture: true });
   window.removeEventListener('resize', handleResize);
+  if (window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', handleResize);
+  }
+  if (containerResizeObserver) { containerResizeObserver.disconnect(); containerResizeObserver = null; }
   window.removeEventListener('term-settings-change', onTermSettingsChange);
+  document.removeEventListener('visibilitychange', onVisibilityForWake);
+  releaseWakeLock();
   terminalStore.setActiveSendFunction(null);
   if (wsService) { wsService.disconnect(); wsService = null; }
   if (term) { term.dispose(); term = null; }
@@ -745,13 +844,13 @@ onBeforeUnmount(() => {
 .mobile-keys-row-ctrl { gap: 0.15rem; }
 .mkey {
   background-color: var(--term-border); color: var(--term-text); border: 1px solid var(--term-text-dim);
-  border-radius: 5px; padding: 0.25rem 0.45rem; min-width: 2rem;
-  font-size: 0.65rem; font-family: inherit; cursor: pointer; user-select: none;
+  border-radius: 5px; padding: 0.25rem 0.45rem; min-width: 2rem; min-height: 2rem;
+  font-size: 0.65rem; font-family: inherit; cursor: pointer; user-select: none; touch-action: manipulation;
   -webkit-tap-highlight-color: transparent; line-height: 1.2;
   &:active { background-color: var(--term-bg2); transform: scale(0.92); }
 }
-.mkey-sm { padding: 0.15rem 0.35rem; min-width: 1.8rem; font-size: 0.6rem; }
-.mkey-xs { padding: 0.12rem 0.25rem; min-width: 1.5rem; font-size: 0.55rem; }
+.mkey-sm { padding: 0.15rem 0.35rem; min-width: 1.8rem; min-height: 1.9rem; font-size: 0.6rem; }
+.mkey-xs { padding: 0.12rem 0.25rem; min-width: 1.5rem; min-height: 1.9rem; font-size: 0.55rem; }
 .mkey-wider { min-width: 3rem; }
 .mkey-arrow { background-color: var(--term-bg2); min-width: 2rem; }
 .mkey-sep { width: 1px; background: var(--term-text-dim); opacity: 0.2; margin: 0 0.1rem; }

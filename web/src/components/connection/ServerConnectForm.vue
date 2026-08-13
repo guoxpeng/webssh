@@ -472,5 +472,8 @@ const onSaveSubmit = () => {
   .form-grid { grid-template-columns: 1fr; }
   .form-field.span-2 { grid-column: 1; }
   .form-actions { flex-direction: column; .btn { width: 100%; justify-content: center; } }
+  /* Prevent iOS zoom-on-focus; bigger touch targets for inputs/buttons */
+  :deep(input), :deep(select), :deep(textarea) { font-size: 16px; }
+  .btn { min-height: 44px; }
 }
 </style>
