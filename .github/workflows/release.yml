@@ -38,8 +38,11 @@ jobs:
           path: release/webssh-win.zip
 
   # ── macOS（dmg + zip，arm64 / x64）──
+  # macos-13 is an Intel runner: hdiutil can create both HFS+/APFS DMGs there.
+  # Newer macos-latest (arm64) runners hit a known electron-builder bug where
+  # the x64 DMG step fails to `hdiutil detach` the shared /Volumes/WebSSH.
   macos:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
