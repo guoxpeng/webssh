@@ -82,6 +82,8 @@ jobs:
         run: npx cap sync android
       - name: Remove pre-compressed .gz files (vite emits them for web/CDN; Android would flag them as duplicate assets)
         run: node scripts/clean-android-assets.mjs
+      - name: Generate launcher icons from logo.png
+        run: npm run android:icons
       - name: Ensure Gradle wrapper downloads from the official URL
         # gradle-wrapper.properties 里目前是本机 file:/// 路径，CI 上动态纠正
         run: |

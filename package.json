@@ -24,10 +24,11 @@
     "cap:sync": "npx cap sync",
     "cap:add:android": "npx cap add android",
     "cap:open:android": "npx cap open android",
-    "cap:build:android": "npm run build && npx cap sync android && node scripts/clean-android-assets.mjs && cd android && ./gradlew assembleDebug && echo 'APK: android/app/build/outputs/apk/debug/app-debug.apk'",
+    "cap:build:android": "npm run build && npx cap sync android && node scripts/clean-android-assets.mjs && npm run android:icons && cd android && ./gradlew assembleDebug && echo 'APK: android/app/build/outputs/apk/debug/app-debug.apk'",
     "cap:open:ios": "npx cap open ios",
     "cap:open:electron": "npx cap open @capacitor-community/electron",
     "icons": "node scripts/gen-icons.mjs",
+    "android:icons": "node scripts/gen-android-icons.mjs",
     "desktop": "npm run build && npm run icons && cd win && node build.mjs",
     "desktop:mac": "npm run build && npm run icons && cd win && node build-mac.mjs",
     "cap:build:ios": "echo 'iOS build requires a Mac: npm run build && npx cap sync ios, then open ios/App in Xcode'"
