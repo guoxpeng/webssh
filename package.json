@@ -84,7 +84,6 @@
     "wrangler": "^4.0.0"
   },
   "overrides": {
-    "brace-expansion": "^2.0.2",
     "ejs": "^3.1.10"
   }
 }
