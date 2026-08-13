@@ -66,6 +66,9 @@ async function main() {
     entries.push(e);
   }
   const icoMulti = Buffer.concat([header2, ...entries, ...iconDatas]);
+  // win/ may not exist in trimmed build contexts (e.g. Docker, where the
+  // .dockerignore excludes platform folders) — create it on demand.
+  mkdirSync(join(root, 'win'), { recursive: true });
   writeFileSync(join(root, 'win', 'icon.ico'), icoMulti);
   console.log('✓ win/icon.ico (multi-size, updated)');
 }

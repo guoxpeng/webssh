@@ -15,6 +15,7 @@ import { handleSSH } from './lib/ssh.mjs';
 import { handleSFTP } from './lib/sftp.mjs';
 import { handleTelnet } from './lib/telnet.mjs';
 import { handleSerial } from './lib/serial.mjs';
+import { handleGuacdWS } from './lib/guacd.mjs';
 import { audit, getAuditLog, clearAuditLog } from './lib/audit.mjs';
 import { handleModelApi, setAuthToken } from './lib/modelapi.mjs';
 
@@ -377,14 +378,27 @@ server.on('upgrade', (req, socket, head) => {
     });
   } else if (url === '/ws/guacd') {
     wss.handleUpgrade(req, socket, head, (ws) => {
-      const guacd = createConnection({ host: GUACD_HOST, port: GUACD_PORT }, () => {
-        log.info('guacd connected');
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+      log.info(`guacd WS from ${ip}`);
+      let initialized = false;
+      const cleanup = () => { try { ws.close(1000); } catch {} try { ws.removeAllListeners(); } catch {}; };
+      ws.on('close', () => cleanup());
+      ws.on('error', () => cleanup());
+      // First message carries the connection config as JSON (same shape as
+      // /ws/ssh); the handshake with guacd is done server-side afterwards.
+      ws.on('message', (data) => {
+        if (initialized) return;
+        try {
+          const config = JSON.parse(data.toString());
+          if (!config.host) throw new Error('Host is required');
+          initialized = true;
+          ws.removeAllListeners('message');
+          handleGuacdWS(ws, config);
+        } catch (e) {
+          try { ws.send(JSON.stringify({ type: 'error', message: '[Init Error] ' + e.message })); } catch {}
+          cleanup();
+        }
       });
-      ws.on('message', (data) => { if (guacd.writable) guacd.write(data); });
-      ws.on('error', () => {});
-      guacd.on('data', (data) => { if (ws.readyState === 1) ws.send(data); });
-      guacd.on('close', () => { try { ws.close(1000); } catch {} });
-      guacd.on('error', () => { try { ws.close(1000); } catch {} });
     });
   } else if (url === '/ws/sftp') {
     wss.handleUpgrade(req, socket, head, (ws) => {

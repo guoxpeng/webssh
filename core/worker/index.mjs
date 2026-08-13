@@ -696,11 +696,15 @@ async function handleTerminalWS(request) {
   let stream = null;
   let shell = null;
   let cfgData = null;
+  let telnetWriter = null;
+  let telnetSocket = null;
 
   function cleanup() {
     try { shell?.close(); } catch {}
     try { conn?.end(); } catch {}
     try { stream?.destroy(); } catch {}
+    try { telnetWriter?.releaseLock?.(); } catch {}
+    try { telnetSocket?.close?.(); } catch {}
     try { server.close(); } catch {}
   }
 
@@ -757,6 +761,57 @@ async function handleTerminalWS(request) {
     }
   }
 
+  // Plain TCP relay with the same prompt-sniffing auto-login as the Node
+  // server's telnet handler (core/server/lib/telnet.mjs).
+  async function openTelnet() {
+    try {
+      const tcpSocket = connect(`${cfgData.host}:${cfgData.port || 23}`);
+      await Promise.race([
+        tcpSocket.opened,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TCP connection timeout')), 15000)),
+      ]);
+      telnetSocket = tcpSocket;
+      const writer = tcpSocket.writable.getWriter();
+      telnetWriter = writer;
+      const encoder = new TextEncoder();
+      const username = String(cfgData.username || '');
+      const password = String(cfgData.auth_value || '');
+      let userSent = false, passSent = false, loginDone = false;
+      try { server.send('{"type":"ssh_ready"}'); } catch {} // frontend treats this as "connected"
+      const tryLogin = (text) => {
+        if (!username || loginDone) return;
+        const lower = text.toLowerCase();
+        if (!userSent && (lower.includes('login:') || lower.includes('username:') || lower.includes('user:'))) {
+          userSent = true;
+          writer.write(encoder.encode(username + '\n')).catch(() => {});
+        } else if (password && !passSent && lower.includes('password:')) {
+          passSent = true;
+          writer.write(encoder.encode(password + '\n')).catch(() => {});
+        }
+        if (lower.includes('$') || lower.includes('#') || lower.includes('>') || lower.includes('last login')) {
+          loginDone = true;
+        }
+      };
+      (async () => {
+        const reader = tcpSocket.readable.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const text = new TextDecoder().decode(value);
+            if (!loginDone) tryLogin(text);
+            try { if (server.readyState === 1) server.send(text); } catch {}
+          }
+        } catch {}
+        cleanup();
+      })();
+    } catch (e) {
+      logError('openTelnet', e);
+      try { server.send(`\r\n\x1b[31m[Connection Error] ${e.message}\x1b[0m\r\n`); } catch {}
+      cleanup();
+    }
+  }
+
   server.addEventListener('message', (event) => {
     const str = String(event.data);
     // Heartbeat
@@ -765,14 +820,32 @@ async function handleTerminalWS(request) {
     try { _ping = JSON.parse(str); } catch {}
     if (_ping?.type === 'ping') { try { server.send('{"type":"pong"}'); } catch {} return; }
     // First message contains the connection config as JSON
-    if (!conn && !cfgData) {
+    if (!conn && !cfgData && !telnetWriter) {
       try {
         cfgData = JSON.parse(str);
+        const protocol = String(cfgData.protocol || 'ssh').toLowerCase();
+        if (protocol === 'serial' || protocol === 'rdp' || protocol === 'vnc') {
+          const extra = protocol === 'serial' ? '（串口需要物理设备，仅自建服务器版支持）' : '（远程桌面依赖 guacd 服务，仅自建服务器版支持）';
+          server.send(`\r\n\x1b[31m[Error] Cloudflare 部署暂不支持 ${protocol.toUpperCase()}${extra}\x1b[0m\r\n`);
+          cfgData = null;
+          cleanup();
+          return;
+        }
+        if (protocol === 'telnet') {
+          if (!cfgData.host) server.send('\r\n\x1b[31mMissing host\x1b[0m\r\n');
+          else openTelnet();
+          return;
+        }
         if (cfgData.host && cfgData.username) openSSH();
         else server.send('\r\n\x1b[31mMissing host or username\x1b[0m\r\n');
       } catch {
         server.send(JSON.stringify({ type: 'error', message: 'Invalid config JSON' }));
       }
+      return;
+    }
+    // Telnet session: everything after config goes straight to the TCP relay.
+    if (telnetWriter) {
+      if (!str.startsWith('resize:')) telnetWriter.write(new TextEncoder().encode(str)).catch(() => {});
       return;
     }
     if (!shell) return;
@@ -997,6 +1070,20 @@ export default {
     /* Chat Bot API (WebSocket terminal + Docker only, chat requires Node.js backend) */
     if (url.pathname.startsWith('/api/chat/')) {
       return json({ error: 'Chat bot requires Node.js backend (Docker/VPS). Not available in Cloudflare Workers.' }, 501);
+    }
+
+    /* Remote desktop relay — requires guacd, which cannot run on Workers.
+       Reject over the WebSocket so the frontend shows a friendly error. */
+    if (url.pathname === '/ws/guacd') {
+      if (request.headers.get('Upgrade') !== 'websocket') {
+        return json({ error: 'WebSocket required' }, 426);
+      }
+      const pair = new WebSocketPair();
+      const [c, s] = Object.values(pair);
+      s.accept();
+      s.send(JSON.stringify({ type: 'error', message: '远程桌面（RDP/VNC）依赖 guacd 服务，Cloudflare 部署暂不支持，请使用自建服务器版（Docker 里启用 guacd）。' }));
+      setTimeout(() => { try { s.close(1000); } catch {} }, 100);
+      return new Response(null, { status: 101, webSocket: c });
     }
 
     /* WebSocket terminal */

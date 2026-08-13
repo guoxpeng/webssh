@@ -107,6 +107,10 @@ export function getWsSftpUrl(): string {
   return buildWsUrl('/ws/sftp');
 }
 
+export function getGuacWsUrl(): string {
+  return buildWsUrl('/ws/guacd');
+}
+
 export function getApiBaseUrl(): string {
   const runtimeBase = getRuntimeBackendBase();
   if (runtimeBase) return `${runtimeBase}/api`;

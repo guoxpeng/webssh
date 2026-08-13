@@ -47,6 +47,8 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm install
+      - name: Install Electron dependencies
+        run: cd win && npm install
       - name: Build dmg + zip
         run: npm run desktop:mac
       - name: Upload artifact
@@ -81,7 +83,9 @@ jobs:
           sed -i 's|^distributionUrl=file:///.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-bin.zip|' \
             android/gradle/wrapper/gradle-wrapper.properties
       - name: Build APK
-        run: cd android && ./gradlew assembleDebug --no-daemon
+        run: |
+          chmod +x android/gradlew
+          cd android && ./gradlew assembleDebug --no-daemon
       - name: Rename artifact
         run: cp android/app/build/outputs/apk/debug/app-debug.apk WebSSH-android.apk
       - name: Upload artifact

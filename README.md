@@ -24,7 +24,7 @@
 | **加密备份** | 连接配置一键加密备份，跨设备（任意端）导入恢复 |
 | **SSH 隧道** | 本地 / 远程 / SOCKS5 动态转发 |
 | **MCP Agent** | 接入 Claude / Cursor 等 MCP 客户端，让 AI 列出服务器并执行命令 |
-| **多协议** | SSH / Telnet / 串口；RDP / VNC 引导跳转（配 guacd） |
+| **多协议** | SSH / Telnet / 串口；RDP / VNC 远程桌面（自建服务器启用 guacd 后，网页内直接显示画面） |
 | **审计日志** | 连接与 AI 操作全程留痕，可过滤 / 导出 / 清空 |
 | **中英文界面** | 完整双语，跟随浏览器自动切换 |
 
@@ -36,7 +36,7 @@
 | Windows | 便携 zip（免安装） | 内置服务，双击即用，托盘运行 |
 | macOS | dmg / zip | Apple Silicon 与 Intel 均支持 |
 | Android | APK（Capacitor） | 指向任意 webssh 服务器：设置 → 后端网关地址 |
-| iOS | Xcode 打包（Capacitor） | 同上，已配好 ATS 与触屏适配 |
+| iOS | Xcode 打包（Capacitor） | 同上，已配好 ATS 与触屏适配；签名与上架见 `IOS-SIGNING.md` |
 | Cloudflare | Workers / Pages | 公网免服务器部署（功能有裁剪，见下文） |
 
 ---
@@ -84,6 +84,11 @@ services:
     restart: unless-stopped
 ```
 
+> 🖥️ **启用 RDP / VNC 远程桌面**：使用上面带 `guacd` 服务的 compose 配置
+> （`GUACD_HOST` 指向 guacd 容器），启动后在新建连接时选择 RDP 或 VNC 协议，
+> 画面直接在网页里显示（键盘 / 鼠标 / 触屏可用）。Cloudflare 部署无 guacd，
+> 选择这两个协议时会收到明确提示。
+
 ### 一键 Linux 部署
 
 ```bash
@@ -109,11 +114,11 @@ AUTH_TOKEN=你的密码 node core/server/index.mjs
 推送版本号标签后自动构建并附加到 GitHub Release，无需本地装任何环境：
 
 ```bash
-git tag v3.0.0 && git push origin v3.0.0
+git tag v3.5.0 && git push origin v3.5.0
 ```
 
 自动产出：**Windows 便携版**（exe）· **macOS**（dmg + zip，arm64/x64）·
-**Android APK**（debug 签名，直接安装）· **iOS 未签名构建包** · Docker 镜像构建自检。
+**Android APK**（debug 签名，直接安装）· **iOS 未签名构建包**（签名发布流程见 `IOS-SIGNING.md`）· Docker 镜像构建自检。
 也可以在仓库 Actions 页面手动触发（Build All Platforms → Run workflow）。
 
 ### Windows 桌面端
@@ -148,7 +153,7 @@ npm run desktop:mac
    在 Settings → Functions → KV namespace bindings 以变量名 `MODEL_REGISTRY` 绑定后重新部署。
    之后即可在设置里开启「同步服务器到后端」，MCP 桥的 `WEBSSH_URL` 指向本部署地址。
 
-**CF 已知限制**：仅 RSA 主机密钥 · 仅 CTR/CBC 加密（无 AES-GCM）· 不支持内网地址 · WebSocket 30 秒心跳保活 · 注册表依赖 KV，未绑定时 `/api/model/*` 返回 503。
+**CF 已知限制**：仅 RSA 主机密钥 · 仅 CTR/CBC 加密（无 AES-GCM）· 不支持内网地址 · WebSocket 30 秒心跳保活 · 注册表依赖 KV，未绑定时 `/api/model/*` 返回 503 · 不支持串口与 RDP/VNC 远程桌面（依赖 guacd，请用自建服务器版）。
 
 ---
 

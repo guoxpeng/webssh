@@ -19,3 +19,5 @@ scripts/*
 *.env
 build.log
 !scripts/deploy.sh
+!scripts/gen-icons.mjs
+!scripts/generate-icons.mjs

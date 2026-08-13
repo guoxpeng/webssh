@@ -1,6 +1,10 @@
 <template>
   <div class="terminal-wrapper">
-    <div ref="xtermContainerRef" class="xterm-container-parent" @contextmenu="onTerminalContextMenu"></div>
+    <div v-if="!isRemoteDesktop" ref="xtermContainerRef" class="xterm-container-parent" @contextmenu="onTerminalContextMenu"></div>
+    <RemoteDisplay v-else ref="remoteDisplayRef" :node-config="nodeConfig"
+                   @status-change="(s) => emit('status-change', s)"
+                   @error-message="onRemoteError"
+                   @shell-exit="() => emit('shell-exit')" />
     <div v-if="showSearch" class="search-overlay" @mousedown.stop>
       <input ref="searchInputRef" type="text" v-model="searchQuery" :placeholder="t('terminal.searchPlaceholder')"
              class="search-input" @keydown.enter="findNext" @keydown.escape="closeSearch"/>
@@ -122,6 +126,7 @@ import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
 import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Menu, Bot, TerminalSquare, Settings, PlayCircle, Trash2 } from 'lucide-vue-next';
 import HostMonitorBar from './HostMonitorBar.vue';
+import RemoteDisplay from './RemoteDisplay.vue';
 
 const { t } = useI18n();
 const terminalStore = useTerminalStore();
@@ -167,6 +172,17 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['status-change', 'error-message', 'shell-exit']);
+
+// RDP / VNC render through the Guacamole bridge instead of xterm.
+const isRemoteDesktop = computed(() =>
+  ['rdp', 'vnc'].includes(String(props.nodeConfig?.protocol || '').toLowerCase()));
+const remoteDisplayRef = ref(null);
+function onRemoteError(message) {
+  uiStore.addNotification({ message, type: 'danger', duration: 5000 });
+  emit('error-message', message);
+  const cfg = props.nodeConfig;
+  if (cfg && (cfg.host || cfg.name)) connectionStore.saveFailedConnection(cfg);
+}
 
 const xtermContainerRef = ref(null);
 const searchInputRef = ref(null);
@@ -435,6 +451,9 @@ function applyTermBg(bgColor) {
 
 
 const initializeTerminal = async () => {
+  // Remote desktop sessions (RDP/VNC) manage their own lifecycle inside
+  // RemoteDisplay — no xterm / SSH websocket involved.
+  if (isRemoteDesktop.value) return;
   if (!xtermContainerRef.value || !props.nodeConfig || destroyed) return;
   await nextTick();
 

@@ -141,6 +141,7 @@ export default {
     sendCommand: '发送到终端',
     connecting: '连接中...',
     connected: '连接成功',
+    remoteError: '远程桌面连接失败',
     copied: '已复制',
     pasted: '已粘贴',
     cleared: '终端已清除',

@@ -1,8 +1,15 @@
 import pluginVue from 'eslint-plugin-vue';
-import vueParser from 'vue-eslint-parser';
 import tsParser from '@typescript-eslint/parser';
+import vueParser from 'vue-eslint-parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import prettier from 'eslint-config-prettier';
+
+const sharedRules = {
+  'no-console': ['warn', { allow: ['warn', 'error'] }],
+  'no-debugger': 'error',
+  '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+  ...prettier.rules,
+};
 
 export default [
   {
@@ -17,34 +24,29 @@ export default [
     plugins: {
       '@typescript-eslint': tsPlugin,
     },
-    rules: {
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'no-debugger': 'error',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      ...prettier.rules,
-    },
+    rules: sharedRules,
   },
   {
+    // .vue files must go through vue-eslint-parser, which delegates the
+    // <script> block to the TS parser; handing them to tsParser directly
+    // fails on the <template> block ("Parsing error: '>' expected").
     files: ['web/src/**/*.vue'],
     languageOptions: {
       parser: vueParser,
       parserOptions: {
+        parser: tsParser,
         ecmaVersion: 'latest',
         sourceType: 'module',
-        parser: tsParser,
         extraFileExtensions: ['.vue'],
       },
     },
     plugins: {
-      vue: pluginVue,
       '@typescript-eslint': tsPlugin,
+      vue: pluginVue,
     },
     rules: {
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'no-debugger': 'error',
       'vue/multi-word-component-names': 'off',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      ...prettier.rules,
+      ...sharedRules,
     },
   },
 ];

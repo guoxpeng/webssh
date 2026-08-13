@@ -141,6 +141,7 @@ export default {
     sendCommand: 'Send to terminal',
     connecting: 'Connecting...',
     connected: 'Connection established',
+    remoteError: 'Remote desktop connection failed',
     copied: 'Copied',
     pasted: 'Pasted',
     cleared: 'Terminal cleared',
