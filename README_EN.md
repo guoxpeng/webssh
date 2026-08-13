@@ -44,62 +44,189 @@ Android / iOS apps, Docker, and Cloudflare.
 
 ## 🚀 Deployment
 
-### Docker (recommended)
+### 1. Docker (recommended self-host)
+
+**Steps:**
+
+1. Run the container (set `AUTH_TOKEN` to your access password first):
 
 ```bash
 docker run -d --name webssh -p 9627:9627 --restart=unless-stopped \
   -e AUTH_TOKEN=your_secret nameguoguo/webssh
 ```
 
-### One-line Linux install
+2. (Optional) Manage with Docker Compose:
+
+```yaml
+services:
+  webssh:
+    image: nameguoguo/webssh
+    container_name: webssh
+    restart: unless-stopped
+    ports:
+      - "9627:9627"
+    environment:
+      - AUTH_TOKEN=your_secret
+```
+
+3. (Optional) To enable RDP/VNC remote desktop and Docker management, add the `guacd` service:
+
+```yaml
+services:
+  webssh:
+    image: nameguoguo/webssh
+    restart: unless-stopped
+    ports:
+      - "9627:9627"
+    environment:
+      - AUTH_TOKEN=your_secret
+      - GUACD_HOST=guacd
+      - DOCKER_SOCKET=/var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  guacd:
+    image: guacamole/guacd
+    restart: unless-stopped
+```
+
+4. Open `http://localhost:9627`.
+
+### 2. One-line Linux install
+
+**Steps:**
+
+1. Run the script:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/scripts/deploy.sh | bash
 ```
 
-### Manual
+2. The script installs dependencies, starts the service and generates an access password (see "Passwords at a glance").
+
+### 3. Manual
+
+**Steps:**
+
+1. Clone:
 
 ```bash
 git clone https://github.com/guoxpeng/webssh.git
+```
+
+2. Install and build:
+
+```bash
 cd webssh && npm install && npm run build
+```
+
+3. Start (set a fixed password for public deploys):
+
+```bash
 AUTH_TOKEN=your_secret node core/server/index.mjs
 ```
 
-Open `http://localhost:9627`.
+4. Open `http://localhost:9627`.
 
-### Windows desktop
+> 💡 You can delete the `AUTH_TOKEN=your_secret` part — the server auto-generates
+> a temporary access password and hands it to the page, so the browser just works.
+> Only set your own fixed password for public / phone / MCP access (see "Passwords at a glance").
 
-Windows 10+ 64-bit, no runtime required. Download the portable zip → run `WebSSH.exe`.
-Build yourself: `npm run desktop`.
+### 4. GitHub Actions auto-build (push a tag → all-platform installers)
 
-### macOS desktop
+Pushing a version tag auto-builds and attaches every platform's artifact to a GitHub Release — no local toolchain needed.
+
+**Steps:**
+
+1. Commit and push your changes:
+
+```bash
+git add -A && git commit -m "release: v3.5.0"
+```
+
+2. Tag and push (triggers the full build):
+
+```bash
+git tag v3.5.0 && git push origin v3.5.0
+```
+
+3. Watch the "Build All Platforms" run under the Actions tab; artifacts are attached to the matching **Release** when it finishes.
+
+Produces: **Windows portable** (exe) · **macOS** (dmg + zip, arm64/x64) ·
+**Android APK** (debug-signed, installable) · **iOS unsigned build** (signing flow in `IOS-SIGNING.md`) · Docker image build self-check.
+You can also trigger it manually (Build All Platforms → Run workflow).
+
+### 5. Windows desktop
+
+**Steps:**
+
+1. Download the portable zip from a GitHub Release.
+2. Unzip → run `WebSSH.exe` (Windows 10+ 64-bit, no runtime required).
+3. Build yourself: `npm run desktop`.
+
+### 6. macOS desktop
 
 macOS 11+, Apple Silicon and Intel. Build **on a Mac**:
+
+**Steps:**
+
+1. Build (must run on macOS):
 
 ```bash
 npm run desktop:mac
 ```
 
-Outputs arm64/x64 dmg + zip in `release/`. Unsigned builds: right-click → Open, or
-`xattr -dr com.apple.quarantine /Applications/WebSSH.app`.
+2. Outputs arm64/x64 dmg + zip in `release/`.
 
-### Cloudflare Pages (serverless)
+3. Unsigned builds: right-click → Open, or
+   `xattr -dr com.apple.quarantine /Applications/WebSSH.app`.
+
+4. To distribute, configure your Developer certificate under `mac` in `win/package.json` and rebuild.
+
+### 7. Cloudflare Pages (serverless)
 
 > ⚠ Public deploy — you MUST set a backend access password (env var `AUTH_TOKEN`,
 > any password you choose); without it every API call is rejected. Only public
 > servers are reachable.
 
+**Steps:**
+
 1. Fork this repo.
+
 2. Create an R2 bucket `webssh-backups` (for cloud backups).
+
 3. Workers & Pages → Create → Pages → connect the repo:
    - Build command: `npm run build && node core/build-worker.mjs`
    - Output directory: `dist/client`
-   - Env var: `AUTH_TOKEN=<a password you choose>` (nothing to look up — pick one, remember it; the browser picks it up automatically)
+   - Env var: `AUTH_TOKEN=<a password you choose>` (nothing to look up — pick one, remember it)
+
 4. (Optional) Bind the R2 bucket as `BACKUP_BUCKET` under Functions → R2 bindings, redeploy.
+
 5. (Optional, MCP / server registry) Create a KV namespace and bind it as
    `MODEL_REGISTRY` under Functions → KV bindings, then redeploy. Afterwards you
    can enable "sync servers to backend" in Settings and point the MCP bridge at
    this deployment.
+
+6. **First use: fill in the access password under Settings (important!)**
+
+   Cloudflare is a purely static build — the Worker's `AUTH_TOKEN` lives only in
+   the cloud runtime and is **not automatically passed to the frontend**. After
+   opening the deployment, go to **Settings → backend access password**, enter the
+   same `AUTH_TOKEN` value you chose in step 3 and save. Otherwise the WebSocket
+   is rejected for lack of auth and you'll see `WebSocket error` when connecting.
+   (Leave the "backend address" empty — this is a same-origin deployment.)
+
+   > 💡 To avoid entering it manually every time, bake the password into the
+   > frontend at build time: add `VITE_AUTH_TOKEN=<your password>` to the build
+   > command so every visitor's page automatically carries it.
+
+   > ⚠ **`VITE_AUTH_TOKEN` and `AUTH_TOKEN` must BOTH be set and be IDENTICAL.**
+   > `AUTH_TOKEN` is checked at runtime (the Worker compares it on each request);
+   > `VITE_AUTH_TOKEN` is **baked into the frontend page at build time**. If the
+   > two ever differ, the WebSocket will be rejected. If you later change the
+   > `AUTH_TOKEN` value, you MUST update `VITE_AUTH_TOKEN` to match AND
+   > **redeploy** for it to take effect — because `VITE_AUTH_TOKEN` is written at
+   > build time, changing the env var without redeploying leaves the old key in
+   > the page and connections still fail.
 
 **CF limits**: RSA host keys only · CTR/CBC only (no AES-GCM) · no private IPs · 30s WS keep-alive · registry needs KV — `/api/model/*` returns 503 without the binding.
 
