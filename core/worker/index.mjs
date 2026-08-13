@@ -637,7 +637,7 @@ async function handleSFTPWebSocket(request) {
   server.addEventListener('close', () => cleanup());
   server.addEventListener('error', () => cleanup());
 
-  return new Response(null, { status: 101, webSocket: client });
+  return wsUpgradeResponse(client, request);
 }
 
 /* ── API: SFTP (HTTP fallback) ── */
@@ -684,6 +684,23 @@ async function handleDocker(request, url) {
 }
 
 /* ── WebSocket: SSH Terminal ── */
+// RFC 6455: when the client offers WebSocket subprotocols and the server's 101
+// response confirms none of them, the browser MUST fail the handshake. The
+// frontend sends ['webssh-auth', <token>] as subprotocols; Node's ws library
+// auto-echoes the first one, but Cloudflare's WebSocketPair does not negotiate
+// subprotocols at all — so echo the marker explicitly on every upgrade. Without
+// this, CF terminal/SFTP sockets only connect via the legacy ?token= retry.
+function wsUpgradeResponse(webSocket, request) {
+  const offered = String(request.headers.get('Sec-WebSocket-Protocol') || '');
+  if (offered.split(',').map((s) => s.trim()).includes('webssh-auth')) {
+    return new Response(null, {
+      status: 101, webSocket,
+      headers: { 'Sec-WebSocket-Protocol': 'webssh-auth' },
+    });
+  }
+  return new Response(null, { status: 101, webSocket });
+}
+
 async function handleTerminalWS(request) {
   if (request.headers.get('Upgrade') !== 'websocket') {
     return json({ error: 'WebSocket required' }, 426);
@@ -874,7 +891,7 @@ async function handleTerminalWS(request) {
   server.addEventListener('close', () => cleanup());
   server.addEventListener('error', () => cleanup());
 
-  return new Response(null, { status: 101, webSocket: client });
+  return wsUpgradeResponse(client, request);
 }
 
 /* ── Crypto Diagnostic ── */
@@ -1092,7 +1109,7 @@ export default {
       s.accept();
       s.send(JSON.stringify({ type: 'error', message: '远程桌面（RDP/VNC）依赖 guacd 服务，Cloudflare 部署暂不支持，请使用自建服务器版（Docker 里启用 guacd）。' }));
       setTimeout(() => { try { s.close(1000); } catch {} }, 100);
-      return new Response(null, { status: 101, webSocket: c });
+      return wsUpgradeResponse(c, request);
     }
 
     /* WebSocket terminal */
