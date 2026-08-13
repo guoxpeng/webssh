@@ -159,7 +159,7 @@ export function getLocalIP() {
 }
 
 // Serve static files with gzip
-import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { dirname, join, extname, resolve } from 'path';
 import { createGzip, gzipSync } from 'zlib';
 import { DIST_DIR, MIME } from './config.mjs';
@@ -194,7 +194,12 @@ function serveIndexWithToken(res, useGzip) {
 export function serveStatic(req, res) {
   if (req.method !== 'GET' || !existsSync(DIST_DIR)) return false;
   try {
-    let filePath = req.url === '/' ? '/index.html' : req.url.split('?')[0].split('#')[0];
+    // Strip query/hash FIRST: the desktop shell opens /?token=<token>, and
+    // the old `req.url === '/'` check missed it, resolving the path to the
+    // dist directory itself -> createReadStream(dir) -> EISDIR -> the request
+    // hung forever (blank page in the desktop app).
+    const cleanPath = req.url.split('?')[0].split('#')[0];
+    let filePath = (cleanPath === '/' || cleanPath === '') ? '/index.html' : cleanPath;
     const fullPath = resolve(join(DIST_DIR, filePath));
     // SECURITY (L1): compare against the directory + separator so sibling dirs
     // sharing the prefix cannot be served
@@ -219,7 +224,7 @@ export function serveStatic(req, res) {
       stream.on('error', () => { try { res.end(); } catch {} });
       return true;
     }
-    if (existsSync(fullPath)) {
+    if (existsSync(fullPath) && statSync(fullPath).isFile()) {
       const ext = extname(fullPath);
       const isHashed = /[a-fA-F0-9]{8,}-/.test(filePath);
       const headers = {

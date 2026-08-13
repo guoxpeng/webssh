@@ -32,15 +32,36 @@ function findRcedit() {
 async function downloadRcedit() {
   const outPath = join(__dirname, 'rcedit-x64.exe');
   console.log('  Downloading rcedit...');
-  await new Promise((resolve, reject) => {
-    const f = createWriteStream(outPath);
-    https.get('https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe', (res) => {
-      if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
-      res.pipe(f);
-      f.on('finish', () => { f.close(); resolve(); });
+  // GitHub release assets answer with a 302 to object storage; Node's
+  // https.get does not follow redirects — walk them manually (max 5 hops).
+  // Previously the 302 was treated as a download failure, the icon patch was
+  // silently skipped, and the exe shipped with the default Electron icon.
+  const fetchOnce = (url) => new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+        res.resume();
+        resolve({ redirect: res.headers.location });
+        return;
+      }
+      resolve({ res });
     }).on('error', reject);
   });
-  return outPath;
+  let url = 'https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe';
+  for (let hop = 0; hop < 5; hop++) {
+    const r = await fetchOnce(url);
+    if (r.redirect) { url = r.redirect; continue; }
+    const res = r.res;
+    if (res.statusCode !== 200) throw new Error(`HTTP ${res.statusCode}`);
+    await new Promise((resolve, reject) => {
+      const f = createWriteStream(outPath);
+      res.pipe(f);
+      f.on('finish', () => { f.close(); resolve(); });
+      f.on('error', reject);
+    });
+    console.log('  rcedit downloaded');
+    return outPath;
+  }
+  throw new Error('too many redirects while downloading rcedit');
 }
 
 function patchIcon(rceditPath) {
