@@ -87,13 +87,18 @@ try {
   process.exit(1);
 }
 
-console.log('[2/3] Building macOS app (dmg + zip, arm64 then x64)...');
+console.log('[2/3] Building macOS app (dmg + zip, per-arch)...');
+// Which architectures to build. Defaults to both; CI on arm64 runners sets
+// WEBSSH_MAC_ARCHS=arm64 because cross-building the x64 DMG on Apple Silicon
+// hits a known electron-builder `hdiutil detach` failure on /Volumes/WebSSH.
+const archs = (process.env.WEBSSH_MAC_ARCHS || 'arm64,x64')
+  .split(',').map(a => a.trim()).filter(Boolean);
 // Build each architecture in a SEPARATE electron-builder invocation. Running a
 // single `--mac` for both arm64+x64 sequentially collides on the shared DMG
 // volume name (/Volumes/WebSSH), making the second build's `hdiutil detach`
 // fail on arm64 CI runners. Splitting per-arch lets each invocation detach its
 // own volume cleanly.
-for (const arch of ['arm64', 'x64']) {
+for (const arch of archs) {
   console.log(`  [2/3] electron-builder --mac --${arch}...`);
   execSync(`npx electron-builder --mac --${arch}`, {
     cwd: __dirname, stdio: 'inherit', timeout: 900000,

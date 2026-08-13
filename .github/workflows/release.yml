@@ -37,12 +37,13 @@ jobs:
           name: webssh-win
           path: release/webssh-win.zip
 
-  # ── macOS（dmg + zip，arm64 / x64）──
-  # macos-13 is an Intel runner: hdiutil can create both HFS+/APFS DMGs there.
-  # Newer macos-latest (arm64) runners hit a known electron-builder bug where
-  # the x64 DMG step fails to `hdiutil detach` the shared /Volumes/WebSSH.
+  # ── macOS（dmg + zip，arm64）──
+  # macos-13 (Intel) runners have been retired by GitHub, so build on
+  # macos-latest (arm64). Cross-building the x64 DMG on Apple Silicon hits a
+  # known electron-builder `hdiutil detach` failure on /Volumes/WebSSH, so CI
+  # builds arm64 only (WEBSSH_MAC_ARCHS); local Mac builds still do both.
   macos:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -56,6 +57,8 @@ jobs:
         env:
           # CI has no Apple certificates — never attempt identity discovery.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          # arm64 only on Apple Silicon runners (see comment above).
+          WEBSSH_MAC_ARCHS: arm64
         run: |
           set -o pipefail
           npm run desktop:mac 2>&1 | tee mac-build.log
