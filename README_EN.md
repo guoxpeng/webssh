@@ -219,14 +219,18 @@ npm run desktop:mac
    > frontend at build time: add `VITE_AUTH_TOKEN=<your password>` to the build
    > command so every visitor's page automatically carries it.
 
-   > ⚠ **`VITE_AUTH_TOKEN` and `AUTH_TOKEN` must BOTH be set and be IDENTICAL.**
-   > `AUTH_TOKEN` is checked at runtime (the Worker compares it on each request);
-   > `VITE_AUTH_TOKEN` is **baked into the frontend page at build time**. If the
-   > two ever differ, the WebSocket will be rejected. If you later change the
-   > `AUTH_TOKEN` value, you MUST update `VITE_AUTH_TOKEN` to match AND
-   > **redeploy** for it to take effect — because `VITE_AUTH_TOKEN` is written at
-   > build time, changing the env var without redeploying leaves the old key in
-   > the page and connections still fail.
+   > ⚠ **`VITE_AUTH_TOKEN` and `AUTH_TOKEN` must BOTH be set and be IDENTICAL** —
+   > one is the lock, the other is the key:
+   >
+   > - **`AUTH_TOKEN` (server) = the lock**: the Worker checks every request against it at runtime.
+   > - **`VITE_AUTH_TOKEN` (frontend) = the key**: it's **baked into the frontend
+   >   page at build time**, and the frontend uses it to unlock.
+   >
+   > If the two ever differ, the WebSocket will be rejected. If you later change
+   > the `AUTH_TOKEN` (replace the lock), you MUST update `VITE_AUTH_TOKEN` to
+   > match (issue a new key) AND **redeploy** for it to take effect — because
+   > `VITE_AUTH_TOKEN` is written at build time, changing the env var without
+   > redeploying leaves the old key in the page and connections still fail.
 
 **CF limits**: RSA host keys only · CTR/CBC only (no AES-GCM) · no private IPs · 30s WS keep-alive · registry needs KV — `/api/model/*` returns 503 without the binding.
 

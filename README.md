@@ -217,12 +217,16 @@ npm run desktop:mac
    > 💡 若不想每次手动填，可在构建时把密码烘焙进前端：部署时给构建命令加环境变量
    > `VITE_AUTH_TOKEN=你的密码`，这样所有用户打开页面即自动携带访问密码。
 
-   > ⚠ **`VITE_AUTH_TOKEN` 与 `AUTH_TOKEN` 必须同时设置，且值一模一样。**
-   > `AUTH_TOKEN` 是运行时校验（Worker 收到请求时比对），`VITE_AUTH_TOKEN` 是
-   > **构建时写进前端页面**的钥匙。两者任一不一致，WebSocket 都会被拒绝。
-   > 以后若改了 `AUTH_TOKEN` 的值，必须同步把 `VITE_AUTH_TOKEN` 改成一样的，
-   > 并且**重新部署**才会生效——因为 `VITE_AUTH_TOKEN` 是构建时写入的，
-   > 只改环境变量、不重新部署，页面里仍是旧钥匙，照样连不上。
+   > ⚠ **`VITE_AUTH_TOKEN` 与 `AUTH_TOKEN` 必须同时设置，且值一模一样**——
+   > 一个是锁，一个是钥匙：
+   >
+   > - **`AUTH_TOKEN`（服务端）= 锁**：Worker 运行时用它校验每个请求。
+   > - **`VITE_AUTH_TOKEN`（前端）= 钥匙**：**构建时写进前端页面**，前端拿来开锁。
+   >
+   > 两者任一不一致，WebSocket 都会被拒绝。以后若改了 `AUTH_TOKEN`（换了锁），
+   > 必须同步把 `VITE_AUTH_TOKEN` 改成一样的（配新钥匙），并且**重新部署**
+   > 才会生效——因为 `VITE_AUTH_TOKEN` 是构建时写入的，只改环境变量、不重新
+   > 部署，页面里仍是旧钥匙，照样连不上。
 
 **CF 已知限制**：仅 RSA 主机密钥 · 仅 CTR/CBC 加密（无 AES-GCM）· 不支持内网地址 · WebSocket 30 秒心跳保活 · 注册表依赖 KV，未绑定时 `/api/model/*` 返回 503 · 不支持串口与 RDP/VNC 远程桌面（依赖 guacd，请用自建服务器版）。
 
