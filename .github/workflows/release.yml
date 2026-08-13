@@ -53,7 +53,18 @@ jobs:
       - name: Install Electron dependencies
         run: cd win && npm install
       - name: Build dmg + zip
-        run: npm run desktop:mac
+        env:
+          # CI has no Apple certificates — never attempt identity discovery.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: |
+          set -o pipefail
+          npm run desktop:mac 2>&1 | tee mac-build.log
+      - name: Upload failure log
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: macos-failure-log
+          path: mac-build.log
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
@@ -91,8 +102,16 @@ jobs:
             android/gradle/wrapper/gradle-wrapper.properties
       - name: Build APK
         run: |
+          set -o pipefail
           chmod +x android/gradlew
-          cd android && ./gradlew assembleDebug --no-daemon
+          cd android && ./gradlew assembleDebug --no-daemon --stacktrace --console=plain \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g" 2>&1 | tee ../android-build.log
+      - name: Upload failure log
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: android-failure-log
+          path: android-build.log
       - name: Rename artifact
         run: cp android/app/build/outputs/apk/debug/app-debug.apk WebSSH-android.apk
       - name: Upload artifact
