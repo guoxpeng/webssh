@@ -12,6 +12,84 @@ const SSH_ALGORITHMS = {
   compress: ['none'],
 };
 
+// Host resource snapshot for the monitor bar (kept in sync with the Node
+// server's STATS_SCRIPT; Worker is self-contained so it is duplicated here).
+// Pure /proc + POSIX tools, ~1s sampling window; non-Linux hosts yield zeros.
+const STATS_SCRIPT = `
+cpu1=$(head -n1 /proc/stat 2>/dev/null)
+rx1=$(cat /sys/class/net/*/statistics/rx_bytes 2>/dev/null | awk '{s+=$1} END{print s+0}')
+tx1=$(cat /sys/class/net/*/statistics/tx_bytes 2>/dev/null | awk '{s+=$1} END{print s+0}')
+sleep 1
+cpu2=$(head -n1 /proc/stat 2>/dev/null)
+rx2=$(cat /sys/class/net/*/statistics/rx_bytes 2>/dev/null | awk '{s+=$1} END{print s+0}')
+tx2=$(cat /sys/class/net/*/statistics/tx_bytes 2>/dev/null | awk '{s+=$1} END{print s+0}')
+echo "$cpu1"
+echo "$cpu2"
+echo "RX $rx1 $rx2"
+echo "TX $tx1 $tx2"
+free -b 2>/dev/null | awk '/^Mem/{print "MEM",$2,$3,$7} /^Swap/{print "SWAP",$2,$3}'
+df -B1 -P / 2>/dev/null | awk 'NR==2{print "DISK",$2,$3,$5}'
+awk '{print "LOAD",$1,$2,$3}' /proc/loadavg 2>/dev/null
+nproc 2>/dev/null | awk '{print "CPU_N",$1}'
+awk '{print "UPTIME",int($1)}' /proc/uptime 2>/dev/null
+`;
+
+function parseStats(raw) {
+  const out = { cpu: 0, cores: 0, memTotal: 0, memUsed: 0, memAvail: 0, swapTotal: 0, swapUsed: 0, diskTotal: 0, diskUsed: 0, diskPct: 0, rxRate: 0, txRate: 0, load: [0, 0, 0], uptime: 0 };
+  const lines = String(raw).split('\n');
+  let c1 = null, c2 = null, rx = null, tx = null;
+  for (const line of lines) {
+    const p = line.trim().split(/\s+/);
+    if (p[0] === 'cpu') { if (!c1) c1 = p; else c2 = p; continue; }
+    switch (p[0]) {
+      case 'RX': rx = [Number(p[1]) || 0, Number(p[2]) || 0]; break;
+      case 'TX': tx = [Number(p[1]) || 0, Number(p[2]) || 0]; break;
+      case 'MEM': out.memTotal = +p[1] || 0; out.memUsed = +p[2] || 0; out.memAvail = +p[3] || 0; break;
+      case 'SWAP': out.swapTotal = +p[1] || 0; out.swapUsed = +p[2] || 0; break;
+      case 'DISK': out.diskTotal = +p[1] || 0; out.diskUsed = +p[2] || 0; out.diskPct = parseInt(p[3], 10) || 0; break;
+      case 'LOAD': out.load = [+p[1] || 0, +p[2] || 0, +p[3] || 0]; break;
+      case 'CPU_N': out.cores = +p[1] || 0; break;
+      case 'UPTIME': out.uptime = +p[1] || 0; break;
+    }
+  }
+  if (c1 && c2) {
+    const idle1 = (+c1[4] || 0) + (+c1[5] || 0);
+    const idle2 = (+c2[4] || 0) + (+c2[5] || 0);
+    const tot1 = c1.slice(1).reduce((s, v) => s + (+v || 0), 0);
+    const tot2 = c2.slice(1).reduce((s, v) => s + (+v || 0), 0);
+    const dt = tot2 - tot1, di = idle2 - idle1;
+    out.cpu = dt > 0 ? Math.round(((dt - di) / dt) * 1000) / 10 : 0;
+  }
+  if (rx) out.rxRate = Math.max(0, rx[1] - rx[0]);
+  if (tx) out.txRate = Math.max(0, tx[1] - tx[0]);
+  return out;
+}
+
+// ── AUTH_TOKEN enforcement (parity with the Node server's authCheck) ──────
+// Public CF deployments must set the AUTH_TOKEN env var (README requires it).
+// Token travels via Sec-WebSocket-Protocol (preferred), Authorization: Bearer,
+// or legacy ?token= query. Constant-time compare; no token → 503 so a
+// misconfigured deployment can never become an open SSH relay.
+function extractToken(request, url) {
+  const protoHeader = request.headers.get('Sec-WebSocket-Protocol');
+  if (protoHeader) {
+    for (const part of String(protoHeader).split(',')) {
+      const p = part.trim();
+      if (p && p !== 'webssh-auth') return p;
+    }
+  }
+  const auth = request.headers.get('Authorization') || '';
+  if (/^Bearer\s+/i.test(auth)) return auth.replace(/^Bearer\s+/i, '');
+  return url.searchParams.get('token') || '';
+}
+
+function tokenOk(provided, expected) {
+  if (!provided || provided.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
 function makeSSHConfig(body) {
   const cfg = {
     host: body.host,
@@ -132,6 +210,239 @@ function parseBody(request) {
 
 function logError(context, e) {
   console.error(`[Worker ${context}] ${e.message}${e.stack ? ' | ' + e.stack.split('\n').slice(0, 3).join(' | ') : ''}`);
+}
+
+/* ── Model API — server registry + probe + exec (MCP backend) ──────────────
+   Contract mirrors core/server/lib/modelapi.mjs so the same MCP bridge
+   (core/mcp/server.mjs) works against a CF deployment. Workers have no
+   filesystem, so the registry lives in the MODEL_REGISTRY KV namespace.
+   Credentials are AES-256-GCM encrypted at rest with a key derived from
+   AUTH_TOKEN (same derivation as the Node server). */
+const MODEL_MAX_COMMAND_LEN = 4096;
+const MODEL_MAX_OUTPUT_BYTES = 256 * 1024;
+const MODEL_DEFAULT_TIMEOUT_MS = 30000;
+const MODEL_MAX_TIMEOUT_MS = 120000;
+const MODEL_MAX_CONCURRENCY = 5;
+
+function bytesToB64(bytes) {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s);
+}
+
+function b64ToBytes(b64) {
+  const s = atob(b64);
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+}
+
+async function modelKey(token) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`webssh-model-v1:${token}`));
+  return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+async function modelEncryptSecret(plain, token) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await modelKey(token), new TextEncoder().encode(plain)));
+  // Web Crypto appends the 16-byte tag; split so the stored format matches
+  // the Node server (iv:tag:data).
+  const tag = ct.slice(ct.length - 16);
+  const data = ct.slice(0, ct.length - 16);
+  return `${bytesToB64(iv)}:${bytesToB64(tag)}:${bytesToB64(data)}`;
+}
+
+async function modelDecryptSecret(stored, token) {
+  try {
+    const [ivB64, tagB64, dataB64] = String(stored).split(':');
+    const data = b64ToBytes(dataB64);
+    const tag = b64ToBytes(tagB64);
+    const merged = new Uint8Array(data.length + tag.length);
+    merged.set(data, 0);
+    merged.set(tag, data.length);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(ivB64) }, await modelKey(token), merged);
+    return new TextDecoder().decode(pt);
+  } catch {
+    return ''; // AUTH_TOKEN changed or entry corrupted — treat as no credential
+  }
+}
+
+function modelRandomId() {
+  const b = crypto.getRandomValues(new Uint8Array(8));
+  return [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+async function modelLoadRegistry(env) {
+  try {
+    const list = await env.MODEL_REGISTRY.get('registry', 'json');
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    logError('ModelAPI load', e);
+    return [];
+  }
+}
+
+async function modelSaveRegistry(env, list) {
+  await env.MODEL_REGISTRY.put('registry', JSON.stringify(list));
+}
+
+function modelPublicEntry(e) {
+  return {
+    id: e.id, name: e.name, host: e.host, port: e.port, username: e.username,
+    auth_type: e.auth_type, last_probe: e.last_probe || null,
+  };
+}
+
+async function modelNormalizeEntry(input, token, existing = null) {
+  if (!input || typeof input !== 'object') return null;
+  const host = String(input.host || '').trim();
+  const username = String(input.username || '').trim();
+  if (!host || !username) return null;
+  const port = Math.max(1, Math.min(65535, parseInt(input.port, 10) || 22));
+  const authType = input.auth_type === 'key' ? 'key' : 'password';
+  const entry = existing ? { ...existing } : { id: modelRandomId(), created_at: Date.now() };
+  entry.name = String(input.name || `${username}@${host}`).slice(0, 100);
+  entry.host = host.slice(0, 255);
+  entry.port = port;
+  entry.username = username.slice(0, 100);
+  entry.auth_type = authType;
+  if (input.auth_value) entry.auth_enc = await modelEncryptSecret(String(input.auth_value), token);
+  else if (!existing) return null; // new entry must carry credentials
+  return entry;
+}
+
+// One-shot SSH exec used by both probe ('true') and exec actions.
+function modelRunOnce(entry, command, timeoutMs, token) {
+  return new Promise(async (resolve) => {
+    const authValue = await modelDecryptSecret(entry.auth_enc, token);
+    if (!authValue) { resolve({ success: false, error: 'no stored credential (or AUTH_TOKEN changed)' }); return; }
+    let conn = null, stream = null;
+    let stdout = '', stderr = '', truncated = false;
+    const push = (target, chunk) => {
+      if (target.length >= MODEL_MAX_OUTPUT_BYTES) { truncated = true; return target; }
+      return target + String(chunk);
+    };
+    const finish = (result) => { try { conn?.end(); } catch {} try { stream?.destroy(); } catch {} resolve(result); };
+    const timer = setTimeout(() => finish({ success: false, error: 'timeout', stdout, stderr, truncated }), timeoutMs);
+    try {
+      const tcpSocket = connect(`${entry.host}:${entry.port || 22}`);
+      await Promise.race([
+        tcpSocket.opened,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TCP connection timeout')), Math.min(timeoutMs, 15000))),
+      ]);
+      stream = new CloudflareSocketDuplex(tcpSocket);
+      conn = new Client();
+      setupSSHClient(conn, authValue);
+      conn.on('ready', () => {
+        conn.exec(command, (err, ch) => {
+          if (err) { clearTimeout(timer); finish({ success: false, error: err.message }); return; }
+          ch.on('data', (d) => { stdout = push(stdout, d); });
+          ch.stderr.on('data', (d) => { stderr = push(stderr, d); });
+          ch.on('close', (code) => {
+            clearTimeout(timer);
+            finish({ success: code === 0, exit_code: typeof code === 'number' ? code : null, stdout, stderr, truncated });
+          });
+          ch.on('error', () => {});
+        });
+      });
+      conn.on('error', (err) => { clearTimeout(timer); finish({ success: false, error: err.message }); });
+      conn.connect({ ...makeSSHConfig({ ...entry, auth_value: authValue }), sock: stream, readyTimeout: Math.min(timeoutMs, 15000) });
+    } catch (e) {
+      clearTimeout(timer);
+      finish({ success: false, error: e.message });
+    }
+  });
+}
+
+async function modelMapLimited(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function workerFn() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, workerFn));
+  return results;
+}
+
+async function handleModelApi(request, url, env) {
+  if (!env.MODEL_REGISTRY) {
+    return json({ error: 'Model API requires the MODEL_REGISTRY KV binding (see README — Cloudflare section)' }, 503);
+  }
+  const token = String(env.AUTH_TOKEN || '').trim();
+  const action = url.pathname.slice('/api/model/'.length);
+  const registry = await modelLoadRegistry(env);
+
+  if (action === 'servers' && request.method === 'GET') {
+    return json({ servers: registry.map(modelPublicEntry) });
+  }
+
+  const body = await parseBody(request);
+
+  if (action === 'servers/save') {
+    const existing = body.id ? registry.find((e) => e.id === body.id) : null;
+    if (body.id && !existing) return json({ error: 'unknown server id' }, 404);
+    const entry = await modelNormalizeEntry(body, token, existing);
+    if (!entry) return json({ error: 'host/username/auth_value required for new entries' }, 400);
+    const idx = registry.findIndex((e) => e.id === entry.id);
+    if (idx >= 0) registry[idx] = entry; else registry.push(entry);
+    await modelSaveRegistry(env, registry);
+    return json({ success: true, server: modelPublicEntry(entry) });
+  }
+
+  if (action === 'servers/remove') {
+    const idx = registry.findIndex((e) => e.id === body.id);
+    if (idx < 0) return json({ error: 'unknown server id' }, 404);
+    registry.splice(idx, 1);
+    await modelSaveRegistry(env, registry);
+    return json({ success: true });
+  }
+
+  if (action === 'servers/sync') {
+    if (!Array.isArray(body.servers)) return json({ error: 'servers[] required' }, 400);
+    if (body.servers.length > 200) return json({ error: 'too many servers (max 200)' }, 400);
+    const next = [];
+    for (const input of body.servers) {
+      const prev = registry.find((e) => e.host === String(input.host || '') && e.port === (parseInt(input.port, 10) || 22) && e.username === String(input.username || ''));
+      const entry = await modelNormalizeEntry(input, token, prev);
+      if (entry) next.push(entry);
+    }
+    await modelSaveRegistry(env, next);
+    return json({ success: true, synced: next.map(modelPublicEntry) });
+  }
+
+  if (action === 'probe') {
+    const targets = body.id ? registry.filter((e) => e.id === body.id) : registry;
+    if (body.id && targets.length === 0) return json({ error: 'unknown server id' }, 404);
+    const results = await modelMapLimited(targets, MODEL_MAX_CONCURRENCY, async (entry) => {
+      const r = await modelRunOnce(entry, 'true', Math.min(parseInt(body.timeout_ms, 10) || MODEL_DEFAULT_TIMEOUT_MS, MODEL_MAX_TIMEOUT_MS), token);
+      entry.last_probe = { t: Date.now(), ok: r.success, error: r.success ? null : String(r.error || '').slice(0, 200) };
+      return { id: entry.id, name: entry.name, host: entry.host, port: entry.port, ok: r.success, error: r.success ? null : r.error };
+    });
+    await modelSaveRegistry(env, registry);
+    return json({ results });
+  }
+
+  if (action === 'exec') {
+    const command = typeof body.command === 'string' ? body.command : '';
+    if (!command || command.length > MODEL_MAX_COMMAND_LEN) return json({ error: `command required (max ${MODEL_MAX_COMMAND_LEN} chars)` }, 400);
+    const timeoutMs = Math.min(Math.max(parseInt(body.timeout_ms, 10) || MODEL_DEFAULT_TIMEOUT_MS, 3000), MODEL_MAX_TIMEOUT_MS);
+    let targets;
+    if (body.server === 'all') targets = registry;
+    else if (body.server === 'ok') targets = registry.filter((e) => e.last_probe?.ok);
+    else targets = registry.filter((e) => e.id === body.server);
+    if (targets.length === 0) return json({ error: 'no matching server (probe first, or register one)' }, 404);
+    if (targets.length > 50) return json({ error: 'refusing to exec on more than 50 servers at once' }, 400);
+    const results = await modelMapLimited(targets, MODEL_MAX_CONCURRENCY, async (entry) => {
+      const r = await modelRunOnce(entry, command, timeoutMs, token);
+      return { id: entry.id, name: entry.name, host: entry.host, ...r };
+    });
+    return json({ results });
+  }
+
+  return json({ error: 'Unknown action' }, 400);
 }
 
 /* ── API: SSH Test ── */
@@ -393,6 +704,24 @@ async function handleTerminalWS(request) {
     try { server.close(); } catch {}
   }
 
+  // One exec at a time; overlapping samples would double the remote load.
+  let statsBusy = false;
+  function runStats() {
+    if (statsBusy || !conn || !shell) return;
+    statsBusy = true;
+    conn.exec(STATS_SCRIPT, (err, ch) => {
+      if (err) { statsBusy = false; return; }
+      let out = '';
+      ch.on('data', (d) => { out += d.toString(); });
+      ch.stderr.on('data', () => {});
+      ch.on('close', () => {
+        statsBusy = false;
+        try { if (server.readyState === 1) server.send(JSON.stringify({ type: 'host_stats', data: parseStats(out) })); } catch {}
+      });
+      ch.on('error', () => { statsBusy = false; });
+    });
+  }
+
   async function openSSH() {
     try {
       const tcpSocket = connect(`${cfgData.host}:${cfgData.port || 22}`);
@@ -454,6 +783,9 @@ async function handleTerminalWS(request) {
       if (rows && cols && shell.setWindow) shell.setWindow(rows, cols);
       return;
     }
+    // Host monitor polls; run on a separate exec channel so the interactive
+    // shell is never polluted (mirrors core/server/lib/ssh.mjs).
+    if (str.startsWith('stats:')) { runStats(); return; }
     shell.write(str);
   });
 
@@ -610,6 +942,18 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    /* Auth gate: every /api/* and /ws/* route requires AUTH_TOKEN, matching
+       the Node server. Static assets stay open so the login screen loads. */
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws/')) {
+      const expected = String(env.AUTH_TOKEN || '').trim();
+      if (!expected) {
+        return json({ error: 'AUTH_TOKEN is not configured on this deployment. Set the AUTH_TOKEN environment variable (see README).' }, 503);
+      }
+      if (!tokenOk(extractToken(request, url), expected)) {
+        return json({ error: 'Unauthorized' }, 401);
+      }
+    }
+
     /* Health */
     if (url.pathname === '/health') {
       return json({ status: 'ok', uptime: 'worker' });
@@ -643,6 +987,11 @@ export default {
     /* Docker */
     if (url.pathname.startsWith('/api/docker/') && request.method === 'POST') {
       return handleDocker(request, url);
+    }
+
+    /* Model API — MCP backend; registry in KV (see handleModelApi) */
+    if (url.pathname.startsWith('/api/model/')) {
+      return handleModelApi(request, url, env);
     }
 
     /* Chat Bot API (WebSocket terminal + Docker only, chat requires Node.js backend) */

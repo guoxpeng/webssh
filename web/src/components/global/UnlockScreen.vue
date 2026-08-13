@@ -73,6 +73,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { setupMasterPassword, verifyMasterPassword, STORAGE_VERIFY_KEY, STORAGE_SALT_KEY } from '@/utils/crypto';
+import { apiFetch } from '@/utils/api';
 import { KeyRound, Lock, Eye, EyeOff, Info } from 'lucide-vue-next';
 import ConfirmDialog from '@/components/global/ConfirmDialog.vue';
 
@@ -97,7 +98,9 @@ const SAVED_MASTER_KEY = 'webssh_saved_master';
 
 async function cloudApi(action, payload = {}) {
   try {
-    const resp = await fetch('/api/cloud/backup', {
+    // apiFetch attaches the AUTH_TOKEN (kept separately from the master
+    // password, so it is already available on the lock screen).
+    const resp = await apiFetch('/api/cloud/backup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, ...payload }),

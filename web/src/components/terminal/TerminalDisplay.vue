@@ -145,10 +145,6 @@ const hostHistory = ref([]);
 let statsTimer = null;
 function startStatsPolling() {
   stopStatsPolling();
-  // Host monitor uses "stats:" control messages which only the SSH gateway
-  // intercepts. Telnet/serial backends forward everything to the device, so
-  // polling there would spam the remote shell with "stats:1" input.
-  if (props.nodeConfig?.protocol && props.nodeConfig.protocol !== 'ssh') return;
   hostHistory.value = [];
   const tick = () => { try { wsService?.sendMessage('stats:1'); } catch {} };
   tick();

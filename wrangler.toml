@@ -8,5 +8,13 @@ pages_build_output_dir = "dist/client"
 binding = "BACKUP_BUCKET"
 bucket_name = "webssh-backups"
 
+# Model API / MCP server registry (optional). Create the namespace first:
+#   npx wrangler kv namespace create MODEL_REGISTRY
+# then uncomment and fill in the returned id. Without it /api/model/* returns
+# a 503 explaining the binding is missing — everything else still works.
+# [[kv_namespaces]]
+# binding = "MODEL_REGISTRY"
+# id = "<id from `wrangler kv namespace create MODEL_REGISTRY`>"
+
 # Workers deployment (requires Paid plan for cloudflare:sockets)
 # Deploy: npm run worker:deploy

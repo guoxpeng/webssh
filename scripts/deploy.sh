@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-# WebSSH - One-click Deploy (v3.3.0)
+# WebSSH - One-click Deploy (v3.4.0)
 # Usage: curl -fsSL https://raw.githubusercontent.com/guoxpeng/webssh/main/scripts/deploy.sh | bash
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC='\033[0m'; BOLD='\033[1m'
@@ -101,7 +101,10 @@ if [ -d "${APP_DIR}/.git" ]; then
   OLD_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
   git reset --hard origin/main
   NEW_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-  git clean -fdx
+  # Preserve runtime state across deploys: .env (AUTH_TOKEN etc.), the model
+  # server registry / audit log / known hosts under core/server/data, and
+  # logs. Without these exclusions every deploy wiped saved servers.
+  git clean -fdx -e .env -e .env.local -e core/server/data -e logs -e server.err
   # Read version from package.json
   SRC_VER=$(grep -oP '"version":\s*"\K[^"]+' package.json 2>/dev/null || echo "unknown")
   if [ "$OLD_HASH" = "$NEW_HASH" ] && [ "$SRC_VER" != "unknown" ]; then

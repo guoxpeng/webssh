@@ -11,11 +11,14 @@ services:
       - "9627:9627"
     environment:
       - PORT=9627
+      # 后端访问密码：公网部署必填，自己定一个即可（详见 README「密码体系」）
+      # - AUTH_TOKEN=你自己定的密码
       # - GUACD_HOST=guacd        # 启用 RDP/VNC（需 guacd 服务）
       # - DOCKER_SOCKET=/var/run/docker.sock  # 启用原生 Docker 管理
     volumes:
       # - /var/run/docker.sock:/var/run/docker.sock
-      - ./data:/app/data
+      # 运行时数据（审计日志 / 服务器注册表 / TOFU 主机指纹）的实际写入目录
+      - ./data:/app/core/server/data
     tmpfs:
       - /tmp
     healthcheck:

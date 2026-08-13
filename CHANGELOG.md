@@ -1,4 +1,30 @@
-## v3.3.0 — 全新发布：六端统一 · 安全加固 · 体验重塑
+## v3.4.0 — Cloudflare 补全 · 部署数据保护 · 全端自动构建
+
+> 发布时间：2026-08-13
+>
+> 本版本集中修复 Cloudflare 部署的功能缺口与数据安全边界，并打通 GitHub 全端自动构建。
+
+### Cloudflare
+- **修复监控轮询污染终端**：CF 端缺少 `stats:` 消息拦截，主机监控的轮询请求会被打进终端（表现为不停输入 `stats:1`）；现已拦截并补齐与 Node 版一致的主机监控采集，CF 部署的监控条恢复显示
+- **强制校验访问密码**：CF 端此前完全未实现 `AUTH_TOKEN` 校验（与文档不符，公网裸奔）；现已对齐 Node 版三路令牌校验，未配置密码时接口一律 503 拒绝服务
+- **新增 Model API（MCP 后端）**：`/api/model/*` 全套接口（注册表增删改查 / 探测 / 执行）移植到 Worker，注册表存 KV（`MODEL_REGISTRY` 绑定），凭据 AES-GCM 加密落盘且与 Node 版格式互通；MCP 桥现在可直接指向 CF 部署地址
+- **云备份接口补令牌**：备份与解锁页面对 `/api/cloud/backup` 的请求改用带令牌的 `apiFetch`，适配强制鉴权后的 CF 端
+
+### 部署与数据
+- **部署脚本不再清除运行时数据**：`scripts/deploy.sh` 的 `git clean -fdx` 会删掉服务器注册表、审计日志、`.env` 等未入库文件，导致每次更新后已保存的信息消失；现排除 `core/server/data`、`.env`、`logs` 等
+- **Docker 数据卷路径修正**：运行时数据实际写入 `core/server/data`，compose 此前挂载 `/app/data`（只读容器下写入必失败）；已修正挂载与镜像内目录创建
+- **Gradle 包装器**：`gradle-wrapper.properties` 里的分发地址指向原作者本机路径，CI 构建时自动纠正为官方下载地址
+
+### 构建与发布
+- **GitHub Actions 全端自动构建**：推送版本 tag 后自动产出 Windows 便携版 / macOS（dmg+zip 双架构）/ Android APK / iOS 未签名包，并附加到 GitHub Release；附 Docker 镜像构建自检，支持手动触发
+- **文档通俗化**：「AUTH_TOKEN（后端令牌）」统一改称「后端访问密码」，补充自动生成临时密码与使用场景说明；设置面板入口改名「后端网关地址（填内网 IP）」
+
+### 质量
+- Worker Model API 模拟测试 14 项全过；加解密 Worker/Node 双向互通验证通过；补丁应用 100+ 文件 0 失败
+
+---
+
+## v3.0.0 — 全新发布：六端统一 · 安全加固 · 体验重塑
 
 > 发布时间：2026-08-12
 >

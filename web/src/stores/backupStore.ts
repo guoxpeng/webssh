@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { encryptBackupData, decryptBackupData } from '@/utils/crypto';
+import { apiFetch } from '@/utils/api';
 import { useConnectionStore } from './connectionStore';
 import { useSnippetStore } from './snippetStore';
 import { useUiStore } from './uiStore';
@@ -374,7 +375,9 @@ export const useBackupStore = defineStore('backup', () => {
   }
 
   function cloudApi(action: string, payload: any = {}): Promise<Response> {
-    return fetch('/api/cloud/backup', {
+    // apiFetch attaches the AUTH_TOKEN — the Worker backend rejects bare
+    // requests with 401 once token enforcement is on.
+    return apiFetch('/api/cloud/backup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, ...payload }),

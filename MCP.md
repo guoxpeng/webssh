@@ -15,15 +15,17 @@ MCP 服务是 webssh **Model API**（`/api/model/*`）的桥接层，复用其�
 ## 前置条件
 
 1. webssh 服务端正在运行（Node 版：`npm run dev:server` 或桌面端）。
-2. 服务端有 **AUTH_TOKEN**（未显式设置时服务端会生成临时 token 并打印在启动日志里；
-   建议固定设置：`AUTH_TOKEN=<你的密钥> npm run dev:server`）。
+2. 服务端设置了**后端访问密码**（环境变量 `AUTH_TOKEN`）——就是你自己定的一个
+   密码，例如 `AUTH_TOKEN=MyServer@2026 npm run dev:server`。
+   注意：MCP 必须用固定密码；服务器自动生成的临时密码只在浏览器里自动生效，
+   这里拿不到，不适用。
 3. 在 webssh 设置面板里打开过「本地模型 API」同步，或通过 agent 的
    `webssh_add_server` 工具注册过服务器（注册表为空时 exec 会提示先注册）。
 
 ## 启动方式
 
 ```bash
-WEBSSH_TOKEN=<你的AUTH_TOKEN> npm run mcp
+WEBSSH_TOKEN=<你部署时定的后端访问密码> npm run mcp
 # 可选：WEBSSH_URL=http://127.0.0.1:9627（默认即此值）
 ```
 
@@ -41,7 +43,7 @@ MCP 走 **stdio**：由 agent 客户端拉起进程，通过 stdin/stdout 交换
       "args": ["/绝对路径/webssh/core/mcp/server.mjs"],
       "env": {
         "WEBSSH_URL": "http://127.0.0.1:9627",
-        "WEBSSH_TOKEN": "<你的AUTH_TOKEN>"
+        "WEBSSH_TOKEN": "<你部署时定的后端访问密码>"
       }
     }
   }
@@ -53,7 +55,7 @@ MCP 走 **stdio**：由 agent 客户端拉起进程，通过 stdin/stdout 交换
 ```bash
 claude mcp add webssh \
   -e WEBSSH_URL=http://127.0.0.1:9627 \
-  -e WEBSSH_TOKEN=<你的AUTH_TOKEN> \
+  -e WEBSSH_TOKEN=<你部署时定的后端访问密码> \
   -- node /绝对路径/webssh/core/mcp/server.mjs
 ```
 
@@ -69,9 +71,12 @@ claude mcp add webssh \
 
 ## 安全说明
 
-- `WEBSSH_TOKEN` 就是服务端的 AUTH_TOKEN，**不要提交到代码仓库**；
+- `WEBSSH_TOKEN` 就是你部署时定的后端访问密码（`AUTH_TOKEN`），**不要提交到代码仓库**；
   建议放在 agent 客户端的配置文件里（本机文件权限 600）。
 - MCP 服务只监听 stdio，不开任何网络端口；对外通信全部经由 webssh 服务端，
   因此服务端的来源校验、限流、审计对它同样生效。
 - `webssh_list_servers` 永不返回凭据；凭据只存在于服务端加密注册表中。
-- Cloudflare Worker 版 webssh 没有 Model API，MCP 接入仅适用于 Node / 桌面端。
+- Cloudflare 部署同样支持 MCP：把 `WEBSSH_URL` 指向你的 Workers/Pages 地址即可。
+  前提是服务端配置了 `MODEL_REGISTRY` KV 绑定（见 README Cloudflare 小节），
+  否则 `/api/model/*` 会返回 503 提示。MCP 桥本身仍是本地 Node 进程，
+  只通过 HTTPS 与远端 webssh 通信。

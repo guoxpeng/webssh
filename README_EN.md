@@ -85,17 +85,23 @@ Outputs arm64/x64 dmg + zip in `release/`. Unsigned builds: right-click → Open
 
 ### Cloudflare Pages (serverless)
 
-> ⚠ Public deploy — you MUST set `AUTH_TOKEN`; only public servers are reachable.
+> ⚠ Public deploy — you MUST set a backend access password (env var `AUTH_TOKEN`,
+> any password you choose); without it every API call is rejected. Only public
+> servers are reachable.
 
 1. Fork this repo.
 2. Create an R2 bucket `webssh-backups` (for cloud backups).
 3. Workers & Pages → Create → Pages → connect the repo:
    - Build command: `npm run build && node core/build-worker.mjs`
    - Output directory: `dist/client`
-   - Env var: `AUTH_TOKEN=your_secret`
+   - Env var: `AUTH_TOKEN=<a password you choose>` (nothing to look up — pick one, remember it; the browser picks it up automatically)
 4. (Optional) Bind the R2 bucket as `BACKUP_BUCKET` under Functions → R2 bindings, redeploy.
+5. (Optional, MCP / server registry) Create a KV namespace and bind it as
+   `MODEL_REGISTRY` under Functions → KV bindings, then redeploy. Afterwards you
+   can enable "sync servers to backend" in Settings and point the MCP bridge at
+   this deployment.
 
-**CF limits**: RSA host keys only · CTR/CBC only (no AES-GCM) · no private IPs · 30s WS keep-alive.
+**CF limits**: RSA host keys only · CTR/CBC only (no AES-GCM) · no private IPs · 30s WS keep-alive · registry needs KV — `/api/model/*` returns 503 without the binding.
 
 ---
 
@@ -104,13 +110,23 @@ Outputs arm64/x64 dmg + zip in `release/`. Unsigned builds: right-click → Open
 | Password | Purpose | Where |
 |---|---|---|
 | **Master password** | Unlocks the app; encrypts stored credentials; default backup key | First launch; Settings → Change password |
-| **AUTH_TOKEN** | Server API / WebSocket auth; required for public deploys | Env var at deploy; Settings → Backend token on clients |
+| **Backend access password** (env var `AUTH_TOKEN`) | The key to the server API; required for public deploys | Any password you choose, set at deploy; **optional** — auto-generated if unset, see below |
 | **Backup password** | Encrypts backup files; defaults to master password | Chosen at backup creation |
+
+**Do you need to obtain the backend access password somewhere? No — it is just a
+password you choose yourself** (e.g. `MyServer@2026`), written into the deploy
+config as `AUTH_TOKEN=<your password>`.
+
+- **Works with nothing set**: the server auto-generates an ephemeral password on
+  startup and hands it to the page — open the browser and use it, nothing to type.
+  It changes on every restart.
+- **When to set a fixed one**: public deploys (required); phone/remote devices
+  connecting to this server; MCP integration (Claude / Cursor need it).
 
 - **LAN use** (desktop / Docker / phones): backups are encrypted with the master
   password, so restoring on any device only needs that one password.
-- **Public use** (Linux / CF): AUTH_TOKEN is the "login" secret. Set the master
-  password equal to AUTH_TOKEN and you only ever remember one password.
+- **Public use** (Linux / CF): the backend access password is the "login" secret.
+  Set the master password equal to it and you only ever remember one password.
 - Backup files are portable across all clients.
 
 ## 📲 Connect a phone to a LAN server

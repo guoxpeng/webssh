@@ -9,7 +9,7 @@ RUN npm run build
 # ---- Stage 2: Production runtime ----
 FROM node:20-alpine
 RUN apk add --no-cache openssh-client curl
-RUN addgroup -S nodegroup && adduser -S -G nodegroup -h /app -D webssh 2>/dev/null; mkdir -p /app/data
+RUN addgroup -S nodegroup && adduser -S -G nodegroup -h /app -D webssh 2>/dev/null; mkdir -p /app/core/server/data
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
