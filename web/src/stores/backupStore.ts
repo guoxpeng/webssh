@@ -211,71 +211,91 @@ export const useBackupStore = defineStore('backup', () => {
     return entry;
   }
 
+  // Apply a decrypted/plain backup payload to the live stores.
+  // Shared by list-restore and cross-device one-step import-restore.
+  function applyBackupData(allData: any): number {
+    const connStore = useConnectionStore();
+    const snipStore = useSnippetStore();
+    const macroStore = useMacroStore();
+    const codeNoteStore = useCodeNoteStore();
+    const chatStore = useChatStore();
+
+    const existingIds = connStore.savedConnections.map((c: any) => c.id);
+    const existingNames = connStore.savedConnections.map((c: any) => c.name);
+
+    let restored = 0;
+    for (const conn of allData.connections || []) {
+      if (!existingIds.includes(conn.id) && !existingNames.includes(conn.name)) {
+        connStore.addConnection(conn);
+        if (conn.auth_value) {
+          connStore.saveCredentialToSessionStorage(conn.id, conn.auth_type, conn.auth_value);
+        }
+        restored++;
+      }
+    }
+
+    for (const snip of allData.snippets || []) {
+      snipStore.addSnippet({
+        title: snip.title, command: snip.command,
+        tags: snip.tags || [], favorite: snip.favorite || false,
+      });
+    }
+
+    for (const m of allData.macros || []) {
+      try { macroStore.addMacro(m); } catch {}
+    }
+
+    for (const n of allData.codeNotes || []) {
+      // Notes are stored with a `command` field; accept legacy `content` too.
+      try { codeNoteStore.addNote(n.command ?? n.content, n.source || 'terminal'); } catch {}
+    }
+
+    if (allData.chatConfig?.ai) {
+      try { chatStore.config.ai = { ...chatStore.config.ai, ...allData.chatConfig.ai }; } catch {}
+    }
+
+    if (allData.groupOrder?.length > 0) connStore.groupOrder = [...allData.groupOrder];
+    if (allData.groupCollapsed?.length > 0) connStore.groupCollapsed = new Set(allData.groupCollapsed);
+
+    if (allData.settings) {
+      const uiStore = useUiStore();
+      uiStore.setThemePreset(allData.settings.themePreset);
+      const termStore = useTerminalStore();
+      if (allData.settings.recentCommands) termStore.recentCommands = [...allData.settings.recentCommands];
+    }
+
+    return restored;
+  }
+
+  // Cross-device restore: decrypt an exported payload (.enc legacy ciphertext or
+  // the encryptedPayload of an exported .json) and apply it directly.
+  async function restoreFromCiphertext(ciphertext: string, password: string): Promise<{ restored: number; error?: string }> {
+    restoring.value = true;
+    try {
+      const decrypted = await decryptBackupData(ciphertext.trim(), password);
+      if (!decrypted?.data) return { restored: 0, error: 'wrongPassword' };
+      return { restored: applyBackupData(decrypted.data) };
+    } finally {
+      restoring.value = false;
+    }
+  }
+
   async function restoreBackup(id: string, password: string): Promise<{ restored: number; error?: string }> {
     restoring.value = true;
     try {
       const entry = backups.value.find(b => b.id === id);
-      if (!entry) return { restored: 0, error: 'Backup not found' };
+      if (!entry) return { restored: 0, error: 'notFound' };
 
       let allData: any;
       if (entry.encryptedPayload) {
         const decrypted = await decryptBackupData(entry.encryptedPayload, password);
-        if (!decrypted) return { restored: 0, error: '密码错误或数据已损坏' };
+        if (!decrypted) return { restored: 0, error: 'wrongPassword' };
         allData = decrypted.data;
       } else {
         allData = entry;
       }
 
-      const connStore = useConnectionStore();
-      const snipStore = useSnippetStore();
-      const macroStore = useMacroStore();
-      const codeNoteStore = useCodeNoteStore();
-      const chatStore = useChatStore();
-
-      const existingIds = connStore.savedConnections.map((c: any) => c.id);
-      const existingNames = connStore.savedConnections.map((c: any) => c.name);
-
-      let restored = 0;
-      for (const conn of allData.connections || []) {
-        if (!existingIds.includes(conn.id) && !existingNames.includes(conn.name)) {
-          connStore.addConnection(conn);
-          if (conn.auth_value) {
-            connStore.saveCredentialToSessionStorage(conn.id, conn.auth_type, conn.auth_value);
-          }
-          restored++;
-        }
-      }
-
-      for (const snip of allData.snippets || []) {
-        snipStore.addSnippet({
-          title: snip.title, command: snip.command,
-          tags: snip.tags || [], favorite: snip.favorite || false,
-        });
-      }
-
-      for (const m of allData.macros || []) {
-        try { macroStore.addMacro(m); } catch {}
-      }
-
-      for (const n of allData.codeNotes || []) {
-        try { codeNoteStore.addNote(n.content, n.source || 'terminal'); } catch {}
-      }
-
-      if (allData.chatConfig?.ai) {
-        try { chatStore.config.ai = { ...chatStore.config.ai, ...allData.chatConfig.ai }; } catch {}
-      }
-
-      if (allData.groupOrder?.length > 0) connStore.groupOrder = [...allData.groupOrder];
-      if (allData.groupCollapsed?.length > 0) connStore.groupCollapsed = new Set(allData.groupCollapsed);
-
-      if (allData.settings) {
-        const uiStore = useUiStore();
-        uiStore.setThemePreset(allData.settings.themePreset);
-        const termStore = useTerminalStore();
-        if (allData.settings.recentCommands) termStore.recentCommands = [...allData.settings.recentCommands];
-      }
-
-      return { restored };
+      return { restored: applyBackupData(allData) };
     } finally {
       restoring.value = false;
     }
@@ -410,7 +430,7 @@ export const useBackupStore = defineStore('backup', () => {
   return {
     backups, sortedBackups, totalSize, inventory, creating, restoring,
     scheduler, cloud, cloudBackups,
-    createBackup, decryptBackup, restoreBackup, deleteBackup,
+    createBackup, decryptBackup, restoreBackup, restoreFromCiphertext, deleteBackup,
     exportBackup, importBackup,
     updateScheduler, shouldAutoBackup, cleanupOldBackups,
     updateCloud, listCloudBackups, uploadToCloud, downloadFromCloud, deleteFromCloud,

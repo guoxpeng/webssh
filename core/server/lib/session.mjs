@@ -14,9 +14,13 @@ setInterval(() => {
 
 export function findSession(host, port, username, authValue) {
   const credHash = authValue ? hashCreds(authValue) : null;
+  // SECURITY (H1): never reuse a session without presenting matching
+  // credentials — the old `credHash === null` shortcut let anonymous callers
+  // exec inside someone else's live session.
+  if (!credHash) return null;
   for (const [id, s] of sessions) {
-    if (s.host === host && s.port === (port || 22) && s.username === username) {
-      if (credHash === null || s.credHash === credHash) return s.client;
+    if (s.host === host && s.port === (port || 22) && s.username === username && s.credHash === credHash) {
+      return s.client;
     }
   }
   return null;

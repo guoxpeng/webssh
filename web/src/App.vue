@@ -45,6 +45,13 @@ onMounted(() => {
       sessionStorage.setItem('webssh_master', exeMaster);
       unlocked.value = true;
     }
+  } else {
+    // Device-level auto-unlock (opt-in "remember this device")
+    const savedMaster = localStorage.getItem('webssh_saved_master');
+    if (savedMaster) {
+      sessionStorage.setItem('webssh_master', savedMaster);
+      unlocked.value = true;
+    }
   }
   uiStore.initializeTheme();
 

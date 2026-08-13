@@ -17,6 +17,17 @@ export function isSecureContext(): boolean {
   return haveSubtle();
 }
 
+// btoa(String.fromCharCode(...bytes)) blows the call stack for payloads above
+// ~100KB (RangeError) — large encrypted backups hit that. Convert in chunks.
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
 // ---- Pure JS SHA-256 fallback ----
 function sha256(data: Uint8Array): Uint8Array {
   const rightRotate = (x: number, c: number) => (x >>> c) | (x << (32 - c));
@@ -172,14 +183,14 @@ export async function encryptCredential(plaintext: string, masterPassword: strin
     const encrypted = xorEncrypt(plain, key);
     const combined = new Uint8Array(salt.length + iv.length + encrypted.length);
     combined.set(salt); combined.set(iv, salt.length); combined.set(encrypted, salt.length + iv.length);
-    return btoa(String.fromCharCode(...combined));
+    return bytesToBase64(combined);
   }
   const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key as CryptoKey, new TextEncoder().encode(plaintext));
   const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
   combined.set(salt, 0);
   combined.set(iv, salt.length);
   combined.set(new Uint8Array(encrypted), salt.length + iv.length);
-  return btoa(String.fromCharCode(...combined));
+  return bytesToBase64(combined);
 }
 
 export async function decryptCredential(ciphertext: string, masterPassword: string): Promise<string> {

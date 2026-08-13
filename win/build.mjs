@@ -64,11 +64,57 @@ if (existsSync(releaseDir)) {
   }
 }
 
+// Step 0: Bundle the Node server into a single self-contained file.
+// The packaged app ships WITHOUT node_modules (extraResources excludes them),
+// so `import { Client } from 'ssh2'` would fail at runtime unless bundled.
+// Mirrors the proven approach in core/build-worker.mjs (stub .node, shim agent).
+async function bundleServer() {
+  const esbuild = await import('esbuild');
+  const path = await import('path');
+  const entry = join(__dirname, '..', 'core', 'server', 'index.mjs');
+  const outfile = join(__dirname, '..', 'core', 'server', 'index.bundle.mjs');
+  await esbuild.build({
+    entryPoints: [entry],
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'esm',
+    outfile,
+    banner: { js: 'import { createRequire as __cr } from "module"; import { fileURLToPath as __fup } from "url"; import { dirname as __dn } from "path"; const require = __cr(import.meta.url); const __filename = __fup(import.meta.url); const __dirname = __dn(__filename);' },
+    plugins: [{
+      name: 'node-stub',
+      setup(build) {
+        build.onResolve({ filter: /\.node$/ }, () => ({ path: 'stub', namespace: 'node-stub' }));
+        build.onLoad({ filter: /.*/, namespace: 'node-stub' }, () => ({ contents: 'export default {};', loader: 'js' }));
+        build.onResolve({ filter: /^\.\/agent(\.js)?$/ }, (args) => {
+          if (args.importer && args.importer.replace(/\\/g, '/').includes('ssh2')) {
+            return { path: path.resolve(__dirname, '..', 'core', 'worker', 'shims', 'ssh2-agent.js') };
+          }
+        });
+      },
+    }],
+    logLevel: 'warning',
+  });
+  console.log('  Server bundled to core/server/index.bundle.mjs');
+}
+
 // Step 1: Build win-unpacked dir
+console.log('[0/3] Bundling server...');
+try {
+  await bundleServer();
+} catch (e) {
+  console.error('  Server bundle FAILED — packaged app will not run:', e.message);
+  process.exit(1);
+}
+
 console.log('[1/3] Building unpacked app...');
 execSync('npx electron-builder --win=dir', {
   cwd: __dirname, stdio: 'inherit', timeout: 300000,
 });
+
+// The bundle is a build artifact — electron-builder already copied it into
+// resources; keep the source tree clean.
+try { rmSync(join(__dirname, '..', 'core', 'server', 'index.bundle.mjs')); } catch {}
 
 // Step 2: Patch icon with rcedit
 console.log('[2/3] Patching icon...');

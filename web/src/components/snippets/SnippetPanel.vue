@@ -64,9 +64,9 @@
         <div v-if="editingId === s.id" class="edit-form" @click.stop>
           <input type="text" v-model="editTitle" :placeholder="t('snippets.titleField')" class="form-input"/>
           <textarea v-model="editCommand" :placeholder="t('snippets.commandField')" class="form-textarea" rows="2"></textarea>
-          <div class="edit-form-actions">
-            <button class="save-edit-btn" @click="saveEdit(s.id)">{{ t('common.save') }}</button>
-            <button class="cancel-edit-btn" @click="editingId = null">{{ t('common.cancel') }}</button>
+          <div class="edit-actions">
+            <button class="add-btn" @click="saveEdit(s.id)">{{ t('common.save') }}</button>
+            <button class="cancel-btn" @click="editingId = null">{{ t('common.cancel') }}</button>
           </div>
         </div>
         <div v-else-if="s.expanded" class="snippet-detail">
@@ -228,45 +228,26 @@ function onImportFile(e) {
 </script>
 
 <style lang="scss" scoped>
-.snippet-panel {
-  background: var(--bulma-box-background-color);
-  backdrop-filter: blur(12px); border: 1px solid var(--bulma-border-light);
-  border-radius: 12px; overflow: hidden; width: 460px; max-width: 95vw;
-}
-.panel-header { display: flex; align-items: center; padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--bulma-border-light); }
-.panel-title { font-size: 0.85em; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 0.35rem; flex: 1; }
-.panel-actions { display: flex; gap: 2px; }
-.panel-action-btn {
-  background: none; border: none; padding: 0.3rem 0.4rem; border-radius: 6px; cursor: pointer;
-  color: var(--bulma-text-light); display: flex;
-  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
-}
-.batch-run-btn { color: var(--bulma-primary); font-weight: 600; font-size: 0.75em; gap: 2px; }
-.add-form { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; border-bottom: 1px solid var(--bulma-border-light); }
-.form-input, .form-textarea {
-  border: 1px solid var(--bulma-border); border-radius: 6px; padding: 0.3rem 0.5rem;
-  font-size: 0.75em; background: var(--bulma-input-background-color); color: var(--bulma-text); outline: none;
-  &:focus { border-color: var(--bulma-primary); }
-}
-.form-textarea { resize: vertical; font-family: var(--bulma-family-monospace); }
-.add-form-actions, .edit-form-actions { display: flex; gap: 0.35rem; }
-.add-btn, .save-edit-btn { flex: 1; border: none; border-radius: 6px; padding: 0.3rem; font-size: 0.75em; cursor: pointer; font-weight: 500; background: var(--bulma-primary); color: white; }
-.cancel-btn, .cancel-edit-btn { flex: 1; border: none; border-radius: 6px; padding: 0.3rem; font-size: 0.75em; cursor: pointer; font-weight: 500; background: var(--bulma-border-light); color: var(--bulma-text); }
-.edit-form { padding: 0.4rem 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.snippet-panel { width: 460px; max-width: 95vw; }
+.batch-run-btn { color: var(--bulma-primary); font-weight: 600; }
 
-.panel-list { max-height: 420px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; }
-.snippet-item { padding: 0.5rem 0.75rem; & + & { border-top: 1px solid var(--bulma-border-light); } cursor: grab; &.is-dragging { opacity: 0.4; } &.is-dragover { background: rgba(99,102,241,0.08); outline: 2px dashed var(--bulma-primary); outline-offset: -2px; border-radius: 6px; } &.is-pinned { background: rgba(234,179,8,0.06); } }
-.snippet-top { display: flex; align-items: center; gap: 0.4rem; }
+.panel-list { max-height: 420px; overflow-y: auto; }
+.snippet-item {
+  cursor: grab;
+  &.is-dragging { opacity: 0.4; }
+  &.is-dragover { background: rgba(99,102,241,0.08); outline: 2px dashed var(--bulma-primary); outline-offset: -2px; border-radius: 8px; }
+  &.is-pinned { background: rgba(234,179,8,0.05); }
+}
+.snippet-top { display: flex; align-items: center; gap: 0.45rem; }
 .snippet-check { accent-color: var(--bulma-primary); flex-shrink: 0; }
-.snippet-num { font-size: 0.65em; color: var(--bulma-text-light); font-weight: 600; min-width: 18px; text-align: center; flex-shrink: 0; font-family: monospace; }
+.snippet-num { font-size: 0.65em; color: var(--bulma-text-light); font-weight: 600; min-width: 18px; text-align: center; flex-shrink: 0; font-family: var(--bulma-family-monospace); }
 .snippet-info { flex: 1; cursor: pointer; min-width: 0; }
-.snippet-title { display: block; font-size: 0.85em; font-weight: 500; }
-.snippet-cmd-preview { display: block; font-size: 0.7em; color: var(--bulma-text-light); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
-.snippet-actions { display: flex; gap: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; .snippet-item:hover & { opacity: 1; } }
-.snip-btn { background: none; border: none; padding: 0.3rem; border-radius: 6px; cursor: pointer; color: var(--bulma-text-light); display: flex; &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); } &.is-pinned.is-active { color: var(--bulma-warning); } &.is-danger:hover { color: var(--bulma-danger); } }
-.snippet-detail { margin-top: 0.35rem; }
-.snippet-command { background: var(--bulma-scheme-main-ter); border-radius: 6px; padding: 0.5rem 0.65rem; font-size: 0.75em; overflow-x: auto; margin: 0; code { color: var(--bulma-text); } }
-.snippet-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
-.snippet-tag { font-size: 0.65em; padding: 2px 7px; border-radius: 4px; background: var(--bulma-primary); color: white; opacity: 0.85; }
-.panel-empty { padding: 1.5rem; text-align: center; font-size: 0.85em; color: var(--bulma-text-light); }
+.snippet-title { display: block; font-size: 0.82em; font-weight: 500; }
+.snippet-cmd-preview { display: block; font-size: 0.7em; color: var(--bulma-text-light); font-family: var(--bulma-family-monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.snippet-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; .snippet-item:hover & { opacity: 1; } }
+.snip-btn.is-pinned.is-active { color: var(--bulma-warning); }
+.snippet-detail { margin-top: 0.45rem; }
+.snippet-command { background: var(--bulma-scheme-main-ter); border-radius: 8px; padding: 0.5rem 0.65rem; font-size: 0.75em; overflow-x: auto; margin: 0; code { color: var(--bulma-text); } }
+.snippet-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; }
+.snippet-tag { font-size: 0.65em; padding: 2px 8px; border-radius: 999px; background: var(--bulma-primary); color: white; opacity: 0.85; }
 </style>

@@ -46,11 +46,27 @@ export default defineConfig({
   build: {
     outDir: '../dist/client',
     emptyOutDir: true,
+    // Target modern evergreen browsers/Electron/WebView — smaller, faster output.
+    target: 'es2020',
+    cssCodeSplit: true,
+    // Inline tiny assets to cut request count on slow/mobile links.
+    assetsInlineLimit: 4096,
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Terminal is the heaviest feature — isolate it so it never blocks
+          // the connection/home screen first paint.
           if (id.includes('@xterm/')) return 'xterm';
-          if (id.includes('node_modules/lucide-vue-next') || id.includes('node_modules/vue') || id.includes('node_modules/pinia') || id.includes('node_modules/vue-router') || id.includes('node_modules/vue-i18n')) return 'vendor';
+          if (id.includes('jszip')) return 'zip';
+          if (id.includes('node_modules/lucide-vue-next')) return 'icons';
+          if (
+            id.includes('node_modules/vue') ||
+            id.includes('node_modules/pinia') ||
+            id.includes('node_modules/vue-router') ||
+            id.includes('node_modules/vue-i18n') ||
+            id.includes('@vue')
+          ) return 'vendor';
         },
       },
     },
@@ -86,6 +102,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['src/**/*.{test,spec}.{js,ts}'],
+    // Node 26+ 的实验性 localStorage 访问器会遮蔽 jsdom 注入的存储对象，
+    // setup 里补内存版兜底（见 storage-setup.js）
+    setupFiles: ['src/__tests__/storage-setup.js'],
     css: false,
   },
 });

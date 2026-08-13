@@ -5,6 +5,7 @@ import { get as httpsGet } from 'https';
 import { Client } from 'ssh2';
 import { audit } from './audit.mjs';
 import { logger } from './logger.mjs';
+import { verifyHostKey } from './utils.mjs';
 const log = logger('Chat');
 
 const __dirname = join(fileURLToPath(import.meta.url), '..', '..');
@@ -162,6 +163,7 @@ async function executeSSHCommand(serverCfg, command) {
       username: serverCfg.username || 'root',
       readyTimeout: 10000,
       keepaliveInterval: 0,
+      hostVerifier: (keyHash, callback) => verifyHostKey(serverCfg.host, serverCfg.port || 22, keyHash, callback),
     };
     if (serverCfg.auth_value) {
       if (serverCfg.auth_type === 'key') cfg.privateKey = serverCfg.auth_value;
@@ -216,6 +218,23 @@ function maskSecret(val) {
   return val.slice(0, 3) + '****' + val.slice(-4);
 }
 
+// SECURITY (H4): merge only known sections and JSON-safe values. The previous
+// `Object.assign(chatConfig, body)` allowed prototype pollution via a crafted
+// `__proto__` key in the request body.
+const ALLOWED_CONFIG_SECTIONS = ['telegram', 'wechat', 'qq', 'ai'];
+function safeMerge(target, src) {
+  for (const k of Object.keys(src)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+    const v = src[k];
+    const t = typeof v;
+    if (t === 'string' || t === 'number' || t === 'boolean' || Array.isArray(v)) {
+      target[k] = v;
+    } else if (v && t === 'object') {
+      if (target[k] && typeof target[k] === 'object' && !Array.isArray(target[k])) safeMerge(target[k], v);
+    }
+  }
+}
+
 export function createChatBot() {
   return {
     getConfig: () => chatConfig,
@@ -229,7 +248,13 @@ export function createChatBot() {
     },
     getMessages: (since = 0) => since > 0 ? chatMessages.filter(m => m.timestamp > since) : chatMessages,
     updateConfig: (newConfig) => {
-      Object.assign(chatConfig, newConfig);
+      if (!newConfig || typeof newConfig !== 'object') return;
+      for (const section of ALLOWED_CONFIG_SECTIONS) {
+        const incoming = newConfig[section];
+        if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+          safeMerge(chatConfig[section], incoming);
+        }
+      }
       saveChatConfig();
       restartTelegramPoll();
     },

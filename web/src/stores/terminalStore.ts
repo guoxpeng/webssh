@@ -35,7 +35,9 @@ export const useTerminalStore = defineStore('terminal', () => {
   const MAX_RECENT = 20;
 
   const saved = sessionStorage.getItem(SESSIONS_KEY);
-  const sessions = ref<TerminalSession[]>(saved ? JSON.parse(saved) : []);
+  let initialSessions: TerminalSession[] = [];
+  if (saved) { try { initialSessions = JSON.parse(saved); } catch { initialSessions = []; } }
+  const sessions = ref<TerminalSession[]>(initialSessions);
   const activeSessionId = ref<string | null>(null);
   const recentCommands = ref<string[]>(loadRecentCommands());
   const activeSendFunction = ref<((data: string) => void) | null>(null);
@@ -148,6 +150,49 @@ export const useTerminalStore = defineStore('terminal', () => {
     activeSendFunction.value = fn;
   }
 
+  // ── Macro recording: capture typed commands from the active terminal ──
+  const isRecording = ref(false);
+  const recordedSteps = ref<{ command: string; delay: number }[]>([]);
+  let recordBuffer = '';
+  let lastInputAt = 0;
+
+  function startRecording(): void {
+    isRecording.value = true;
+    recordedSteps.value = [];
+    recordBuffer = '';
+    lastInputAt = Date.now();
+  }
+
+  // Called by the terminal on every keystroke while recording.
+  function recordInput(data: string): void {
+    if (!isRecording.value) return;
+    const now = Date.now();
+    const elapsed = Math.max(0, Math.min(now - lastInputAt, 10000));
+    lastInputAt = now;
+    for (const ch of data) {
+      if (ch === '\r' || ch === '\n') {
+        recordedSteps.value.push({
+          command: recordBuffer,
+          delay: recordedSteps.value.length === 0 ? 0 : Math.max(300, elapsed),
+        });
+        recordBuffer = '';
+      } else if (ch === '\x7f') {
+        recordBuffer = recordBuffer.slice(0, -1); // backspace
+      } else if (ch >= ' ') {
+        recordBuffer += ch;
+      }
+    }
+  }
+
+  function stopRecording(): { command: string; delay: number }[] {
+    isRecording.value = false;
+    if (recordBuffer.trim()) {
+      recordedSteps.value.push({ command: recordBuffer, delay: 300 });
+      recordBuffer = '';
+    }
+    return recordedSteps.value.filter(s => s.command.trim() !== '');
+  }
+
   return {
     sessions, activeSessionId, activeSession, sessionCount, recentCommands,
     paneConfigs,
@@ -155,5 +200,6 @@ export const useTerminalStore = defineStore('terminal', () => {
     createSession, closeSession, setActiveSession, updateSessionStatus, restoreActiveSession,
     addRecentCommand, clearRecentCommands, clearAll,
     setPaneConfigs, clearPaneConfigs,
+    isRecording, startRecording, recordInput, stopRecording,
   };
 });
