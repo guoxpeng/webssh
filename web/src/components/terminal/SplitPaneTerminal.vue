@@ -97,7 +97,7 @@ import TerminalDisplay from './TerminalDisplay.vue';
 import ConnectionErrorPanel from './ConnectionErrorPanel.vue';
 import ProtocolInfoPanel from './ProtocolInfoPanel.vue';
 import DockerPanel from '@/components/docker/DockerPanel.vue';
-import { Terminal, Monitor, Video, Wifi, GripVertical, GripHorizontal, Columns2, Rows2 } from 'lucide-vue-next';
+import { Terminal, Monitor, Video, Wifi, GripVertical, GripHorizontal, Columns2, Rows2, X } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -219,7 +219,7 @@ function addPane(type, protocol, config) {
   let baseName = config?.name || (config?.host ? `${config.username}@${config.host}` : `${protocol.toUpperCase()} ${panes.value.length + 1}`);
   const sameHost = panes.value.filter(p => p.config?.host === config?.host && p.config?.username === config?.username);
   if (sameHost.length > 0) {
-    baseName = `${baseName} (副本${sameHost.length + 1})`;
+    baseName = `${baseName} (${t('terminal.tabCopy', { n: sameHost.length + 1 })})`;
   }
   panes.value.push({
     id, name: baseName,

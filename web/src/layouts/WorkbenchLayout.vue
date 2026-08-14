@@ -3,121 +3,107 @@
     <SkipToContent />
     <AppNavbar v-if="!isElectron" />
     <div id="main-content" class="workbench-body" role="main" aria-label="Main content">
-      <aside class="workbench-sidebar" :class="{ 'is-collapsed': sidebarCollapsed, 'is-mobile-open': mobileMenuOpen }"
-             role="navigation" aria-label="Sidebar navigation">
+      <aside class="workbench-sidebar" :class="{ 'is-icon-only': sidebarIconOnly, 'is-mobile-open': mobileMenuOpen }"
+             role="navigation" aria-label="Sidebar navigation" :style="{ width: sidebarWidth + 'px' }">
+        <div class="sidebar-resizer" @mousedown="startSidebarDrag" :title="t('nav.dragResize')"></div>
         <div class="sidebar-header">
-          <span class="sidebar-title" v-show="!sidebarCollapsed">{{ t('nav.menu') }}</span>
+          <span class="sidebar-title" v-show="!sidebarIconOnly">{{ t('nav.menu') }}</span>
           <button class="sidebar-close" @click="mobileMenuOpen = false" aria-label="Close menu">&times;</button>
         </div>
-        <nav class="sidebar-nav" @click="onSidebarNavClick">
+        <nav class="sidebar-nav">
           <router-link to="/" class="sidebar-item" :class="{ 'is-active': $route.name === 'ConnectionHome' }"
                         @click="closeMobileMenu" :title="t('nav.servers')" aria-current="page">
             <Server :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.servers') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.servers') }}</span>
           </router-link>
           <router-link to="/terminal" class="sidebar-item" :class="{ 'is-active': $route.name === 'Terminal' }"
                         @click="closeMobileMenu" :title="t('nav.terminal')">
             <Terminal :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.terminal') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.terminal') }}</span>
           </router-link>
           <router-link to="/sftp" class="sidebar-item" :class="{ 'is-active': $route.name === 'Sftp' }"
                         @click="closeMobileMenu" :title="t('sftp.title')">
             <FolderOpen :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.sftp') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.sftp') }}</span>
           </router-link>
           <router-link to="/tunnels" class="sidebar-item" :class="{ 'is-active': $route.name === 'Tunnels' }"
                         @click="closeMobileMenu" :title="t('nav.tunnels')">
             <GitBranch :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.tunnels') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.tunnels') }}</span>
           </router-link>
           <router-link to="/keys" class="sidebar-item" :class="{ 'is-active': $route.name === 'Keys' }"
                         @click="closeMobileMenu" :title="t('nav.keys')">
             <KeyRound :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.keys') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.keys') }}</span>
           </router-link>
           <router-link to="/history" class="sidebar-item" :class="{ 'is-active': $route.name === 'History' }"
                         @click="closeMobileMenu" :title="t('nav.history')">
             <History :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.history') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.history') }}</span>
           </router-link>
           <router-link to="/known-hosts" class="sidebar-item" :class="{ 'is-active': $route.name === 'KnownHosts' }"
                         @click="closeMobileMenu" :title="t('nav.knownHosts')">
             <ShieldCheck :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.knownHosts') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.knownHosts') }}</span>
           </router-link>
-          <div class="sidebar-group-label" v-show="!sidebarCollapsed">{{ t('nav.mcp') }}</div>
+          <div class="sidebar-group-label" v-show="!sidebarIconOnly">{{ t('nav.mcp') }}</div>
           <router-link to="/mcp/server" class="sidebar-item" :class="{ 'is-active': $route.name === 'McpServer' }"
                         @click="closeMobileMenu" :title="t('nav.mcpServer')">
             <Cable :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.mcpServer') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.mcpServer') }}</span>
           </router-link>
           <router-link to="/mcp/clients" class="sidebar-item" :class="{ 'is-active': $route.name === 'McpClients' }"
                         @click="closeMobileMenu" :title="t('nav.mcpClient')">
             <Blocks :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.mcpClient') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.mcpClient') }}</span>
           </router-link>
           <router-link to="/mcp/tokens" class="sidebar-item" :class="{ 'is-active': $route.name === 'McpTokens' }"
                         @click="closeMobileMenu" :title="t('nav.mcpTokens')">
             <Coins :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.mcpTokens') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.mcpTokens') }}</span>
           </router-link>
           <router-link to="/mcp/status" class="sidebar-item" :class="{ 'is-active': $route.name === 'McpStatus' }"
                         @click="closeMobileMenu" :title="t('nav.mcpStatus')">
             <Activity :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.mcpStatus') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.mcpStatus') }}</span>
           </router-link>
 
           <div class="sidebar-spacer"></div>
-          <div class="sidebar-group-label" v-show="!sidebarCollapsed">{{ t('nav.more') }}</div>
-          <a class="sidebar-item" @click="showChat = !showChat; closeMobileMenu()" :title="t('chat.title')" role="button" tabindex="0">
-            <MessageSquare :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('chat.title') }}</span>
+          <div class="sidebar-group-label" v-show="!sidebarIconOnly">{{ t('nav.more') }}</div>
+          <a class="sidebar-item" @click="showSnippets = !showSnippets; closeMobileMenu()" :title="t('nav.snippets')" role="button" tabindex="0">
+            <Star :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.snippets') }}</span>
           </a>
           <a class="sidebar-item" @click="showCodeNotes = !showCodeNotes; closeMobileMenu()" :title="t('codeNotes.title')" role="button" tabindex="0">
             <FileCode :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('codeNotes.title') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('codeNotes.title') }}</span>
+          </a>
+          <a class="sidebar-item" @click="showChat = !showChat; closeMobileMenu()" :title="t('nav.aiRobot')" role="button" tabindex="0">
+            <MessageSquare :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.aiRobot') }}</span>
           </a>
           <a class="sidebar-item" @click="showMacro = true; closeMobileMenu()" :title="t('macro.title')" role="button" tabindex="0">
             <PlayCircle :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('macro.title') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('macro.title') }}</span>
           </a>
           <a class="sidebar-item" @click="showBackup = true; closeMobileMenu()" :title="t('nav.backup')" role="button" tabindex="0">
             <Database :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.backup') }}</span>
-          </a>
-          <a class="sidebar-item" @click="showAudit = !showAudit; closeMobileMenu()" :title="t('nav.audit')" role="button" tabindex="0">
-            <ScrollText :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.audit') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.backup') }}</span>
           </a>
           <a class="sidebar-item" @click="toggleTheme(); closeMobileMenu()" :title="t('nav.toggleTheme')" role="button" tabindex="0">
             <Sun v-if="uiStore.currentTheme === 'light'" :size="22" stroke-width="1.5"/>
             <Moon v-else :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">
+            <span class="sidebar-label" v-show="!sidebarIconOnly">
               {{ uiStore.currentTheme === 'light' ? t('settings.light') : t('settings.dark') }}
             </span>
           </a>
-          <a class="sidebar-item" @click="showSnippets = !showSnippets; closeMobileMenu()" :title="t('nav.snippets')" role="button" tabindex="0">
-            <Star :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
-          </a>
           <a class="sidebar-item" @click="showSettings = true; closeMobileMenu()" :title="t('nav.settings')" role="button" tabindex="0">
             <Settings :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.settings') }}</span>
-          </a>
-          <router-link to="/help" class="sidebar-item" :class="{ 'is-active': $route.name === 'Help' }"
-                        @click="closeMobileMenu" :title="t('nav.help')">
-            <LifeBuoy :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.help') }}</span>
-          </router-link>
-          <a class="sidebar-item is-collapse-toggle" @click="sidebarCollapsed = !sidebarCollapsed" :title="t('common.close')"
-             role="button" tabindex="0" :aria-expanded="!sidebarCollapsed">
-            <ChevronsLeft :size="22" stroke-width="1.5" class="collapse-icon"
-               :class="{ 'is-rotated': sidebarCollapsed }"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('common.collapse') }}</span>
+            <span class="sidebar-label" v-show="!sidebarIconOnly">{{ t('nav.settings') }}</span>
           </a>
         </nav>
       </aside>
-      <main class="workbench-content" :class="{ 'is-sidebar-collapsed': sidebarCollapsed }" role="main" aria-label="Page content">
+      <main class="workbench-content" :style="contentMarginStyle" role="main" aria-label="Page content">
         <router-view v-slot="{ Component }">
           <transition name="page" mode="out-in">
             <keep-alive>
@@ -187,7 +173,7 @@
         <AuditPanel @close="showAudit = false"/>
       </div>
     </div>
-    <SettingsPanel :visible="showSettings" @close="showSettings = false" />
+    <SettingsPanel :visible="showSettings" @close="showSettings = false" @open-audit="openAuditFromSettings" @open-help="openHelpFromSettings" />
     <OnboardingGuide v-if="showOnboarding" @dismiss="dismissOnboarding" />
     <div v-if="showMacro" class="snippet-overlay">
       <div class="snippet-overlay-backdrop" @click="showMacro = false"></div>
@@ -200,8 +186,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, provide } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, provide } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import AppNavbar from '@/components/global/AppNavbar.vue';
 import AppNotification from '@/components/global/AppNotification.vue';
 import SettingsPanel from '@/components/global/SettingsPanel.vue';
@@ -211,6 +198,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useConnectionStore } from '@/stores/connectionStore';
 import { useTerminalStore } from '@/stores/terminalStore';
+import { storageGet, storageSet } from '@/utils/storage';
 import { useMacroStore } from '@/stores/macroStore';
 import SnippetPanel from '@/components/snippets/SnippetPanel.vue';
 import CodeNotePanel from '@/components/codeNotes/CodeNotePanel.vue';
@@ -218,7 +206,7 @@ import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import AuditPanel from '@/components/audit/AuditPanel.vue';
-import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText, GitBranch, KeyRound, History, ShieldCheck, LifeBuoy, Cable, Blocks, Coins, Activity } from 'lucide-vue-next';
+import { Menu, Settings, Server, Terminal, Sun, Moon, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, GitBranch, KeyRound, History, ShieldCheck, Cable, Blocks, Coins, Activity } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -226,17 +214,27 @@ const uiStore = useUiStore();
 const connectionStore = useConnectionStore();
 const terminalStore = useTerminalStore();
 const { showWarning, showSuccess } = useNotifications();
-const sidebarCollapsed = ref(false);
+const router = useRouter();
+
+// ── Resizable sidebar: drag the right edge; collapses to icons when narrow ──
+const SIDEBAR_MIN = 56;
+const SIDEBAR_MAX = 320;
+const ICON_ONLY_THRESHOLD = 72;
+const sidebarWidth = ref(parseInt(storageGet('sidebarWidth') || '') || 200);
+sidebarWidth.value = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, sidebarWidth.value));
+const sidebarIconOnly = computed(() => sidebarWidth.value <= ICON_ONLY_THRESHOLD);
+const isMobileView = ref(false);
+const contentMarginStyle = computed(() => (isMobileView.value ? {} : { marginLeft: sidebarWidth.value + 'px' }));
+
 const mobileMenuOpen = ref(false);
 const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
 const showMacro = ref(false);
 const showSettings = ref(false);
 // First-run onboarding — shown once, dismissed forever via localStorage flag.
-const ONBOARD_KEY = 'webssh_onboarded_v3';
 const showOnboarding = ref(false);
 function dismissOnboarding() {
   showOnboarding.value = false;
-  try { localStorage.setItem(ONBOARD_KEY, '1'); } catch {}
+  storageSet('onboarded', '1');
 }
 const showSnippets = ref(false);
 const showBackup = ref(false);
@@ -248,9 +246,6 @@ provide('toggleSnippets', () => { showSnippets.value = !showSnippets.value; });
 provide('toggleChat', () => { showChat.value = !showChat.value; });
 
 function closeMobileMenu() { mobileMenuOpen.value = false; }
-function onSidebarNavClick(e) {
-  if (e.target.closest('.is-collapse-toggle')) return;
-}
 
 function onGlobalKeydown(e) {
   const isCtrl = e.ctrlKey || e.metaKey;
@@ -309,21 +304,53 @@ function onRecordStop() {
 
 function toggleTheme() {
   const isDark = uiStore.currentTheme === 'dark';
-  uiStore.toggleTheme(); 
-  sidebarCollapsed.value = false; 
+  uiStore.toggleTheme();
   showSuccess(t('nav.themeChanged', { theme: isDark ? t('settings.light') : t('settings.dark') }));
 }
 
+// ── Sidebar drag-resize (desktop: drag the right edge) ──
+function updateIsMobile() {
+  isMobileView.value = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+}
+
+function startSidebarDrag(e) {
+  if (isMobileView.value) return;
+  e.preventDefault();
+  const startX = e.clientX;
+  const startW = sidebarWidth.value;
+  const onMove = (ev) => {
+    const w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + (ev.clientX - startX)));
+    sidebarWidth.value = w;
+    storageSet('sidebarWidth', String(w));
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  };
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function openAuditFromSettings() { showSettings.value = false; showAudit.value = true; }
+function openHelpFromSettings() { showSettings.value = false; router.push('/help'); }
+
 onMounted(() => {
+  updateIsMobile();
+  window.addEventListener('resize', updateIsMobile);
   document.addEventListener('keydown', onGlobalKeydown);
   document.addEventListener('open-settings', onOpenSettings);
   document.addEventListener('open-macro', onOpenMacro);
   connectionStore.loadCredentialsFromSessionStorage?.()?.catch(() => {});
   // First-run onboarding guide (shown once per browser profile).
-  try { if (!localStorage.getItem(ONBOARD_KEY)) showOnboarding.value = true; } catch {}
+  try { if (!storageGet('onboarded')) showOnboarding.value = true; } catch {}
   // Auto-backup skipped: manual backup with password required
 });
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateIsMobile);
   document.removeEventListener('keydown', onGlobalKeydown);
   document.removeEventListener('open-settings', onOpenSettings);
   document.removeEventListener('open-macro', onOpenMacro);
@@ -340,7 +367,17 @@ onBeforeUnmount(() => {
   width: 200px; background: var(--app-surface);
   border-right: 1px solid var(--app-border); padding: 1.5rem 0 0.75rem;
   display: flex; flex-direction: column; overflow-y: auto;
-  &.is-collapsed { width: 56px; }
+}
+.sidebar-resizer {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 5px;
+  cursor: col-resize; z-index: 5;
+  &:hover, &:active { background: color-mix(in srgb, var(--bulma-primary) 35%, transparent); }
+}
+/* Icon-only mode (narrow width) — desktop only; the mobile drawer always shows labels */
+@media screen and (min-width: 769px) {
+  .workbench-sidebar.is-icon-only .sidebar-item {
+    justify-content: center; padding-left: 0; padding-right: 0;
+  }
 }
 .sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0.5rem; flex: 1; }
 .sidebar-item {
@@ -365,8 +402,7 @@ onBeforeUnmount(() => {
 .sidebar-spacer { flex: 1; }
 .collapse-icon { transition: transform 0.2s ease; &.is-rotated { transform: rotate(180deg); } }
 
-.workbench-content { flex: 1; min-width: 0; overflow: hidden; padding: 0; margin-left: 200px; }
-.workbench-content.is-sidebar-collapsed { margin-left: 56px; }
+.workbench-content { flex: 1; min-width: 0; overflow: hidden; padding: 0; }
 
 .workbench-statusbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -446,12 +482,12 @@ onBeforeUnmount(() => {
     background: var(--app-surface);
     border-right: 1px solid var(--app-border);
     &.is-mobile-open { transform: translateX(0); }
-    &.is-collapsed { transform: translateX(-100%); }
   }
   .workbench-content {
     margin-left: 0 !important; padding: 0.6rem; padding-bottom: calc(3.5rem + 20px + var(--sab, 0px));
     overflow: hidden;
   }
+  .sidebar-resizer { display: none; }
   .sidebar-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--app-border);
@@ -464,7 +500,6 @@ onBeforeUnmount(() => {
   }
   .sidebar-nav { padding: 0.5rem; }
   .sidebar-label { display: inline !important; }
-  .collapse-icon { display: none; }
   .mobile-bottom-nav { display: flex; }
   .workbench-statusbar {
     display: flex; height: 20px; font-size: 0.6em;

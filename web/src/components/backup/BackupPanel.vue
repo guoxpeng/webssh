@@ -226,6 +226,7 @@
 import { ref, onMounted } from 'vue';
 import { useBackupStore } from '@/stores/backupStore';
 import { useNotifications } from '@/composables/useNotifications';
+import { storageGet } from '@/utils/storage';
 import { useI18n } from 'vue-i18n';
 import { decryptBackupData } from '@/utils/crypto';
 import { Database, Plus, Upload, Download, X, ChevronRight, Archive, RotateCcw, Trash2, Lock, Server, Code } from 'lucide-vue-next';
@@ -245,7 +246,7 @@ const passwordError = ref('');
 // the app) so users only ever remember ONE password across all devices.
 const useMasterPw = ref(true);
 function masterPw() {
-  try { return sessionStorage.getItem('webssh_master') || ''; } catch { return ''; }
+  return storageGet('sessionMaster') || '';
 }
 
 // Restore modal

@@ -2,7 +2,8 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { testSshConnection as apiTestSsh } from '@/services/apiService';
 import SshWebSocketService from '@/services/sshWebSocketService';
-import { ConnectionStatus, SESSION_STORAGE_CRED_PREFIX, LOCAL_STORAGE_CRED_PREFIX, SESSION_STORAGE_CONNECTIONS_KEY, getApiBaseUrl } from '@/utils/constants';
+import { ConnectionStatus, getApiBaseUrl } from '@/utils/constants';
+import { storageGet, storageSet, storageRemove, storageGetJSON, storageSetJSON, storageGetPrefixed, storageSetPrefixed, storageRemovePrefixed, storageListPrefixed } from '@/utils/storage';
 import type { ConnectionStatusType } from '@/utils/constants';
 import { encrypt, decrypt } from '@/utils/cryptoService';
 import { encryptCredential, decryptCredential } from '@/utils/crypto';
@@ -40,33 +41,147 @@ interface TestResult {
   time_elapsed?: number;
 }
 
-const GROUP_ORDER_KEY = 'webssh_group_order';
-const GROUP_COLLAPSED_KEY = 'webssh_group_collapsed';
-
-function loadJSON(key, fallback) {
-  try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch { return fallback; }
+// Loads the saved connection list. The current key is LOCAL_STORAGE_CONNECTIONS_KEY;
+// older builds stored it under LEGACY_CONNECTIONS_KEY, which is read as a
+// fallback and migrated (write new, remove old) so existing installs keep
+// their data. Never write to the legacy key.
+function loadSavedConnections(): NodeConfig[] {
+  try {
+    const raw = storageGet('connections');
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    const legacyRaw = storageGet('legacyConnections');
+    if (legacyRaw !== null) {
+      const parsed = JSON.parse(legacyRaw);
+      if (Array.isArray(parsed)) {
+        storageSet('connections', JSON.stringify(parsed));
+        storageRemove('legacyConnections');
+        return parsed;
+      }
+    }
+  } catch {
+    // Corrupted JSON — start with an empty list.
+  }
+  return [];
 }
 
-export const FAILED_GROUP = '未成功连接';
+// Internal sentinel for the "failed to connect" pseudo-group. It is persisted
+// as a connection's `group` field, so it must stay language-neutral — the
+// display name is localized via t('server.failedGroup'). An older build used a
+// literal Chinese value for this sentinel; LEGACY_FAILED_GROUP migrates it.
+export const FAILED_GROUP = '__failed__';
+// Legacy persisted value written by builds that predated the language-neutral
+// sentinel. It only ever appears in already-persisted data and is never shown
+// in the UI, hence the explicit i18n-ignore opt-out.
+const LEGACY_FAILED_GROUP = '未成功连接'; // i18n-ignore: legacy data migration
 
 export const useConnectionStore = defineStore('connection', () => {
   const currentNodeDetails = ref<NodeConfig | null>(null);
   const connectionStatus = ref<ConnectionStatusType>(ConnectionStatus.DISCONNECTED);
   const sshTestResult = ref<TestResult | null>(null);
   const sshTestLoading = ref<boolean>(false);
-  const savedConnections = ref<NodeConfig[]>(loadJSON(SESSION_STORAGE_CONNECTIONS_KEY, []));
+  // Persisted across restarts in localStorage (see loadSavedConnections for
+  // the legacy-key migration).
+  const savedConnections = ref<NodeConfig[]>(loadSavedConnections());
   const sessionRememberedCredentials = ref<Record<string, Credential>>({});
   const wsService = new SshWebSocketService();
   const pendingConnections = ref<NodeConfig[]>([]);
 
-  const groupOrder = ref<string[]>(loadJSON(GROUP_ORDER_KEY, []));
-  const groupCollapsed = ref<Set<string>>(new Set(loadJSON(GROUP_COLLAPSED_KEY, [])));
+  const groupOrder = ref<string[]>(storageGetJSON('groupOrder', []));
+  const groupCollapsed = ref<Set<string>>(new Set(storageGetJSON('groupCollapsed', [])));
+
+  // Migrate the legacy Chinese failed-group sentinel to the language-neutral
+  // value so persisted lists round-trip regardless of UI language.
+  (function migrateLegacyFailedGroup() {
+    const legacy = LEGACY_FAILED_GROUP;
+    let dirty = false;
+    for (const c of savedConnections.value) {
+      if (c.group === legacy) { c.group = FAILED_GROUP; dirty = true; }
+    }
+    const gi = groupOrder.value.indexOf(legacy);
+    if (gi !== -1) { groupOrder.value[gi] = FAILED_GROUP; dirty = true; }
+    if (groupCollapsed.value.delete(legacy)) {
+      groupCollapsed.value.add(FAILED_GROUP);
+      dirty = true;
+    }
+    if (dirty) {
+      storageSetJSON('connections', savedConnections.value);
+      storageSetJSON('groupOrder', groupOrder.value);
+      storageSetJSON('groupCollapsed', Array.from(groupCollapsed.value));
+    }
+  })();
 
   function persistGroupOrder() {
-    localStorage.setItem(GROUP_ORDER_KEY, JSON.stringify(groupOrder.value));
+    storageSetJSON('groupOrder', groupOrder.value);
   }
   function persistGroupCollapsed() {
-    localStorage.setItem(GROUP_COLLAPSED_KEY, JSON.stringify(Array.from(groupCollapsed.value)));
+    storageSetJSON('groupCollapsed', Array.from(groupCollapsed.value));
+  }
+
+  // ── Server-side connection sync (Cloudflare R2) ──
+  // On CF the saved connection list (metadata only — never credentials) is
+  // mirrored to R2 so it survives deployments and fresh browser origins.
+  // On backends without /api/cloud/backup (self-hosted, APK) this stays off.
+  const cloudSyncAvailable = ref(false);
+  let cloudSyncTimer = null;
+
+  function stripCredentials(list) {
+    return (list || []).map((c) => {
+      const { auth_value, ...rest } = c || {};
+      return rest;
+    });
+  }
+
+  async function probeCloudConnections() {
+    try {
+      const res = await apiFetch(`${getApiBaseUrl()}/cloud/backup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getConnections' }),
+      });
+      if (!res.ok) { cloudSyncAvailable.value = false; return; }
+      const data = await res.json();
+      cloudSyncAvailable.value = true;
+      // Hydrate from R2 only when the local list is empty (fresh origin /
+      // browser). If we already have local data, local wins and is pushed up.
+      if (savedConnections.value.length === 0 && data.exists && Array.isArray(data.connections) && data.connections.length) {
+        savedConnections.value = stripCredentials(data.connections);
+        if (Array.isArray(data.groupOrder) && data.groupOrder.length) groupOrder.value = data.groupOrder;
+        if (Array.isArray(data.groupCollapsed) && data.groupCollapsed.length) groupCollapsed.value = new Set(data.groupCollapsed);
+        _saveConnectionsToLocalStorage();
+      }
+    } catch {
+      cloudSyncAvailable.value = false;
+    }
+  }
+
+  function queueCloudSync() {
+    if (!cloudSyncAvailable.value) return;
+    if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(() => {
+      cloudSyncTimer = null;
+      pushConnectionsToCloud();
+    }, 800);
+  }
+
+  async function pushConnectionsToCloud() {
+    try {
+      await apiFetch(`${getApiBaseUrl()}/cloud/backup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveConnections',
+          connections: stripCredentials(savedConnections.value),
+          groupOrder: groupOrder.value,
+          groupCollapsed: Array.from(groupCollapsed.value),
+        }),
+      });
+    } catch {
+      // Backend unreachable — the local copy stays authoritative; the next
+      // mutation retries the push.
+    }
   }
 
   const isConnected = computed(() => connectionStatus.value === ConnectionStatus.CONNECTED);
@@ -116,7 +231,7 @@ export const useConnectionStore = defineStore('connection', () => {
     }
     const idx = groupOrder.value.indexOf(oldName);
     if (idx !== -1) { groupOrder.value[idx] = newName; persistGroupOrder(); }
-    _saveConnectionsToSessionStorage();
+    _saveConnectionsToLocalStorage();
     return true;
   }
 
@@ -127,7 +242,7 @@ export const useConnectionStore = defineStore('connection', () => {
     }
     groupOrder.value = groupOrder.value.filter(g => g !== name);
     persistGroupOrder();
-    _saveConnectionsToSessionStorage();
+    _saveConnectionsToLocalStorage();
     return true;
   }
 
@@ -138,7 +253,7 @@ export const useConnectionStore = defineStore('connection', () => {
     if ((conn.group || '') === target) return;
     conn.group = target;
     savedConnections.value = [...savedConnections.value];
-    _saveConnectionsToSessionStorage();
+    _saveConnectionsToLocalStorage();
   }
 
   function toggleGroupCollapsed(name) {
@@ -156,24 +271,20 @@ export const useConnectionStore = defineStore('connection', () => {
     const conn = savedConnections.value.find(c => c.id === id);
     if (!conn) return;
     conn.pinned = !conn.pinned;
-    _saveConnectionsToSessionStorage();
+    _saveConnectionsToLocalStorage();
   }
 
   async function loadCredentialsFromSessionStorage() {
     const creds = {};
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && key.startsWith(SESSION_STORAGE_CRED_PREFIX)) {
-        const serverId = key.substring(SESSION_STORAGE_CRED_PREFIX.length);
-        const storedValue = sessionStorage.getItem(key);
-        if (storedValue) {
-          try {
-            const parsed = JSON.parse(storedValue);
-            if (parsed.encrypted) parsed.auth_value = await decrypt(parsed.auth_value);
-            creds[serverId] = parsed;
-          } catch {
-            creds[serverId] = { auth_value: storedValue, auth_type: 'password' };
-          }
+    for (const serverId of storageListPrefixed('sessionCredPrefix')) {
+      const storedValue = storageGetPrefixed('sessionCredPrefix', serverId);
+      if (storedValue) {
+        try {
+          const parsed = JSON.parse(storedValue);
+          if (parsed.encrypted) parsed.auth_value = await decrypt(parsed.auth_value);
+          creds[serverId] = parsed;
+        } catch {
+          creds[serverId] = { auth_value: storedValue, auth_type: 'password' };
         }
       }
     }
@@ -183,15 +294,14 @@ export const useConnectionStore = defineStore('connection', () => {
   async function saveCredentialToSessionStorage(serverId, authType, authValue) {
     if (!serverId || !authValue || !authType) return;
     const encrypted = await encrypt(authValue);
-    sessionStorage.setItem(`${SESSION_STORAGE_CRED_PREFIX}${serverId}`, JSON.stringify({ auth_type: authType, auth_value: encrypted, encrypted: true }));
+    storageSetPrefixed('sessionCredPrefix', serverId, JSON.stringify({ auth_type: authType, auth_value: encrypted, encrypted: true }));
     sessionRememberedCredentials.value[serverId] = { auth_type: authType, auth_value: authValue };
   }
 
   async function getCredentialFromSessionStorage(serverId) {
     if (!serverId) return null;
     if (sessionRememberedCredentials.value[serverId]) return sessionRememberedCredentials.value[serverId];
-    const key = `${SESSION_STORAGE_CRED_PREFIX}${serverId}`;
-    const storedValue = sessionStorage.getItem(key);
+    const storedValue = storageGetPrefixed('sessionCredPrefix', serverId);
     if (storedValue) {
       try {
         const parsed = JSON.parse(storedValue);
@@ -220,21 +330,19 @@ export const useConnectionStore = defineStore('connection', () => {
   // decoded on read and transparently migrated to v2.
   async function saveCredentialToLocalStorage(serverId, authType, authValue) {
     if (!serverId || !authValue) return;
-    let master = '';
-    try { master = sessionStorage.getItem('webssh_master') || ''; } catch {}
+    const master = storageGet('sessionMaster') || '';
     if (!master) return; // locked — never persist plaintext fallbacks
     try {
       const enc = await encryptCredential(authValue, master);
-      localStorage.setItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`, JSON.stringify({ auth_type: authType, auth_value: enc, enc: 'v2' }));
+      storageSetPrefixed('localCredPrefix', serverId, JSON.stringify({ auth_type: authType, auth_value: enc, enc: 'v2' }));
     } catch {}
   }
 
   async function getCredentialFromLocalStorage(serverId) {
     if (!serverId) return null;
-    const raw = localStorage.getItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`);
+    const raw = storageGetPrefixed('localCredPrefix', serverId);
     if (!raw) return null;
-    let master = '';
-    try { master = sessionStorage.getItem('webssh_master') || ''; } catch {}
+    const master = storageGet('sessionMaster') || '';
     try {
       const parsed = JSON.parse(raw);
       if (parsed.enc === 'v2') {
@@ -248,7 +356,7 @@ export const useConnectionStore = defineStore('connection', () => {
       if (decoded) {
         if (master) {
           encryptCredential(decoded, master)
-            .then((enc) => localStorage.setItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`, JSON.stringify({ auth_type: parsed.auth_type, auth_value: enc, enc: 'v2' })))
+            .then((enc) => storageSetPrefixed('localCredPrefix', serverId, JSON.stringify({ auth_type: parsed.auth_type, auth_value: enc, enc: 'v2' })))
             .catch(() => {});
         }
         return { auth_type: parsed.auth_type, auth_value: decoded };
@@ -259,34 +367,29 @@ export const useConnectionStore = defineStore('connection', () => {
 
   function clearCredentialFromLocalStorage(serverId) {
     if (!serverId) return;
-    localStorage.removeItem(`${LOCAL_STORAGE_CRED_PREFIX}${serverId}`);
+    storageRemovePrefixed('localCredPrefix', serverId);
   }
 
   function clearCredentialFromSessionStorage(serverId) {
     if (!serverId) return;
-    sessionStorage.removeItem(`${SESSION_STORAGE_CRED_PREFIX}${serverId}`);
+    storageRemovePrefixed('sessionCredPrefix', serverId);
     delete sessionRememberedCredentials.value[serverId];
   }
 
   function clearAllSessionCredentials() {
-    const keysToRemove = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && key.startsWith(SESSION_STORAGE_CRED_PREFIX)) keysToRemove.push(key);
+    for (const serverId of storageListPrefixed('sessionCredPrefix')) {
+      storageRemovePrefixed('sessionCredPrefix', serverId);
     }
-    keysToRemove.forEach(key => sessionStorage.removeItem(key));
     sessionRememberedCredentials.value = {};
   }
 
   // Remove every locally persisted credential (localStorage, XOR-obfuscated).
   function clearAllLocalCredentials() {
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(LOCAL_STORAGE_CRED_PREFIX)) keysToRemove.push(key);
+    const serverIds = storageListPrefixed('localCredPrefix');
+    for (const serverId of serverIds) {
+      storageRemovePrefixed('localCredPrefix', serverId);
     }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    return keysToRemove.length;
+    return serverIds.length;
   }
 
   // Re-encrypt remembered session credentials after a master-password change.
@@ -294,33 +397,26 @@ export const useConnectionStore = defineStore('connection', () => {
   // silently fail to decrypt after the user changes the password.
   async function reencryptSessionCredentials(oldPassword: string, newPassword: string): Promise<number> {
     let moved = 0;
-    const keys: string[] = [];
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && key.startsWith(SESSION_STORAGE_CRED_PREFIX)) keys.push(key);
-    }
-    for (const key of keys) {
+    for (const serverId of storageListPrefixed('sessionCredPrefix')) {
       try {
-        const parsed = JSON.parse(sessionStorage.getItem(key) || '');
+        const parsed = JSON.parse(storageGetPrefixed('sessionCredPrefix', serverId) || '');
         if (!parsed?.encrypted) continue;
         const plain = await decryptCredential(parsed.auth_value, oldPassword);
         parsed.auth_value = await encryptCredential(plain, newPassword);
-        sessionStorage.setItem(key, JSON.stringify(parsed));
+        storageSetPrefixed('sessionCredPrefix', serverId, JSON.stringify(parsed));
         moved++;
       } catch { /* entry from another password generation — leave untouched */ }
     }
     return moved;
   }
 
-  const MODEL_SYNC_KEY = 'webssh_model_sync';
-
   function isModelSyncEnabled(): boolean {
-    return localStorage.getItem(MODEL_SYNC_KEY) === 'true';
+    return storageGet('modelSync') === 'true';
   }
 
   function setModelSyncEnabled(val: boolean) {
-    if (val) localStorage.setItem(MODEL_SYNC_KEY, 'true');
-    else localStorage.removeItem(MODEL_SYNC_KEY);
+    if (val) storageSet('modelSync', 'true');
+    else storageRemove('modelSync');
   }
 
   // Push saved connections (with locally stored credentials) to the server-side
@@ -377,8 +473,12 @@ export const useConnectionStore = defineStore('connection', () => {
     } catch (e) { return { success: false, error: e.message }; }
   }
 
-  function _saveConnectionsToSessionStorage() {
-    localStorage.setItem(SESSION_STORAGE_CONNECTIONS_KEY, JSON.stringify(savedConnections.value));
+  // Persists the saved server list to localStorage (the `connections` key in
+  // the storage registry). Historically misnamed _...ToSessionStorage even
+  // though it always wrote localStorage — renamed to match the real API.
+  function _saveConnectionsToLocalStorage() {
+    storageSetJSON('connections', savedConnections.value);
+    queueCloudSync();
   }
 
   function addConnection(nodeConfigPassed) {
@@ -402,7 +502,7 @@ export const useConnectionStore = defineStore('connection', () => {
       savedConnections.value.push({ ...configToSave, id: definitiveId });
     }
 
-    _saveConnectionsToSessionStorage();
+    _saveConnectionsToLocalStorage();
     void syncSavedServersToBackend();
     return { ...nodeConfigPassed, id: definitiveId };
   }
@@ -411,7 +511,7 @@ export const useConnectionStore = defineStore('connection', () => {
     const idx = savedConnections.value.findIndex(c => c.id === id);
     if (idx > -1) {
       savedConnections.value.splice(idx, 1);
-      _saveConnectionsToSessionStorage();
+      _saveConnectionsToLocalStorage();
       clearCredentialFromSessionStorage(id);
       clearCredentialFromLocalStorage(id);
       if (currentNodeDetails.value && currentNodeDetails.value.id === id) currentNodeDetails.value = null;
@@ -455,7 +555,7 @@ export const useConnectionStore = defineStore('connection', () => {
       if ((exists.group || '') !== FAILED_GROUP) {
         exists.group = FAILED_GROUP;
         savedConnections.value = [...savedConnections.value];
-        _saveConnectionsToSessionStorage();
+        _saveConnectionsToLocalStorage();
       }
       return;
     }
@@ -470,7 +570,7 @@ export const useConnectionStore = defineStore('connection', () => {
       auth_type: config.auth_type || 'password',
     };
     savedConnections.value.push(entry);
-    _saveConnectionsToSessionStorage();
+    _saveConnectionsToLocalStorage();
   }
 
   function moveConnectionOutOfFailedGroup(connId: string) {
@@ -478,7 +578,7 @@ export const useConnectionStore = defineStore('connection', () => {
     if (conn && conn.group === FAILED_GROUP) {
       conn.group = '';
       savedConnections.value = [...savedConnections.value];
-      _saveConnectionsToSessionStorage();
+      _saveConnectionsToLocalStorage();
     }
   }
 
@@ -573,6 +673,13 @@ export const useConnectionStore = defineStore('connection', () => {
   function setOnCommandSentCallback(cb) { onCommandSentCallback = cb; }
   function disconnectShell() { wsService.disconnect(); }
 
+  // Initial cloud probe, plus re-probe when the backend address/token changes
+  // (e.g. the user fills in AUTH_TOKEN in Settings after the first load).
+  probeCloudConnections();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('backend-config-changed', probeCloudConnections);
+  }
+
   return {
     currentNodeDetails, connectionStatus, sshTestResult, sshTestLoading,
     savedConnections, groups, connectionsByGroup, groupOrder, groupCollapsed,
@@ -586,5 +693,6 @@ export const useConnectionStore = defineStore('connection', () => {
     createGroup, renameGroup, deleteGroup, moveConnectionToGroup, moveConnectionOutOfFailedGroup,
     saveFailedConnection, toggleGroupCollapsed, isGroupCollapsed, togglePinConnection,
     isModelSyncEnabled, setModelSyncEnabled, syncSavedServersToBackend, clearBackendModelServers,
+    refreshCloudConnections: probeCloudConnections,
   };
 });

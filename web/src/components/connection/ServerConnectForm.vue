@@ -181,7 +181,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useConnectionStore } from '@/stores/connectionStore';
+import { useConnectionStore, FAILED_GROUP } from '@/stores/connectionStore';
 import { ConnectionStatus } from '@/utils/constants';
 import { FileText, Folder, Network, Server as ServerIcon, User, KeyRound, TerminalSquare, RotateCcw, CheckCircle, Upload, Terminal, Monitor, Video, Wifi, Cable } from 'lucide-vue-next';
 import { useNotifications } from '@/composables/useNotifications';
@@ -284,7 +284,7 @@ const protocols = [
   { id: 'serial', label: 'Serial', icon: Cable },
 ];
 
-const existingGroups = computed(() => connectionStore.groups.filter(g => g !== 'Ungrouped'));
+const existingGroups = computed(() => connectionStore.groups.filter(g => g !== 'Ungrouped' && g !== FAILED_GROUP));
 
 const defaultForm = () => ({
   id: null, name: t('form.defaultName', { n: Date.now() % 10000 }),

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { storageGet, storageSet } from '@/utils/storage';
 
 interface ThemePreset {
   label: string;
@@ -133,13 +134,13 @@ interface Notification {
 }
 
 export const useUiStore = defineStore('ui', () => {
-  const currentTheme = ref<string>(localStorage.getItem('appTheme') || 'light');
-  const currentPreset = ref<string>(localStorage.getItem('appThemePreset') || 'light');
+  const currentTheme = ref<string>(storageGet('theme') || 'light');
+  const currentPreset = ref<string>(storageGet('themePreset') || 'light');
   const notifications = ref<Notification[]>([]);
   let notificationIdCounter = 0;
 
   function initializeTheme(): void {
-    const saved = localStorage.getItem('appThemePreset');
+    const saved = storageGet('themePreset');
     if (saved && THEME_PRESETS[saved]) {
       currentPreset.value = saved;
       currentTheme.value = (saved === 'light') ? 'light' : 'dark';
@@ -154,8 +155,8 @@ export const useUiStore = defineStore('ui', () => {
     if (!THEME_PRESETS[presetId]) return;
     currentPreset.value = presetId;
     currentTheme.value = (presetId === 'light') ? 'light' : 'dark';
-    localStorage.setItem('appThemePreset', presetId);
-    localStorage.setItem('appTheme', currentTheme.value);
+    storageSet('themePreset', presetId);
+    storageSet('theme', currentTheme.value);
     applyThemePreset(presetId);
   }
 

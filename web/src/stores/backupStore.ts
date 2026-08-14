@@ -9,6 +9,7 @@ import { useTerminalStore } from './terminalStore';
 import { useMacroStore } from './macroStore';
 import { useCodeNoteStore } from './codeNoteStore';
 import { useChatStore } from './chatStore';
+import { storageGetJSON, storageSetJSON } from '@/utils/storage';
 
 export const BACKUP_VERSION = 3;
 
@@ -66,19 +67,12 @@ export interface CloudBackupMeta {
   inventory: BackupInventory;
 }
 
-const STORAGE_KEY = 'webssh_backups';
-const SCHEDULER_KEY = 'webssh_backup_schedule';
-const CLOUD_KEY = 'webssh_backup_cloud';
-
 function loadBackups(): BackupEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+  return storageGetJSON('backups', []);
 }
 
 function saveBackups(backups: BackupEntry[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(backups));
+  storageSetJSON('backups', backups);
 }
 
 export const useBackupStore = defineStore('backup', () => {
@@ -114,8 +108,8 @@ export const useBackupStore = defineStore('backup', () => {
   });
 
   function persist() { saveBackups(backups.value); }
-  function persistScheduler() { localStorage.setItem(SCHEDULER_KEY, JSON.stringify(scheduler.value)); }
-  function persistCloud() { localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud.value)); }
+  function persistScheduler() { storageSetJSON('backupScheduler', scheduler.value); }
+  function persistCloud() { storageSetJSON('backupCloud', cloud.value); }
 
   function generateId(): string {
     return `bak_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 6)}`;
@@ -441,15 +435,11 @@ export const useBackupStore = defineStore('backup', () => {
 });
 
 function loadScheduler(): SchedulerConfig {
-  try {
-    const raw = localStorage.getItem(SCHEDULER_KEY);
-    return raw ? { ...{ enabled: false, interval: 'manual', maxBackups: 10, lastBackupAt: 0 }, ...JSON.parse(raw) } : { enabled: false, interval: 'manual', maxBackups: 10, lastBackupAt: 0 };
-  } catch { return { enabled: false, interval: 'manual', maxBackups: 10, lastBackupAt: 0 }; }
+  const defaults = { enabled: false, interval: 'manual' as const, maxBackups: 10, lastBackupAt: 0 };
+  return { ...defaults, ...storageGetJSON('backupScheduler', {}) };
 }
 
 function loadCloudTarget(): CloudTarget {
-  try {
-    const raw = localStorage.getItem(CLOUD_KEY);
-    return raw ? { enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true, ...JSON.parse(raw) } : { enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true };
-  } catch { return { enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true }; }
+  const defaults = { enabled: false, autoSync: false, syncInterval: 60, lastSyncAt: 0, lastSyncOk: true };
+  return { ...defaults, ...storageGetJSON('backupCloud', {}) };
 }

@@ -7,11 +7,11 @@ export interface KeychainKey {
   createdAt: number;
 }
 
-const KEYCHAIN_STORAGE = 'webssh_keychain';
+import { storageGet, storageSet } from './storage';
 
 export function loadKeychain(): KeychainKey[] {
   try {
-    const arr = JSON.parse(localStorage.getItem(KEYCHAIN_STORAGE) || '[]');
+    const arr = JSON.parse(storageGet('keychain') || '[]');
     return Array.isArray(arr) ? arr.filter((k) => k && k.content) : [];
   } catch {
     return [];
@@ -19,9 +19,5 @@ export function loadKeychain(): KeychainKey[] {
 }
 
 export function saveKeychain(keys: KeychainKey[]): void {
-  try {
-    localStorage.setItem(KEYCHAIN_STORAGE, JSON.stringify(keys));
-  } catch {
-    // storage full/unavailable — keychain is best-effort
-  }
+  storageSet('keychain', JSON.stringify(keys));
 }

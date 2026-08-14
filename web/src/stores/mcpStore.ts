@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { apiFetch } from '@/utils/api';
 import { getApiBaseUrl } from '@/utils/constants';
+import { storageGetJSON, storageSetJSON } from '@/utils/storage';
 
 export interface McpClientConfig {
   id: string;
@@ -21,18 +22,15 @@ export interface McpClientConfig {
   lastChecked?: number;
 }
 
-const STORAGE_KEY = 'webssh_mcp_clients';
-
 function loadClients(): McpClientConfig[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const list = raw ? JSON.parse(raw) : [];
+    const list = storageGetJSON('mcpClients', []);
     return Array.isArray(list) ? list : [];
   } catch { return []; }
 }
 
 function saveClients(clients: McpClientConfig[]): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(clients)); } catch {}
+  storageSetJSON('mcpClients', clients);
 }
 
 function makeId(): string {

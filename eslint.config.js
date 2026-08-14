@@ -7,7 +7,11 @@ import prettier from 'eslint-config-prettier';
 const sharedRules = {
   'no-console': ['warn', { allow: ['warn', 'error'] }],
   'no-debugger': 'error',
-  '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+  // ignoreRestSiblings: destructuring a field out of a rest spread is the
+  // idiomatic "strip this property" pattern (e.g. saving a keychain entry
+  // without its ephemeral `show` flag) — the removed binding is intentionally
+  // unused.
+  '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
   ...prettier.rules,
 };
 

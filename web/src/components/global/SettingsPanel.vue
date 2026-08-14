@@ -58,7 +58,7 @@
               <span class="row-label">{{ t('settings.builtinEnable') }}</span>
               <button class="switch" :class="{ 'is-active': builtinEnabled }"
                       @click="toggleBuiltin"
-                      :aria-label="`Built-in SSH ${builtinEnabled ? 'on' : 'off'}`">
+                      :aria-label="t('settings.builtinEnable')">
                 <span class="switch-slider"></span>
               </button>
             </div>
@@ -100,18 +100,25 @@
               </div>
             </div>
             <div class="settings-row">
+              <span class="row-label">{{ t('settings.boldFont') }}</span>
+              <button class="switch" :class="{ 'is-active': boldFont }" @click="toggleBoldFont"
+                      :aria-label="t('settings.boldFont')">
+                <span class="switch-slider"></span>
+              </button>
+            </div>
+            <div class="settings-row">
               <span class="row-label">{{ t('settings.animations') }}</span>
               <button class="switch" :class="{ 'is-active': animationsEnabled }"
                       @click="animationsEnabled = !animationsEnabled"
-                      :aria-label="`Animations ${animationsEnabled ? 'on' : 'off'}`">
+                      :aria-label="t('settings.animations')">
                 <span class="switch-slider"></span>
               </button>
             </div>
             <div class="settings-row">
               <span class="row-label">{{ t('settings.language') }}</span>
               <select v-model="currentLocale" @change="onLocaleChange" class="settings-select">
-                <option value="zh-CN">中文</option>
-                <option value="en-US">English</option>
+                <option value="zh-CN">{{ t('settings.langZh') }}</option>
+                <option value="en-US">{{ t('settings.langEn') }}</option>
               </select>
             </div>
           </div>
@@ -207,6 +214,22 @@
             <div class="shortcut-row"><kbd>Ctrl</kbd><span class="kbd-plus">+</span><kbd>P</kbd><span class="shortcut-desc">{{ t('settings.shortcutMacro') }}</span></div>
             <div class="shortcut-row"><kbd>Ctrl</kbd><span class="kbd-plus">+</span><kbd>F</kbd><span class="shortcut-desc">{{ t('settings.shortcutSearch') }}</span></div>
           </div>
+
+          <div class="settings-section">
+            <h4 class="settings-section-title">{{ t('settings.logAndHelp') }}</h4>
+            <div class="settings-row">
+              <span class="row-label">{{ t('nav.audit') }}</span>
+              <button class="settings-minor-btn" @click="emit('open-audit')">
+                <ScrollTextIcon :size="13"/> {{ t('nav.audit') }}
+              </button>
+            </div>
+            <div class="settings-row">
+              <span class="row-label">{{ t('nav.help') }}</span>
+              <button class="settings-minor-btn" @click="emit('open-help')">
+                <LifeBuoyIcon :size="13"/> {{ t('nav.help') }}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="settings-footer">
@@ -239,8 +262,9 @@ import { useUiStore } from '@/stores/uiStore';
 import { setLocale } from '@/i18n';
 import { useNotifications } from '@/composables/useNotifications';
 import { verifyMasterPassword, setupMasterPassword } from '@/utils/crypto';
+import { storageGet, storageSet, storageRemove } from '@/utils/storage';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { Settings as SettingsIcon, Lock, Trash2 as Trash2Icon, Copy as CopyIcon, Server as ServerIcon, Zap as ZapIcon, CheckCircle2 as CheckCircle2Icon, AlertTriangle as AlertTriangleIcon, Check as CheckIcon } from 'lucide-vue-next';
+import { Settings as SettingsIcon, Lock, Trash2 as Trash2Icon, Copy as CopyIcon, Server as ServerIcon, Zap as ZapIcon, CheckCircle2 as CheckCircle2Icon, AlertTriangle as AlertTriangleIcon, Check as CheckIcon, ScrollText as ScrollTextIcon, LifeBuoy as LifeBuoyIcon } from 'lucide-vue-next';
 import { getRuntimeBackendBase, setRuntimeBackendBase, getApiBaseUrl, getWsBaseUrl, wsAuthProtocols, isBuiltinSshEnabled, setBuiltinSshEnabled } from '@/utils/constants';
 import { isAndroidApp, refreshNativeSshStatus } from '@/utils/nativeSsh';
 import { getBackendToken, setBackendToken, apiFetch } from '@/utils/api';
@@ -250,25 +274,24 @@ const { t, locale } = useI18n();
 const props = defineProps({
   visible: { type: Boolean, default: false },
 });
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'open-audit', 'open-help']);
 
 const uiStore = useUiStore();
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 
 const panelRef = ref(null);
-const hasMasterSession = computed(() => {
-  try { return !!sessionStorage.getItem('webssh_master'); } catch { return false; }
-});
+const hasMasterSession = computed(() => !!storageGet('sessionMaster'));
 
 const currentThemeId = ref(uiStore.currentPreset);
-const fontSize = ref(parseInt(localStorage.getItem('appFontSize') || '14'));
-const animationsEnabled = ref(localStorage.getItem('appAnimations') !== 'false');
-const cursorStyle = ref(localStorage.getItem('termCursorStyle') || 'block');
-const scrollback = ref(parseInt(localStorage.getItem('termScrollback') || '5000'));
+const fontSize = ref(parseInt(storageGet('fontSize') || '14'));
+const boldFont = ref(storageGet('fontBold') === 'true');
+const animationsEnabled = ref(storageGet('animations') !== 'false');
+const cursorStyle = ref(storageGet('cursorStyle') || 'block');
+const scrollback = ref(parseInt(storageGet('scrollback') || '5000'));
 const currentLocale = ref(locale.value);
-const termBgColor = ref(localStorage.getItem('termBgColor') || '');
+const termBgColor = ref(storageGet('termBgColor') || '');
 
-const themes = [
+const themes = computed(() => [
   {
     id: 'light', label: t('settings.light'),
     colors: { primary: '#6366f1', sidebar: '#f0f2f8', text: '#cdd0db' },
@@ -289,7 +312,7 @@ const themes = [
     colors: { primary: '#88c0d0', sidebar: '#3b4252', text: '#81a1c1' },
     previewStyle: { background: '#2e3440' },
   },
-];
+]);
 
 watch(() => props.visible, (val) => {
   if (val) {
@@ -310,11 +333,11 @@ function onDocKeydown(e) {
 function applyTheme(id) {
   currentThemeId.value = id;
   uiStore.setThemePreset(id);
-  const themeColors = themes.find(t => t.id === id)?.colors;
+  const themeColors = themes.value.find(t => t.id === id)?.colors;
   if (themeColors) {
     document.documentElement.style.setProperty('--theme-primary', themeColors.primary);
   }
-  const label = themes.find(t => t.id === id)?.label || id;
+  const label = themes.value.find(t => t.id === id)?.label || id;
   showSuccess(t('settings.themeChanged', { theme: label }));
   const panel = panelRef.value;
   if (panel) {
@@ -327,10 +350,17 @@ function applyTheme(id) {
 function adjustFontSize(delta) {
   const newSize = Math.min(20, Math.max(12, fontSize.value + delta));
   fontSize.value = newSize;
-  localStorage.setItem('appFontSize', String(newSize));
+  storageSet('fontSize', String(newSize));
   document.documentElement.style.setProperty('--app-font-size', `${newSize}px`);
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { fontSize: newSize } }));
   showSuccess(t('settings.fontSizeChanged', { size: newSize }));
+}
+
+function toggleBoldFont() {
+  boldFont.value = !boldFont.value;
+  storageSet('fontBold', String(boldFont.value));
+  window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { bold: boldFont.value } }));
+  showSuccess(boldFont.value ? t('settings.boldOn') : t('settings.boldOff'));
 }
 
 function onLocaleChange() {
@@ -340,18 +370,18 @@ function onLocaleChange() {
 }
 
 watch(animationsEnabled, (val) => {
-  localStorage.setItem('appAnimations', String(val));
+  storageSet('animations', String(val));
   document.documentElement.classList.toggle('animations-disabled', !val);
   showSuccess(val ? t('settings.animationsEnabled') : t('settings.animationsDisabled'));
 });
 
 watch(cursorStyle, (val) => {
-  localStorage.setItem('termCursorStyle', val);
+  storageSet('cursorStyle', val);
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { cursorStyle: val } }));
   showSuccess(t('settings.cursorStyleChanged'));
 });
 watch(scrollback, (val) => {
-  localStorage.setItem('termScrollback', String(val));
+  storageSet('scrollback', String(val));
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { scrollback: val } }));
   showSuccess(t('settings.scrollbackChanged', { count: val }));
 });
@@ -361,7 +391,7 @@ function onTermBgInput() {
   if (termBgTimer) clearTimeout(termBgTimer);
   termBgTimer = setTimeout(() => {
     if (termBgColor.value) {
-      localStorage.setItem('termBgColor', termBgColor.value);
+      storageSet('termBgColor', termBgColor.value);
       window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { bgColor: termBgColor.value } }));
       showSuccess(t('settings.bgColorChanged'));
     }
@@ -369,7 +399,7 @@ function onTermBgInput() {
 }
 function resetTermBg() {
   termBgColor.value = '';
-  localStorage.removeItem('termBgColor');
+  storageRemove('termBgColor');
   window.dispatchEvent(new CustomEvent('term-settings-change', { detail: { bgColor: '' } }));
   showSuccess(t('settings.bgColorReset'));
 }
@@ -399,9 +429,9 @@ async function changePassword() {
     // live master password — otherwise they'd stay locked to the old one.
     try { await connectionStore.reencryptSessionCredentials(pwCurrent.value, pwNew.value); } catch {}
     await setupMasterPassword(pwNew.value);
-    sessionStorage.setItem('webssh_master', pwNew.value);
+    storageSet('sessionMaster', pwNew.value);
     const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
-    if (isElectron) localStorage.setItem('webssh_exe_master', pwNew.value);
+    if (isElectron) storageSet('exeMaster', pwNew.value);
     pwCurrent.value = '';
     pwNew.value = '';
     pwConfirm.value = '';
@@ -426,10 +456,10 @@ function clearCredentials() {
 }
 
 function lockNow() {
-  try { sessionStorage.removeItem('webssh_master'); } catch {}
-  try { localStorage.removeItem('webssh_exe_master'); } catch {}
+  storageRemove('sessionMaster');
+  storageRemove('exeMaster');
   // Also drop device-level auto-unlock, otherwise the app re-unlocks instantly.
-  try { localStorage.removeItem('webssh_saved_master'); } catch {}
+  storageRemove('savedMaster');
   window.location.reload();
 }
 
@@ -479,6 +509,7 @@ function saveBackend() {
   }
   if (!url) setRuntimeBackendBase('');
   setBackendToken(backendToken.value.trim());
+  window.dispatchEvent(new CustomEvent('backend-config-changed'));
   showSuccess(t('settings.backendSaved'));
 }
 
@@ -487,6 +518,7 @@ function clearBackend() {
   backendToken.value = '';
   setRuntimeBackendBase('');
   setBackendToken('');
+  window.dispatchEvent(new CustomEvent('backend-config-changed'));
   showInfo(t('settings.backendCleared'));
 }
 
@@ -655,7 +687,7 @@ function copyMcpConfig() {
 /* ── Overlay & panel shell (centered modal card, unified with panel system) ── */
 .settings-overlay {
   position: fixed; inset: 0; z-index: 9000;
-  background: rgba(15, 15, 25, 0.45);
+  background: transparent;
   display: flex; align-items: center; justify-content: center;
   animation: panelFadeIn 0.15s ease-out;
 }

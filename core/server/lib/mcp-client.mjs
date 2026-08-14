@@ -14,10 +14,11 @@
 import { spawn } from 'child_process';
 import { createInterface } from 'readline';
 import { logger } from './logger.mjs';
+import { WEBSSH_VERSION } from '../../shared/version.mjs';
 
 const log = logger('MCPClient');
 
-export const CLIENT_INFO = { name: 'webssh', version: '3.6.2' };
+export const CLIENT_INFO = { name: 'webssh', version: WEBSSH_VERSION };
 const PROTOCOL_VERSION = '2024-11-05';
 
 // ── stdio transport ─────────────────────────────────────────────────────────

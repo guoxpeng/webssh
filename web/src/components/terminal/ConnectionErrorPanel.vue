@@ -72,20 +72,38 @@ defineEmits(['retry', 'edit', 'close']);
 
 const suggestions = computed(() => {
   const msg = (props.message || '').toLowerCase();
+  // Keyword lists live in the locale files (both English and Chinese synonyms)
+  // so the classifier can match server error text in either language without
+  // hardcoding CJK literals in the component. ASCII keywords are matched as
+  // WHOLE WORDS (word boundaries) so a generic token like "key" does not
+  // false-match inside "monkey"/"keyboard"; CJK keywords (no word separators)
+  // are matched as substrings.
+  const isCjk = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+  const matches = (key) =>
+    (t(`error.${key}`) || '')
+      .toLowerCase()
+      .split(',')
+      .map((w) => w.trim())
+      .filter(Boolean)
+      .some((w) => {
+        if (isCjk.test(w)) return msg.includes(w);
+        const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(`\\b${escaped}\\b`).test(msg);
+      });
   const list = [];
-  if (msg.includes('refused') || msg.includes('拒绝') || msg.includes('connection refused')) {
+  if (matches('kwRefused')) {
     list.push(t('error.suggestionRefused') || 'Check if the service is running on the remote host');
     list.push(t('error.suggestionPort') || 'Verify the port number is correct');
-  } else if (msg.includes('auth') || msg.includes('password') || msg.includes('permission') || msg.includes('认证') || msg.includes('密码')) {
+  } else if (matches('kwAuth')) {
     list.push(t('error.suggestionCreds') || 'Verify your username and password');
     list.push(t('error.suggestionKey') || 'Check if the private key path is correct');
-  } else if (msg.includes('timeout') || msg.includes('超时')) {
+  } else if (matches('kwTimeout')) {
     list.push(t('error.suggestionTimeout') || 'Check if the host is reachable');
     list.push(t('error.suggestionPort') || 'Verify the port is open on the remote firewall');
-  } else if (msg.includes('dns') || msg.includes('resolve') || msg.includes('解析')) {
+  } else if (matches('kwDns')) {
     list.push(t('error.suggestionDNS') || 'Check if the hostname resolves correctly');
     list.push(t('error.suggestionIP') || 'Try using the IP address directly');
-  } else if (msg.includes('key') || msg.includes('密钥')) {
+  } else if (matches('kwKey')) {
     list.push(t('error.suggestionKeyFormat') || 'Check if the key format is correct (PEM format required)');
     list.push(t('error.suggestionKeyPerm') || 'Ensure the key file has correct permissions');
   } else {

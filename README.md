@@ -1,4 +1,4 @@
-# WebSSH v3.6.2 — 浏览器里的全能 SSH 工作站
+# WebSSH v3.5 — 浏览器里的全能 SSH 工作站
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
@@ -8,7 +8,7 @@
 一个开箱即用的 Web SSH 客户端：浏览器打开就能连服务器、管文件、跑批量命令，
 支持 Windows / macOS 桌面端、Android / iOS App、Docker、Cloudflare 多种部署。
 
-<img width="1920" height="960" alt="PixPin_2026-08-14_11-55-42" src="https://github.com/user-attachments/assets/273ad7c7-45f9-4e6d-92d8-c90d8b7d6f27" />
+<img width="1214" alt="screenshot" src="https://github.com/user-attachments/assets/1a44d2b0-31df-41bd-a6ee-46a3e26e5a23" />
 
 ---
 
@@ -144,13 +144,13 @@ AUTH_TOKEN=你的密码 node core/server/index.mjs
 1. 提交代码并推送：
 
 ```bash
-git add -A && git commit -m "release: v3.6.2"
+git add -A && git commit -m "release: v3.5.0"
 ```
 
 2. 打版本标签并推送（触发全平台构建）：
 
 ```bash
-git tag v3.6.2 && git push origin v3.6.2
+git tag v3.5.0 && git push origin v3.5.0
 ```
 
 3. 在 GitHub 仓库 Actions 页面查看「Build All Platforms」运行状态，构建完成后产物自动附加到对应的 **Release**。

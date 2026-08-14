@@ -1,7 +1,8 @@
 import { encryptCredential, decryptCredential } from './crypto';
+import { storageGet } from './storage';
 
 function getMaster(): string {
-  const m = sessionStorage.getItem('webssh_master');
+  const m = storageGet('sessionMaster');
   if (!m) throw new Error('Not unlocked');
   return m;
 }

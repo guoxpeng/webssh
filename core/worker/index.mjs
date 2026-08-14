@@ -1,6 +1,7 @@
 import { connect } from 'cloudflare:sockets';
 import { Client } from 'ssh2';
 import { Duplex } from 'stream';
+import { WEBSSH_VERSION } from '../shared/version.mjs';
 
 const SSH_ALGORITHMS = {
   // Pure JS polyfill enables ECDH + DH group14
@@ -383,65 +384,42 @@ async function modelMapLimited(items, limit, fn) {
   return results;
 }
 
+// ── Registry write serialization ───────────────────────────────────────────
+// KV has no atomic read-modify-write: two concurrent save/sync/probe requests
+// can each load the same registry, mutate their in-memory copy, and write it
+// back — the last writer silently drops the other's changes (lost updates).
+// Workers are single-threaded per isolate, so a promise-chain mutex fully
+// serializes the load→mutate→save critical section within this isolate, which
+// is how the vast majority of webssh CF deployments run (one Worker instance).
+// A multi-isolate deployment sharing one KV namespace would need a Durable
+// Object for a distributed lock — noted here, out of scope for this fix.
+let modelWriteQueue = Promise.resolve();
+function withModelLock(fn) {
+  const run = modelWriteQueue.then(fn, fn);
+  // Keep the chain alive even when fn rejects, so one failure cannot wedge
+  // every subsequent registry write.
+  modelWriteQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 async function handleModelApi(request, url, env) {
   if (!env.MODEL_REGISTRY) {
     return json({ error: 'Model API requires the MODEL_REGISTRY KV binding (see README — Cloudflare section)' }, 503);
   }
   const token = String(env.AUTH_TOKEN || '').trim();
   const action = url.pathname.slice('/api/model/'.length);
-  const registry = await modelLoadRegistry(env);
 
+  /* Read-only listing — KV get is atomic per key, no lock needed. */
   if (action === 'servers' && request.method === 'GET') {
+    const registry = await modelLoadRegistry(env);
     return json({ servers: registry.map(modelPublicEntry) });
   }
 
-  const body = await parseBody(request);
-
-  if (action === 'servers/save') {
-    const existing = body.id ? registry.find((e) => e.id === body.id) : null;
-    if (body.id && !existing) return json({ error: 'unknown server id' }, 404);
-    const entry = await modelNormalizeEntry(body, token, existing);
-    if (!entry) return json({ error: 'host/username/auth_value required for new entries' }, 400);
-    const idx = registry.findIndex((e) => e.id === entry.id);
-    if (idx >= 0) registry[idx] = entry; else registry.push(entry);
-    await modelSaveRegistry(env, registry);
-    return json({ success: true, server: modelPublicEntry(entry) });
-  }
-
-  if (action === 'servers/remove') {
-    const idx = registry.findIndex((e) => e.id === body.id);
-    if (idx < 0) return json({ error: 'unknown server id' }, 404);
-    registry.splice(idx, 1);
-    await modelSaveRegistry(env, registry);
-    return json({ success: true });
-  }
-
-  if (action === 'servers/sync') {
-    if (!Array.isArray(body.servers)) return json({ error: 'servers[] required' }, 400);
-    if (body.servers.length > 200) return json({ error: 'too many servers (max 200)' }, 400);
-    const next = [];
-    for (const input of body.servers) {
-      const prev = registry.find((e) => e.host === String(input.host || '') && e.port === (parseInt(input.port, 10) || 22) && e.username === String(input.username || ''));
-      const entry = await modelNormalizeEntry(input, token, prev);
-      if (entry) next.push(entry);
-    }
-    await modelSaveRegistry(env, next);
-    return json({ success: true, synced: next.map(modelPublicEntry) });
-  }
-
-  if (action === 'probe') {
-    const targets = body.id ? registry.filter((e) => e.id === body.id) : registry;
-    if (body.id && targets.length === 0) return json({ error: 'unknown server id' }, 404);
-    const results = await modelMapLimited(targets, MODEL_MAX_CONCURRENCY, async (entry) => {
-      const r = await modelRunOnce(entry, 'true', Math.min(parseInt(body.timeout_ms, 10) || MODEL_DEFAULT_TIMEOUT_MS, MODEL_MAX_TIMEOUT_MS), token);
-      entry.last_probe = { t: Date.now(), ok: r.success, error: r.success ? null : String(r.error || '').slice(0, 200) };
-      return { id: entry.id, name: entry.name, host: entry.host, port: entry.port, ok: r.success, error: r.success ? null : r.error };
-    });
-    await modelSaveRegistry(env, registry);
-    return json({ results });
-  }
-
+  /* exec: read-only but SLOW (SSH round-trips). Snapshot WITHOUT holding the
+     registry lock, so a long exec can never block saves/probes behind it. */
   if (action === 'exec') {
+    const registry = await modelLoadRegistry(env);
+    const body = await parseBody(request);
     const command = typeof body.command === 'string' ? body.command : '';
     if (!command || command.length > MODEL_MAX_COMMAND_LEN) return json({ error: `command required (max ${MODEL_MAX_COMMAND_LEN} chars)` }, 400);
     const timeoutMs = Math.min(Math.max(parseInt(body.timeout_ms, 10) || MODEL_DEFAULT_TIMEOUT_MS, 3000), MODEL_MAX_TIMEOUT_MS);
@@ -458,7 +436,74 @@ async function handleModelApi(request, url, env) {
     return json({ results });
   }
 
-  return json({ error: 'Unknown action' }, 400);
+  /* probe: the SSH round-trips are also slow, so run them against a snapshot
+     taken OUTSIDE the lock, then merge the results back UNDER the lock (by
+     id). A save landing between snapshot and merge is preserved — the old
+     code wrote back its stale snapshot and clobbered the concurrent save. */
+  if (action === 'probe') {
+    const snapshot = await modelLoadRegistry(env);
+    const body = await parseBody(request);
+    const targets = body.id ? snapshot.filter((e) => e.id === body.id) : snapshot;
+    if (body.id && targets.length === 0) return json({ error: 'unknown server id' }, 404);
+    const results = await modelMapLimited(targets, MODEL_MAX_CONCURRENCY, async (entry) => {
+      const r = await modelRunOnce(entry, 'true', Math.min(parseInt(body.timeout_ms, 10) || MODEL_DEFAULT_TIMEOUT_MS, MODEL_MAX_TIMEOUT_MS), token);
+      return { id: entry.id, name: entry.name, host: entry.host, port: entry.port, ok: r.success, error: r.success ? null : r.error };
+    });
+    const byId = new Map(results.map((r) => [r.id, r]));
+    return withModelLock(async () => {
+      const registry = await modelLoadRegistry(env);
+      for (const e of registry) {
+        const r = byId.get(e.id);
+        if (r) e.last_probe = { t: Date.now(), ok: r.ok, error: r.ok ? null : String(r.error || '').slice(0, 200) };
+      }
+      await modelSaveRegistry(env, registry);
+      return json({ results });
+    });
+  }
+
+  /* Mutating actions: the whole load→mutate→save runs under the lock so
+     concurrent requests are serialized and cannot overwrite each other. The
+     load is the FIRST await inside the locked section (before the body read)
+     — this is deliberate: it preserves the read-modify-write race surface so
+     the concurrency tests fail loudly if the lock is ever removed. */
+  return withModelLock(async () => {
+    const registry = await modelLoadRegistry(env);
+    const body = await parseBody(request);
+
+    if (action === 'servers/save') {
+      const existing = body.id ? registry.find((e) => e.id === body.id) : null;
+      if (body.id && !existing) return json({ error: 'unknown server id' }, 404);
+      const entry = await modelNormalizeEntry(body, token, existing);
+      if (!entry) return json({ error: 'host/username/auth_value required for new entries' }, 400);
+      const idx = registry.findIndex((e) => e.id === entry.id);
+      if (idx >= 0) registry[idx] = entry; else registry.push(entry);
+      await modelSaveRegistry(env, registry);
+      return json({ success: true, server: modelPublicEntry(entry) });
+    }
+
+    if (action === 'servers/remove') {
+      const idx = registry.findIndex((e) => e.id === body.id);
+      if (idx < 0) return json({ error: 'unknown server id' }, 404);
+      registry.splice(idx, 1);
+      await modelSaveRegistry(env, registry);
+      return json({ success: true });
+    }
+
+    if (action === 'servers/sync') {
+      if (!Array.isArray(body.servers)) return json({ error: 'servers[] required' }, 400);
+      if (body.servers.length > 200) return json({ error: 'too many servers (max 200)' }, 400);
+      const next = [];
+      for (const input of body.servers) {
+        const prev = registry.find((e) => e.host === String(input.host || '') && e.port === (parseInt(input.port, 10) || 22) && e.username === String(input.username || ''));
+        const entry = await modelNormalizeEntry(input, token, prev);
+        if (entry) next.push(entry);
+      }
+      await modelSaveRegistry(env, next);
+      return json({ success: true, synced: next.map(modelPublicEntry) });
+    }
+
+    return json({ error: 'Unknown action' }, 400);
+  });
 }
 
 /* ── MCP management — status dashboard + SSE-only client bridge ─────────────
@@ -468,6 +513,9 @@ async function handleModelApi(request, url, env) {
    in core/mcp/server.mjs; here we report its catalog/availability and wire the
    client test/call endpoints so the MCP pages work on Cloudflare too. */
 
+// NOTE: this is the version of the MCP *server* interface (the tools webssh
+// exposes to external agents), which is independent of the webssh application
+// version (WEBSSH_VERSION). Keep it in sync with core/mcp/server.mjs.
 const MCP_SERVER_INFO = { name: 'webssh', version: '1.0.0' };
 // Mirrors core/mcp/server.mjs TOOLS (inlined: that module imports node
 // builtins unavailable in a Worker bundle).
@@ -480,12 +528,29 @@ const MCP_SERVER_TOOLS = [
 ];
 const MCP_MAX_RESULT = 64 * 1024;
 
-function mcpParseSse(text) {
-  const lines = String(text).split(/\r?\n/).filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim());
-  const joined = lines.join('');
-  if (joined) { try { return JSON.parse(joined); } catch {} }
-  for (const l of lines) { try { return JSON.parse(l); } catch {} }
-  return null;
+// Parses a streamable-HTTP (SSE) response body into a single JSON-RPC message.
+// A real endpoint may send several events (e.g. notifications) and may split
+// one JSON message across multiple `data:` lines — per the SSE spec those
+// lines join with a NEWLINE, not concatenation. We therefore:
+//   1. split the body into events on blank lines;
+//   2. join each event's `data:` lines with '\n' and parse them;
+//   3. return the JSON-RPC RESPONSE (has `id` + `result`/`error`) whose id
+//      matches the request, ignoring notifications (no `id` / `method` only).
+// The old implementation joined data: lines with '' and fell back to the first
+// parseable line — a complete notification event was mistaken for the result,
+// so tools/list handshakes silently returned zero tools.
+function mcpParseSse(text, requestId) {
+  const events = String(text).split(/\r?\n\r?\n/);
+  const parsed = [];
+  for (const ev of events) {
+    const lines = ev.split(/\r?\n/).filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim());
+    if (!lines.length) continue;
+    try { parsed.push(JSON.parse(lines.join('\n'))); } catch { /* partial/keep-alive line */ }
+  }
+  // Prefer the response matching our request id; fall back to any response.
+  const responses = parsed.filter((m) => m && (m.result !== undefined || m.error !== undefined) && m.id !== undefined);
+  const match = responses.find((m) => m.id === requestId) || responses[0];
+  return match || parsed[parsed.length - 1] || null;
 }
 
 async function mcpHttpRpc(cfg, method, params, sessionId) {
@@ -507,7 +572,7 @@ async function mcpHttpRpc(cfg, method, params, sessionId) {
   const newSession = res.headers.get('mcp-session-id') || res.headers.get('Mcp-Session-Id');
   const ct = (res.headers.get('content-type') || '').toLowerCase();
   let data;
-  if (ct.includes('text/event-stream')) data = mcpParseSse(await res.text());
+  if (ct.includes('text/event-stream')) data = mcpParseSse(await res.text(), 1);
   else data = await res.json().catch(() => null);
   return { data, sessionId: newSession || sessionId };
 }
@@ -530,6 +595,7 @@ async function handleMcpApi(request, url, env) {
       },
       modelApi: { enabled: !!env.MODEL_REGISTRY, servers: registry.length, registry: registry.map(modelPublicEntry) },
       ai: { enabled: false, apiConfigured: false, model: null },
+      backupBucket: env.BACKUP_BUCKET ? 'bound' : 'unbound',
       tokens: { total: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, requests: 0, calls: [] },
     });
   }
@@ -552,7 +618,7 @@ async function handleMcpApi(request, url, env) {
     }
     try {
       let sessionId = null;
-      const init = await mcpHttpRpc(cfg, 'initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'webssh', version: '3.6.2' } }, sessionId);
+      const init = await mcpHttpRpc(cfg, 'initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'webssh', version: WEBSSH_VERSION } }, sessionId);
       sessionId = init.sessionId;
       if (init.data?.error) throw new Error(init.data.error.message || 'MCP initialize failed');
       if (action === 'clients/test') {
@@ -1082,6 +1148,33 @@ async function handleCloudBackup(request, env) {
   const { action, id, backup } = body;
   const bucket = env.BACKUP_BUCKET;
   if (!bucket) return json({ error: 'R2 bucket not configured' }, 500);
+
+  // Server-side connection registry (R2): the frontend auto-syncs its saved
+  // connection list here so it survives deployments / fresh browser origins.
+  // Metadata only (host/port/username/group) — credentials are never stored.
+  if (action === 'getConnections') {
+    try {
+      const obj = await bucket.get('_connections');
+      if (!obj) return json({ exists: false });
+      const text = await obj.text();
+      const data = JSON.parse(text);
+      return json({ exists: true, connections: data.connections || [], groupOrder: data.groupOrder || [], groupCollapsed: data.groupCollapsed || [], updatedAt: data.updatedAt || 0 });
+    } catch {
+      return json({ exists: false });
+    }
+  }
+
+  if (action === 'saveConnections') {
+    if (!Array.isArray(body.connections)) return json({ error: 'connections[] required' }, 400);
+    const payload = JSON.stringify({
+      connections: body.connections,
+      groupOrder: Array.isArray(body.groupOrder) ? body.groupOrder : [],
+      groupCollapsed: Array.isArray(body.groupCollapsed) ? body.groupCollapsed : [],
+      updatedAt: Date.now(),
+    });
+    await bucket.put('_connections', payload);
+    return json({ ok: true });
+  }
 
   if (action === 'list') {
     const objects = [];

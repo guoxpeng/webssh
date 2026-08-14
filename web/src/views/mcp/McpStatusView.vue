@@ -12,7 +12,7 @@
       </div>
     </header>
 
-    <div class="page-empty" v-if="loading && !status">
+    <div class="page-empty" v-if="loading">
       <LoaderIcon :size="30" class="empty-icon spin"/>
       <p>{{ t('sftp.loading') }}</p>
     </div>
@@ -111,6 +111,20 @@
           <span class="meta-item">{{ t('mcp.enabledState') }}: <b>{{ clientCount }}</b></span>
         </div>
       </section>
+
+      <!-- R2 / cloud backup -->
+      <section class="status-card">
+        <div class="status-head">
+          <div class="status-id">
+            <CloudIcon :size="16" class="status-icon"/>
+            <h3 class="status-title">{{ t('mcp.backupBucketStatus') }}</h3>
+          </div>
+          <span class="status-badge" :class="bucketBound ? 'ok' : 'bad'">
+            <span class="status-dot"></span>{{ bucketBound ? t('mcp.backupBucketBound') : t('mcp.backupBucketUnbound') }}
+          </span>
+        </div>
+        <p class="status-hint">{{ t('mcp.backupBucketHint') }}</p>
+      </section>
     </template>
   </div>
 </template>
@@ -118,18 +132,21 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Activity as ActivityIcon, Server as ServerIcon, Cable as CableIcon, Database as DatabaseIcon, Brain as BrainIcon, Blocks as BlocksIcon, RefreshCw as RefreshCwIcon, WifiOff as WifiOffIcon, Loader as LoaderIcon } from 'lucide-vue-next';
+import { Activity as ActivityIcon, Server as ServerIcon, Cable as CableIcon, Database as DatabaseIcon, Brain as BrainIcon, Blocks as BlocksIcon, Cloud as CloudIcon, RefreshCw as RefreshCwIcon, WifiOff as WifiOffIcon, Loader as LoaderIcon } from 'lucide-vue-next';
 import { useMcpStore } from '@/stores/mcpStore';
 
 const { t } = useI18n();
 const store = useMcpStore();
 
-const status = ref(null);
+// Init as an empty object (not null): the template reads status.backend?.port
+// etc. — a bare `status` of null throws before the optional chain can help.
+const status = ref({});
 const loading = ref(false);
 const error = ref('');
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 
 const aiReady = computed(() => !!(status.value?.ai?.enabled && status.value?.ai?.apiConfigured));
+const bucketBound = computed(() => status.value?.backupBucket === 'bound');
 const totalClients = computed(() => store.clients.length);
 const clientCount = computed(() => store.clients.filter((c) => c.enabled).length);
 

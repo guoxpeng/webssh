@@ -1,5 +1,10 @@
 import { getWsBaseUrl, getApiBaseUrl, getRuntimeBackendBase, wsAuthProtocols, withLegacyToken, useBuiltinSsh } from '@/utils/constants';
 import { apiFetch } from '@/utils/api';
+import { i18n } from '@/i18n';
+
+// Service layer has no component i18n context, so resolve messages through the
+// global instance (same messages object, same active locale).
+const t = (key: string, params?: Record<string, unknown>) => i18n.global.t(key, params);
 
 export interface Callbacks {
   onOpen?: () => void;
@@ -78,20 +83,20 @@ class SshWebSocketService {
     try {
       const res = await apiFetch(`${getApiBaseUrl()}/chat/config`);
       if (res.status === 401 || res.status === 403) {
-        return '后端访问密码未填写或不正确：打开 设置 → 后端访问密码，填入部署时设置的密码（环境变量 AUTH_TOKEN 的值）后保存重试';
+        return t('terminal.authTokenWrong');
       }
       if (res.status === 503) {
-        return '后端未配置访问密码：请先在部署的环境变量里设置 AUTH_TOKEN 后重新部署';
+        return t('terminal.authTokenMissing');
       }
       return null; // gate accepted the token (route-level errors don't matter here)
     } catch {
       // Reaching the configured gateway failed over HTTP — the WebSocket is
       // about to fail the same way. The #1 cause on a CF Pages deployment is a
-      // stale 设置 → 后端网关地址 pointing at a dead/old server, so surface an
-      // actionable message instead of an opaque "WebSocket error".
+      // stale Settings → Backend gateway address pointing at a dead/old server,
+      // so surface an actionable message instead of an opaque "WebSocket error".
       const runtimeBase = getRuntimeBackendBase();
       if (runtimeBase) {
-        return `无法连接后端网关 ${runtimeBase}：请到 设置 → 后端网关地址 检查该地址，或点「清空」让页面回连当前站点（${window.location.host}）`;
+        return t('terminal.gatewayUnreachable', { url: runtimeBase, host: window.location.host });
       }
       return null;
     }
@@ -180,9 +185,9 @@ class SshWebSocketService {
     try { host = new URL(wsUrl).host; } catch { host = wsUrl; }
     const runtimeBase = getRuntimeBackendBase();
     if (runtimeBase) {
-      return `（目标 ${host}；当前后端网关地址已设为 ${runtimeBase}，连不上时请到 设置 → 后端网关地址 检查或清空，回连当前站点 ${window.location.host}）`;
+      return t('terminal.wsErrorWithGateway', { host, runtimeBase, origin: window.location.host });
     }
-    return `（目标 ${host}；请到 设置 检查后端访问密码，并确认浏览器代理/VPN/杀毒软件未拦截 WebSocket）`;
+    return t('terminal.wsErrorNoGateway', { host });
   }
 
   sendMessage(data: string): void {

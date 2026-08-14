@@ -1,10 +1,12 @@
+import { STORAGE_KEYS, storageGet, storageSet } from './storage';
+// Re-exported for backward compatibility (see constants.ts).
+export const STORAGE_VERIFY_KEY = STORAGE_KEYS.verifyHash.key;
+export const STORAGE_SALT_KEY = STORAGE_KEYS.verifySalt.key;
+
 const ITERATIONS = 100000;
 const SALT_LENGTH = 32;
 const IV_LENGTH = 12;
 const keyCache = new Map<string, CryptoKey | Uint8Array>();
-
-export const STORAGE_VERIFY_KEY = 'webssh_verify';
-export const STORAGE_SALT_KEY = 'webssh_verify_salt';
 
 // crypto.subtle methods are undefined on HTTP (non-localhost), provide fallback
 function haveSubtle(): boolean {
@@ -114,36 +116,61 @@ async function deriveKey(masterPassword: string, salt: Uint8Array): Promise<Cryp
   return key;
 }
 
+// Deterministic XOR fallback key, independent of whether WebCrypto is present.
+// Used for the marked v2xor: scheme so an insecure-context backup stays
+// restorable on a secure-context device (and vice versa).
+async function deriveXorKey(masterPassword: string, salt: Uint8Array): Promise<Uint8Array> {
+  const cacheKey = 'xor:' + masterPassword + ':' + btoa(String.fromCharCode(...salt));
+  const cached = keyCache.get(cacheKey);
+  if (cached instanceof Uint8Array) return cached;
+  const dk = pbkdf2Fallback(masterPassword, salt, Math.min(ITERATIONS, 10000));
+  keyCache.set(cacheKey, dk);
+  return dk;
+}
+
+// Master-password verify-hash scheme marker. The old hash was derived with
+// WebCrypto (PBKDF2 100k + SHA-256 of the exported key) on secure contexts but
+// a pure-JS PBKDF2 fallback (10k) elsewhere, with nothing in the stored value
+// telling them apart — so a hash set under HTTPS failed to verify on an HTTP
+// device and vice versa, breaking cross-device unlock once the verify data
+// synced through R2. The marked scheme always derives deterministically with
+// the pure-JS PBKDF2, which runs identically in any context. Iterations match
+// the existing fallback cap (the XOR backup scheme uses the same budget); the
+// real encryption keys still use 100k PBKDF2 on secure contexts.
+const SCHEME_VERIFY = 'v2v1:';
+const VERIFY_ITERATIONS = 10000;
+
+function deriveVerifyHash(password: string, salt: Uint8Array): string {
+  const dk = pbkdf2Fallback(password, salt, VERIFY_ITERATIONS);
+  return btoa(String.fromCharCode(...sha256(dk)));
+}
+
 export async function setupMasterPassword(password: string): Promise<void> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-  if (haveSubtle()) {
-    const key = await deriveKey(password, salt) as CryptoKey;
-    const raw = await crypto.subtle.exportKey('raw', key);
-    const hash = await crypto.subtle.digest('SHA-256', raw);
-    localStorage.setItem(STORAGE_VERIFY_KEY, btoa(String.fromCharCode(...new Uint8Array(hash))));
-  } else {
-    const dk = pbkdf2Fallback(password, salt, Math.min(ITERATIONS, 10000));
-    const hash = sha256(dk);
-    localStorage.setItem(STORAGE_VERIFY_KEY, btoa(String.fromCharCode(...hash)));
-  }
-  localStorage.setItem(STORAGE_SALT_KEY, btoa(String.fromCharCode(...salt)));
+  storageSet('verifyHash', SCHEME_VERIFY + deriveVerifyHash(password, salt));
+  storageSet('verifySalt', btoa(String.fromCharCode(...salt)));
 }
 
 export async function verifyMasterPassword(password: string): Promise<boolean> {
-  const storedHash = localStorage.getItem(STORAGE_VERIFY_KEY);
-  const storedSalt = localStorage.getItem(STORAGE_SALT_KEY);
+  const storedHash = storageGet('verifyHash');
+  const storedSalt = storageGet('verifySalt');
   if (!storedHash || !storedSalt) return false;
   const salt = Uint8Array.from(atob(storedSalt), c => c.charCodeAt(0));
+  if (storedHash.startsWith(SCHEME_VERIFY)) {
+    return deriveVerifyHash(password, salt) === storedHash.slice(SCHEME_VERIFY.length);
+  }
+  // Legacy (pre-marker) hash: keep the old context-dependent derivation so a
+  // device that set the password in this same context can still unlock. Such
+  // hashes can't verify across contexts, but upgrading to the marked scheme is
+  // automatic on the next password change.
   if (haveSubtle()) {
     const key = await deriveKey(password, salt) as CryptoKey;
     const raw = await crypto.subtle.exportKey('raw', key);
     const hash = await crypto.subtle.digest('SHA-256', raw);
-    const computedHash = btoa(String.fromCharCode(...new Uint8Array(hash)));
-    return computedHash === storedHash;
+    return btoa(String.fromCharCode(...new Uint8Array(hash))) === storedHash;
   }
   const dk = pbkdf2Fallback(password, salt, Math.min(ITERATIONS, 10000));
-  const hash = sha256(dk);
-  return btoa(String.fromCharCode(...hash)) === storedHash;
+  return btoa(String.fromCharCode(...sha256(dk))) === storedHash;
 }
 
 export async function encryptBackupData(data: object, masterPassword: string): Promise<string> {
@@ -164,7 +191,12 @@ export async function decryptBackupData(ciphertext: string, masterPassword: stri
   } catch { return null; }
 }
 
-async function computeChecksum(text: string): Promise<string> {
+// Backup checksum. Unlike key derivation, this one is NOT context-dependent in
+// result: both branches are standard SHA-256 (WebCrypto digest vs the pure-JS
+// sha256() above), so the same input yields the same base64 on any device — no
+// scheme marker is required. The regression tests lock this in (a non-standard
+// pure-JS implementation would silently break cross-context restores).
+export async function computeChecksum(text: string): Promise<string> {
   const enc = new TextEncoder();
   if (haveSubtle()) {
     const hash = await crypto.subtle.digest('SHA-256', enc.encode(text));
@@ -172,6 +204,13 @@ async function computeChecksum(text: string): Promise<string> {
   }
   return btoa(String.fromCharCode(...sha256(enc.encode(text))));
 }
+
+// Scheme prefixes make ciphertext self-describing: a backup created on an
+// insecure (HTTP) context uses the pure-JS XOR scheme, while a secure context
+// uses AES-GCM. The marker lets ANY device decrypt either scheme — previously
+// the two were indistinguishable and cross-device restores could silently fail.
+const SCHEME_AES = 'v2aes:';
+const SCHEME_XOR = 'v2xor:';
 
 export async function encryptCredential(plaintext: string, masterPassword: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
@@ -182,21 +221,39 @@ export async function encryptCredential(plaintext: string, masterPassword: strin
     const encrypted = xorEncrypt(plain, key);
     const combined = new Uint8Array(salt.length + iv.length + encrypted.length);
     combined.set(salt); combined.set(iv, salt.length); combined.set(encrypted, salt.length + iv.length);
-    return bytesToBase64(combined);
+    return SCHEME_XOR + bytesToBase64(combined);
   }
   const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key as CryptoKey, new TextEncoder().encode(plaintext));
   const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
   combined.set(salt, 0);
   combined.set(iv, salt.length);
   combined.set(new Uint8Array(encrypted), salt.length + iv.length);
-  return bytesToBase64(combined);
+  return SCHEME_AES + bytesToBase64(combined);
 }
 
 export async function decryptCredential(ciphertext: string, masterPassword: string): Promise<string> {
-  const raw = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
+  const trimmed = String(ciphertext).trim();
+  let scheme: 'aes' | 'xor' | null = null;
+  let payload = trimmed;
+  if (trimmed.startsWith(SCHEME_AES)) { scheme = 'aes'; payload = trimmed.slice(SCHEME_AES.length); }
+  else if (trimmed.startsWith(SCHEME_XOR)) { scheme = 'xor'; payload = trimmed.slice(SCHEME_XOR.length); }
+
+  const raw = Uint8Array.from(atob(payload), c => c.charCodeAt(0));
   const salt = raw.slice(0, SALT_LENGTH);
   const iv = raw.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
   const data = raw.slice(SALT_LENGTH + IV_LENGTH);
+
+  if (scheme === 'aes') {
+    if (!haveSubtle()) throw new Error('AES-encrypted data cannot be decrypted in this insecure (non-HTTPS) context');
+    const key = await deriveKey(masterPassword, salt) as CryptoKey;
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+    return new TextDecoder().decode(decrypted);
+  }
+  if (scheme === 'xor') {
+    const key = await deriveXorKey(masterPassword, salt);
+    return new TextDecoder().decode(xorEncrypt(data, key));
+  }
+  // Legacy payload (pre-marker): fall back to whatever scheme THIS device has.
   const key = await deriveKey(masterPassword, salt);
   if (key instanceof Uint8Array) {
     const decrypted = xorEncrypt(data, key);

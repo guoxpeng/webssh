@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { storageGetJSON, storageSetJSON, storageRemove } from '@/utils/storage';
 
 export interface CodeNote {
   id: string;
@@ -11,17 +12,12 @@ export interface CodeNote {
   useCount: number;
 }
 
-const STORAGE_KEY = 'webssh_code_notes';
-
 function load(): CodeNote[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+  return storageGetJSON('codeNotes', []);
 }
 
 function save(notes: CodeNote[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+  storageSetJSON('codeNotes', notes);
 }
 
 export const useCodeNoteStore = defineStore('codeNotes', () => {
@@ -71,7 +67,7 @@ export const useCodeNoteStore = defineStore('codeNotes', () => {
 
   function clearAll(): void {
     notes.value = [];
-    localStorage.removeItem(STORAGE_KEY);
+    storageRemove('codeNotes');
   }
 
   return {

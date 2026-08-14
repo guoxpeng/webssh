@@ -43,7 +43,19 @@
       <div class="steps-editor">
         <div class="steps-header">
           <span class="steps-title">{{ t('macro.steps') }}</span>
-          <button class="add-step-btn" @click="addStep">+ {{ t('macro.addStep') }}</button>
+          <div class="steps-header-actions">
+            <button class="add-step-btn" @click="showSnippetPicker = !showSnippetPicker" :title="t('macro.insertSnippet')">
+              <Star :size="12"/> {{ t('macro.insertSnippet') }}
+            </button>
+            <button class="add-step-btn" @click="addStep">+ {{ t('macro.addStep') }}</button>
+          </div>
+        </div>
+        <div v-if="showSnippetPicker" class="snippet-picker">
+          <div v-if="snippetStore.favorites.length === 0" class="snippet-picker-empty">{{ t('macro.noFavorites') }}</div>
+          <button v-for="s in snippetStore.favorites" :key="s.id" type="button" class="snippet-pick-item" @click="insertSnippet(s)">
+            <span class="sp-title">{{ s.title }}</span>
+            <code class="sp-cmd">{{ s.command }}</code>
+          </button>
         </div>
         <div v-for="(step, si) in newMacro.steps" :key="si" class="step-row">
           <span class="step-num">{{ si + 1 }}</span>
@@ -55,7 +67,7 @@
       <input type="text" v-model="newMacro.tags" :placeholder="t('macro.tagsPlaceholder')" class="form-input"/>
       <div class="add-form-actions">
         <button class="add-btn" @click="addNew">{{ t('macro.save') }}</button>
-        <button class="cancel-btn" @click="showAddForm = false">{{ t('common.cancel') }}</button>
+        <button class="cancel-btn" @click="closeAddForm">{{ t('common.cancel') }}</button>
       </div>
     </div>
 
@@ -159,6 +171,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue';
 import { useMacroStore } from '@/stores/macroStore';
+import { useSnippetStore } from '@/stores/snippetStore';
 import { useNotifications } from '@/composables/useNotifications';
 import { useI18n } from 'vue-i18n';
 import {
@@ -170,6 +183,7 @@ import BatchExecutionDialog from './BatchExecutionDialog.vue';
 const { t } = useI18n();
 const emit = defineEmits(['close', 'run', 'recordStart', 'recordStop']);
 const store = useMacroStore();
+const snippetStore = useSnippetStore();
 const { showSuccess, showError, showInfo } = useNotifications();
 
 const showAddForm = ref(false);
@@ -185,9 +199,21 @@ const showAddSchedule = ref(false);
 const newSchedule = ref({ name: '', macroId: '', repeat: 'once', intervalMinutes: 60 });
 
 const isRecording = ref(false);
+const showSnippetPicker = ref(false);
 
 function addStep() {
   newMacro.value.steps.push({ command: '', delay: 300 });
+}
+
+function insertSnippet(s) {
+  newMacro.value.steps.push({ command: s.command, delay: 300 });
+  showSnippetPicker.value = false;
+  showSuccess(t('macro.snippetInserted', { name: s.title }));
+}
+
+function closeAddForm() {
+  showAddForm.value = false;
+  showSnippetPicker.value = false;
 }
 
 function addNew() {
@@ -209,6 +235,7 @@ function addNew() {
   });
   newMacro.value = { name: '', description: '', steps: [{ command: '', delay: 300 }], tags: '' };
   showAddForm.value = false;
+  showSnippetPicker.value = false;
   showSuccess(t('macro.added'));
 }
 
@@ -366,6 +393,26 @@ defineExpose({ populateFromRecording, isRecording });
   font-size: 0.68em; text-align: center; background: var(--bulma-scheme-main); color: var(--bulma-text);
 }
 .step-remove { background: none; border: none; cursor: pointer; color: var(--bulma-text-light); font-size: 1em; padding: 0 2px; &:hover { color: var(--bulma-danger); } }
+.steps-header-actions { display: flex; align-items: center; gap: 0.35rem; }
+.snippet-picker {
+  display: flex; flex-direction: column; gap: 0.2rem;
+  max-height: 180px; overflow-y: auto;
+  margin: 0.2rem 0.15rem 0.35rem; padding: 0.3rem;
+  border: 1px solid var(--bulma-border-light); border-radius: 8px;
+  background: var(--bulma-scheme-main);
+}
+.snippet-picker-empty { padding: 0.4rem; text-align: center; font-size: 0.72em; color: var(--bulma-text-light); }
+.snippet-pick-item {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; padding: 0.3rem 0.45rem; border: none; border-radius: 6px;
+  background: none; cursor: pointer; text-align: left;
+  &:hover { background: var(--bulma-scheme-main-ter); }
+}
+.sp-title { font-size: 0.74em; font-weight: 500; color: var(--bulma-text); }
+.sp-cmd {
+  font-size: 0.68em; color: var(--bulma-text-light); font-family: var(--bulma-family-monospace);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .panel-list, .schedules-section { flex: 1; min-height: 0; overflow-y: auto; }
 

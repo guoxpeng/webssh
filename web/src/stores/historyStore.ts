@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import { storageGetJSON, storageSetJSON } from '@/utils/storage';
 
 export interface HistoryEntry {
   id: string;
@@ -12,7 +13,6 @@ export interface HistoryEntry {
   error?: string;
 }
 
-const HISTORY_KEY = 'webssh_conn_history';
 const MAX_HISTORY = 100;
 
 /**
@@ -24,8 +24,7 @@ export const useHistoryStore = defineStore('history', () => {
 
   function load(): HistoryEntry[] {
     try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      const arr = raw ? JSON.parse(raw) : [];
+      const arr = storageGetJSON('history', []);
       return Array.isArray(arr) ? arr : [];
     } catch {
       return [];
@@ -33,11 +32,7 @@ export const useHistoryStore = defineStore('history', () => {
   }
 
   function persist() {
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.value));
-    } catch {
-      // storage full/unavailable — history is best-effort
-    }
+    storageSetJSON('history', entries.value);
   }
 
   function record(config: { name?: string; host?: string; port?: number; protocol?: string },

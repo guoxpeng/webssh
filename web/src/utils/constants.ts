@@ -1,5 +1,12 @@
 import { getAuthToken } from './api';
 import { isAndroidApp, getNativeSshPort } from './nativeSsh';
+import { STORAGE_KEYS, storageGet, storageSet, storageRemove } from './storage';
+// Re-exported for backward compatibility with existing imports. These are the
+// registered definitions in storage.ts — the single source of truth.
+export const SESSION_STORAGE_CRED_PREFIX = STORAGE_KEYS.sessionCredPrefix.key;
+export const LOCAL_STORAGE_CRED_PREFIX = STORAGE_KEYS.localCredPrefix.key;
+export const LOCAL_STORAGE_CONNECTIONS_KEY = STORAGE_KEYS.connections.key;
+export const LEGACY_CONNECTIONS_KEY = STORAGE_KEYS.legacyConnections.key;
 
 export const ConnectionStatus = Object.freeze({
   DISCONNECTED: 'disconnected',
@@ -17,19 +24,13 @@ export const AuthType = Object.freeze({
 
 export type AuthTypeType = (typeof AuthType)[keyof typeof AuthType];
 
-export const SESSION_STORAGE_CRED_PREFIX = 'sshWebAppCred_';
-export const LOCAL_STORAGE_CRED_PREFIX = 'sshWebAppCredLocal_';
-export const SESSION_STORAGE_CONNECTIONS_KEY = 'sshWebAppConnections_configs';
-
 // ── Runtime backend address ─────────────────────────────────────────────────
 // Mobile/desktop clients have no embedded Node server — the user must point
 // them at a remote webssh gateway. Stored at runtime (Settings panel) so the
 // same APK build works against any backend.
-const BACKEND_URL_KEY = 'webssh_backend_url';
-
 export function getRuntimeBackendBase(): string {
   try {
-    const raw = (localStorage.getItem(BACKEND_URL_KEY) || '').trim();
+    const raw = (storageGet('backendUrl') || '').trim();
     if (!raw) return '';
     // Normalize: scheme required; strip trailing slash
     const withScheme = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
@@ -44,12 +45,12 @@ export function setRuntimeBackendBase(url: string): boolean {
   try {
     const raw = (url || '').trim();
     if (!raw) {
-      localStorage.removeItem(BACKEND_URL_KEY);
+      storageRemove('backendUrl');
       return true;
     }
     const withScheme = /^https?:\/\//i.test(raw) ? raw : `http://${raw}`;
     const u = new URL(withScheme); // throws on invalid host
-    localStorage.setItem(BACKEND_URL_KEY, `${u.protocol}//${u.host}`);
+    storageSet('backendUrl', `${u.protocol}//${u.host}`);
     return true;
   } catch {
     return false;
@@ -60,23 +61,13 @@ export function setRuntimeBackendBase(url: string): boolean {
 // The APK embeds a Java WebSocket→SSH gateway; when enabled the terminal and
 // SFTP sockets point at ws://127.0.0.1:<port> and need no remote backend or
 // access token.
-const BUILTIN_SSH_KEY = 'webssh_builtin_ssh';
-
 export function isBuiltinSshEnabled(): boolean {
-  try {
-    return localStorage.getItem(BUILTIN_SSH_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return storageGet('builtinSsh') === '1';
 }
 
 export function setBuiltinSshEnabled(on: boolean): void {
-  try {
-    if (on) localStorage.setItem(BUILTIN_SSH_KEY, '1');
-    else localStorage.removeItem(BUILTIN_SSH_KEY);
-  } catch {
-    // storage unavailable — nothing sensible to do
-  }
+  if (on) storageSet('builtinSsh', '1');
+  else storageRemove('builtinSsh');
 }
 
 /** True when sockets should target the in-APK gateway (Android APK only). */

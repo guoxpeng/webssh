@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { storageGetJSON, storageSetJSON } from '@/utils/storage';
 
 export interface MacroStep {
   command: string;
@@ -32,27 +33,13 @@ export interface ScheduledTask {
   createdAt: number;
 }
 
-const STORAGE_KEY = 'webssh_macros';
-const SCHEDULE_KEY = 'webssh_macro_schedules';
-
-function load<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
-}
-
-function save<T>(key: string, data: T): void {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
 function genId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 5)}`;
 }
 
 export const useMacroStore = defineStore('macros', () => {
-  const macros = ref<Macro[]>(load(STORAGE_KEY, []));
-  const schedules = ref<ScheduledTask[]>(load(SCHEDULE_KEY, []));
+  const macros = ref<Macro[]>(storageGetJSON('macros', []));
+  const schedules = ref<ScheduledTask[]>(storageGetJSON('macroSchedules', []));
   const searchQuery = ref('');
 
   const filteredMacros = computed(() => {
@@ -67,8 +54,8 @@ export const useMacroStore = defineStore('macros', () => {
 
   const favorites = computed(() => macros.value.filter(m => m.favorite));
 
-  function persistMacros() { save(STORAGE_KEY, macros.value); }
-  function persistSchedules() { save(SCHEDULE_KEY, schedules.value); }
+  function persistMacros() { storageSetJSON('macros', macros.value); }
+  function persistSchedules() { storageSetJSON('macroSchedules', schedules.value); }
 
   function addMacro(data: Omit<Macro, 'id' | 'createdAt' | 'runCount'>): Macro {
     const macro: Macro = {

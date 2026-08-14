@@ -22,6 +22,7 @@ import { usePwaInstall } from '@/composables/usePwaInstall';
 import { useI18n } from 'vue-i18n';
 import { isAndroidApp } from '@/utils/nativeSsh';
 import { isBuiltinSshEnabled, setBuiltinSshEnabled } from '@/utils/constants';
+import { storageGet, storageSet } from '@/utils/storage';
 
 const { t } = useI18n();
 const { showInstall, promptInstall, dismissInstall } = usePwaInstall();
@@ -32,26 +33,26 @@ const unlocked = ref(false);
 const isElectron = typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron');
 
 function onUnlocked(masterPassword) {
-  sessionStorage.setItem('webssh_master', masterPassword);
-  if (isElectron) localStorage.setItem('webssh_exe_master', masterPassword);
+  storageSet('sessionMaster', masterPassword);
+  if (isElectron) storageSet('exeMaster', masterPassword);
   unlocked.value = true;
 }
 
 onMounted(() => {
-  const stored = sessionStorage.getItem('webssh_master');
+  const stored = storageGet('sessionMaster');
   if (stored) {
     unlocked.value = true;
   } else if (isElectron) {
-    const exeMaster = localStorage.getItem('webssh_exe_master');
+    const exeMaster = storageGet('exeMaster');
     if (exeMaster) {
-      sessionStorage.setItem('webssh_master', exeMaster);
+      storageSet('sessionMaster', exeMaster);
       unlocked.value = true;
     }
   } else {
     // Device-level auto-unlock (opt-in "remember this device")
-    const savedMaster = localStorage.getItem('webssh_saved_master');
+    const savedMaster = storageGet('savedMaster');
     if (savedMaster) {
-      sessionStorage.setItem('webssh_master', savedMaster);
+      storageSet('sessionMaster', savedMaster);
       unlocked.value = true;
     }
   }
@@ -63,13 +64,13 @@ onMounted(() => {
   // opaque "WebSocket error". Only auto-enable once so users can opt out in
   // Settings without it silently re-enabling on every launch.
   try {
-    if (isAndroidApp() && !localStorage.getItem('webssh_builtin_ssh') && !isBuiltinSshEnabled()) {
+    if (isAndroidApp() && !storageGet('builtinSsh') && !isBuiltinSshEnabled()) {
       setBuiltinSshEnabled(true);
     }
   } catch { /* storage unavailable — nothing to do */ }
 
   // CF Workers: detect LAN connections and show warning
-  if (!localStorage.getItem('webssh_cf_lan_warned')) {
+  if (!storageGet('cfLanWarned')) {
     fetch('/health').then(r => r.json()).then(data => {
       if (data.uptime === 'worker') {
         const connStore = useConnectionStore();
@@ -82,7 +83,7 @@ onMounted(() => {
             duration: 0,
           });
         }
-        localStorage.setItem('webssh_cf_lan_warned', '1');
+        storageSet('cfLanWarned', '1');
       }
     }).catch(() => {});
   }

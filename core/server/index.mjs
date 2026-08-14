@@ -61,6 +61,10 @@ function safeTokenMatch(token) {
 }
 
 function authCheck(req, res) {
+  // CORS preflight (OPTIONS) never carries credentials or business data —
+  // browsers send it before any cross-origin POST with a Bearer header, so it
+  // must pass without a token or cross-origin clients (multi-end setup) break.
+  if (req.method === 'OPTIONS') return true;
   // Health check always public
   if (req.url === '/health') return true;
   const isStaticGet = req.method === 'GET' && !req.url.startsWith('/api/');
@@ -90,6 +94,11 @@ function setSecurityHeaders(res) {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // CORS: allow cross-origin browser clients. Security rests on the Bearer
+  // token (authCheck above) — a cross-site page cannot read localStorage to
+  // forge the header, so opening the Origin here (mirroring the CF Worker's
+  // `Access-Control-Allow-Origin: *`) does not open a CSRF hole.
+  res.setHeader('Access-Control-Allow-Origin', '*');
 }
 
 // SECURITY (M5): log and keep running; a single bad request must not kill the
@@ -114,14 +123,26 @@ export const server = createServer(async (req, res) => {
   if (!checkRate(clientIp(req))) { res.writeHead(429); res.end('Too many requests'); return; }
   setSecurityHeaders(res);
   if (!authCheck(req, res)) return;
-  // SECURITY (H2): browser requests must come from our own origin. Non-browser
-  // clients (no Origin header) authenticate via Bearer token instead.
-  if (req.url.startsWith('/api/') && !originAllowed(req)) {
+  // CORS preflight: tell browsers which methods/headers the API accepts.
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+      'Access-Control-Max-Age': '86400',
+    });
+    res.end();
+    return;
+  }
+  // SECURITY (H2): browsers with no Bearer header must come from our own
+  // origin (DNS-rebinding / CSRF defense in depth). Requests that already
+  // passed authCheck with a valid Bearer token are trusted cross-origin —
+  // that is exactly the multi-end setup (frontend configured to a remote
+  // backend), and the CF Worker already behaves this way.
+  if (req.url.startsWith('/api/') && !req.headers['authorization'] && !originAllowed(req)) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Origin not allowed' }));
     return;
   }
-  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (serveSuicideSW(req, res)) return;
   if (req.url === '/health') { json(res, { status: 'ok', uptime: process.uptime() }); return; }
   if (serveStatic(req, res)) return;

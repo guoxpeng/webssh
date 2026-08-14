@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { storageSet, storageRemove, storageGetJSON } from '@/utils/storage';
 
 export interface TerminalSession {
   id: string;
@@ -29,36 +30,16 @@ interface SessionConfig {
 }
 
 export const useTerminalStore = defineStore('terminal', () => {
-  const SESSIONS_KEY = 'webssh_saved_sessions';
-  const PANE_CONFIGS_KEY = 'webssh_pane_configs';
-  const RECENT_CMDS_KEY = 'webssh_recent_commands';
   const MAX_RECENT = 20;
 
-  const saved = sessionStorage.getItem(SESSIONS_KEY);
-  let initialSessions: TerminalSession[] = [];
-  if (saved) { try { initialSessions = JSON.parse(saved); } catch { initialSessions = []; } }
-  const sessions = ref<TerminalSession[]>(initialSessions);
+  const sessions = ref<TerminalSession[]>(storageGetJSON('sessions', []));
   const activeSessionId = ref<string | null>(null);
-  const recentCommands = ref<string[]>(loadRecentCommands());
+  const recentCommands = ref<string[]>(storageGetJSON('recentCommands', []));
   const activeSendFunction = ref<((data: string) => void) | null>(null);
-  const paneConfigs = ref<PaneConfig[]>(loadPaneConfigs());
-
-  function loadRecentCommands(): string[] {
-    try {
-      const raw = localStorage.getItem(RECENT_CMDS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  }
-
-  function loadPaneConfigs(): PaneConfig[] {
-    try {
-      const raw = sessionStorage.getItem(PANE_CONFIGS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  }
+  const paneConfigs = ref<PaneConfig[]>(storageGetJSON('paneConfigs', []));
 
   function persistPaneConfigs(): void {
-    sessionStorage.setItem(PANE_CONFIGS_KEY, JSON.stringify(paneConfigs.value));
+    storageSet('paneConfigs', JSON.stringify(paneConfigs.value));
   }
 
   function setPaneConfigs(configs: PaneConfig[]): void {
@@ -68,11 +49,11 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   function clearPaneConfigs(): void {
     paneConfigs.value = [];
-    sessionStorage.removeItem(PANE_CONFIGS_KEY);
+    storageRemove('paneConfigs');
   }
 
   function persistRecentCommands(): void {
-    localStorage.setItem(RECENT_CMDS_KEY, JSON.stringify(recentCommands.value));
+    storageSet('recentCommands', JSON.stringify(recentCommands.value));
   }
 
   function addRecentCommand(cmd: string): void {
@@ -84,11 +65,11 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   function clearRecentCommands(): void {
     recentCommands.value = [];
-    localStorage.removeItem(RECENT_CMDS_KEY);
+    storageRemove('recentCommands');
   }
 
   function persistSessions(): void {
-    sessionStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions.value));
+    storageSet('sessions', JSON.stringify(sessions.value));
   }
 
   const activeSession = computed(() => sessions.value.find(s => s.id === activeSessionId.value));
@@ -143,7 +124,7 @@ export const useTerminalStore = defineStore('terminal', () => {
     sessions.value = [];
     activeSessionId.value = null;
     activeSendFunction.value = null;
-    sessionStorage.removeItem(SESSIONS_KEY);
+    storageRemove('sessions');
   }
 
   function setActiveSendFunction(fn: ((data: string) => void) | null): void {
@@ -203,3 +184,4 @@ export const useTerminalStore = defineStore('terminal', () => {
     isRecording, startRecording, recordInput, stopRecording,
   };
 });
+

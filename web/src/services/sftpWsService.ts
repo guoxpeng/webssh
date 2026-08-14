@@ -1,4 +1,7 @@
 import { getWsSftpUrl, getRuntimeBackendBase, wsAuthProtocols, withLegacyToken } from '@/utils/constants';
+import { i18n } from '@/i18n';
+
+const t = (key: string, params?: Record<string, unknown>) => i18n.global.t(key, params);
 
 type Callbacks = {
   onStatus?: (status: string, error?: string) => void;
@@ -123,8 +126,8 @@ class SftpWsService {
       try { host = new URL(url).host; } catch { host = url; }
       const runtimeBase = getRuntimeBackendBase();
       this._error = runtimeBase
-        ? `WebSocket 错误（目标 ${host}；当前后端网关地址为 ${runtimeBase}，请到 设置 → 后端网关地址 检查或清空）`
-        : `WebSocket 错误（目标 ${host}；请到 设置 检查后端访问密码，并确认代理/加速器/杀毒未拦截 WebSocket）`;
+        ? t('sftp.wsErrorWithGateway', { host, runtimeBase })
+        : t('sftp.wsErrorNoGateway', { host });
       this.callbacks.onStatus?.('error', this._error);
     };
   }

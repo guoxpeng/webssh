@@ -147,3 +147,7 @@ server.err
 /webssh-*.tar.gz
 /webssh-patched.tar.gz
 /*.patch
+
+# Freebuff workspace artifacts (not part of the project)
+.freebuff/
+.dev.vars

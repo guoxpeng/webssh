@@ -177,6 +177,8 @@ onBeforeUnmount(() => { store.stopPolling(); });
 
 function onConfigChange() {
   store.saveConfig();
+  // Let the terminal command bar re-check whether the AI API is now configured.
+  window.dispatchEvent(new CustomEvent('chat-config-changed'));
 }
 
 function onAdminIdsChange() {

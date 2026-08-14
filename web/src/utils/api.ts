@@ -5,17 +5,16 @@
 //    startup URL (desktop shell), else
 // 3. a token the user stored for a runtime-configured (remote) backend —
 //    required on native apps that point at their own webssh server.
-const RUNTIME_TOKEN_KEY = 'webssh_runtime_token';
-export const BACKEND_TOKEN_KEY = 'webssh_backend_token';
+import { STORAGE_KEYS, storageGet, storageSet, storageRemove } from './storage';
+// Re-exported for backward compatibility (see constants.ts).
+export const BACKEND_TOKEN_KEY = STORAGE_KEYS.backendToken.key;
 
 export function getBackendToken(): string {
-  try { return localStorage.getItem(BACKEND_TOKEN_KEY) || ''; } catch { return ''; }
+  return storageGet('backendToken') || '';
 }
 export function setBackendToken(token: string): void {
-  try {
-    if (token) localStorage.setItem(BACKEND_TOKEN_KEY, token);
-    else localStorage.removeItem(BACKEND_TOKEN_KEY);
-  } catch {}
+  if (token) storageSet('backendToken', token);
+  else storageRemove('backendToken');
 }
 
 function resolveRuntimeToken(): string {
@@ -23,10 +22,10 @@ function resolveRuntimeToken(): string {
   try {
     const injected = (window as unknown as Record<string, unknown>).__WEBSSH_AUTH_TOKEN__;
     const fromUrl = new URLSearchParams(window.location.search).get('token');
-    if (fromUrl) window.sessionStorage.setItem(RUNTIME_TOKEN_KEY, fromUrl);
+    if (fromUrl) storageSet('runtimeToken', fromUrl);
     if (typeof injected === 'string' && injected) return injected;
     if (fromUrl) return fromUrl;
-    return getBackendToken() || window.sessionStorage.getItem(RUNTIME_TOKEN_KEY) || '';
+    return getBackendToken() || storageGet('runtimeToken') || '';
   } catch {
     return '';
   }

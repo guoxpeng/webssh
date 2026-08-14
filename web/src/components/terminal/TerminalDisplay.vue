@@ -58,6 +58,29 @@
         <button class="cmd-send-btn" @click="sendCommand" :disabled="!commandInput.trim()" :title="t('terminal.sendCommand')">
           <Send :size="15"/>
         </button>
+        <div v-if="aiReady" class="ai-chat-box">
+          <div v-if="aiChatMessages.length || aiChatBusy" class="ai-chat-popup">
+            <div class="ai-chat-popup-head">
+              <span class="ai-chat-popup-title"><Bot :size="12"/> {{ t('nav.aiRobot') }}</span>
+              <button class="ai-chat-clear" @click="clearAiChat" :title="t('common.clear')"><Trash2 :size="12"/></button>
+            </div>
+            <div class="ai-chat-popup-msgs" ref="aiPopupRef">
+              <div v-if="aiChatBusy && !aiChatMessages.length" class="ai-msg ai-msg-ai">{{ t('terminal.aiThinking') }}</div>
+              <div v-for="(m, i) in aiChatMessages" :key="i" class="ai-msg" :class="m.role === 'user' ? 'ai-msg-user' : 'ai-msg-ai'">
+                <span class="ai-msg-role">{{ m.role === 'user' ? t('terminal.aiYou') : 'AI' }}</span>
+                <span class="ai-msg-text">{{ m.text }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="ai-chat-input-row">
+            <input v-model="aiChatInput" class="ai-chat-input"
+                   :placeholder="t('terminal.aiChatPlaceholder')"
+                   @keydown.enter="onAiChatSend" :disabled="aiChatBusy"/>
+            <button class="ai-chat-send" @click="onAiChatSend" :disabled="!aiChatInput.trim() || aiChatBusy" :title="t('terminal.sendCommand')">
+              <Send :size="14"/>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -118,6 +141,10 @@ import { useHistoryStore } from '@/stores/historyStore';
 import { useI18n } from 'vue-i18n';
 import { useSnippetStore } from '@/stores/snippetStore';
 import { useCodeNoteStore } from '@/stores/codeNoteStore';
+import { useMcpStore } from '@/stores/mcpStore';
+import { apiFetch } from '@/utils/api';
+import { storageGet } from '@/utils/storage';
+import { ConnectionStatus } from '@/utils/constants';
 import { ChevronLeft, ChevronRight, X, Send, Copy, ClipboardPaste, Star, Menu, Bot, TerminalSquare, Settings, PlayCircle, Trash2 } from 'lucide-vue-next';
 import HostMonitorBar from './HostMonitorBar.vue';
 import RemoteDisplay from './RemoteDisplay.vue';
@@ -134,6 +161,67 @@ const showCmdMenu = ref(false);
 const cmdDropdownRef = ref(null);
 const uiStore = useUiStore();
 const historyStore = useHistoryStore();
+
+// ── Inline AI chat in the command bar (visible when the AI API is configured) ──
+const mcpStore = useMcpStore();
+const aiReady = ref(false);
+const aiChatInput = ref('');
+const aiChatBusy = ref(false);
+const aiChatMessages = ref([]);
+const aiPopupRef = ref(null);
+
+async function checkAiStatus() {
+  try {
+    const s = await mcpStore.fetchStatus();
+    aiReady.value = !!(s?.ai?.enabled && s?.ai?.apiConfigured);
+  } catch {
+    aiReady.value = false;
+  }
+}
+
+function scrollAiPopup() {
+  nextTick(() => { if (aiPopupRef.value) aiPopupRef.value.scrollTop = aiPopupRef.value.scrollHeight; });
+}
+
+async function onAiChatSend() {
+  const text = aiChatInput.value.trim();
+  if (!text || aiChatBusy.value) return;
+  aiChatInput.value = '';
+  aiChatMessages.value.push({ role: 'user', text });
+  aiChatBusy.value = true;
+  scrollAiPopup();
+  try {
+    // Let the AI drive the currently connected host when its credentials are available.
+    const cfg = props.nodeConfig;
+    let serverConfig = null;
+    if (cfg && (cfg.host || cfg.name) && cfg.auth_value) {
+      serverConfig = {
+        host: cfg.host,
+        port: cfg.port,
+        username: cfg.username,
+        auth_type: cfg.auth_type || 'password',
+        auth_value: cfg.auth_value,
+      };
+    }
+    const enabledMcpClients = mcpStore.clients.filter((c) => c.enabled);
+    const res = await apiFetch('/api/chat/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, serverConfig, mcpClients: enabledMcpClients }),
+    });
+    const data = await res.json();
+    aiChatMessages.value.push({ role: 'ai', text: data.success ? data.reply : `Error: ${data.error}` });
+  } catch (e) {
+    aiChatMessages.value.push({ role: 'ai', text: `Error: ${e.message}` });
+  } finally {
+    aiChatBusy.value = false;
+    scrollAiPopup();
+  }
+}
+
+function clearAiChat() { aiChatMessages.value = []; }
+
+function onChatConfigChanged() { checkAiStatus(); }
 
 // ── Mobile sticky modifier keys (tap Ctrl → highlighted → next key is Ctrl+key) ──
 const modifierKeys = [
@@ -229,6 +317,26 @@ let searchAddon = null;
 let wsService = null;
 let destroyed = false;
 let reconnectTimer = null;
+let connected = false;
+let wakeLockSentinel = null;
+
+// ── Screen wake lock: keep the display on while a session is live ──
+async function acquireWakeLock() {
+  try {
+    if (navigator.wakeLock && !wakeLockSentinel) {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+    }
+  } catch {}
+}
+function releaseWakeLock() {
+  try { wakeLockSentinel?.release(); } catch {}
+  wakeLockSentinel = null;
+}
+// Browsers drop the lock when the tab is hidden — re-acquire when visible again
+function onVisibilityForWake() {
+  if (document.visibilityState === 'visible' && connected) acquireWakeLock();
+}
 
 const quickSnippets = computed(() => snippetStore.snippets.filter(s => s.favorite).slice(0, 12));
 
@@ -491,21 +599,22 @@ const initializeTerminal = async () => {
   const fitWidth = xtermContainerRef.value?.offsetWidth || 800;
 
   const ts = { ...(props.termSettings || {}) };
-  const storedBg = localStorage.getItem('termBgColor');
+  const storedBg = storageGet('termBgColor');
   if (storedBg && !ts.bgColor) ts.bgColor = storedBg;
   const theme = getTerminalTheme(ts);
   applyTermBg(theme.background);
-  const savedCursorStyle = localStorage.getItem('termCursorStyle');
-  const savedCursorBlink = localStorage.getItem('termCursorBlink');
+  const savedCursorStyle = storageGet('cursorStyle');
+  const savedCursorBlink = storageGet('cursorBlink');
   term = new Terminal({
     cursorBlink: ts.cursorBlink !== undefined ? ts.cursorBlink : (savedCursorBlink !== null ? savedCursorBlink === 'true' : true),
     cursorStyle: ts.cursorStyle || savedCursorStyle || 'block',
     fontFamily: '"Fira Code", Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace',
-    fontSize: ts.fontSize || parseInt(localStorage.getItem('appFontSize')) || (isMobile ? Math.max(11, Math.floor(fitWidth / 28)) : 13),
+    fontSize: ts.fontSize || parseInt(storageGet('fontSize')) || (isMobile ? Math.max(11, Math.floor(fitWidth / 28)) : 13),
+    fontWeight: storageGet('fontBold') === 'true' ? 'bold' : 'normal',
     letterSpacing: 0.5, lineHeight: 1.25, rows: 24,
     allowProposedApi: true,
     // Honor the "scrollback lines" setting from the settings panel (was hardcoded)
-    scrollback: Math.max(200, parseInt(localStorage.getItem('termScrollback')) || 5000),
+    scrollback: Math.max(200, parseInt(storageGet('scrollback')) || 5000),
     convertEol: true,
     theme,
   });
@@ -525,31 +634,13 @@ const initializeTerminal = async () => {
     setTimeout(() => { try { fitAddon?.fit(); } catch {} }, 200);
   }
 
-  let connected = false;
+  connected = false;
   // ── Auto-reconnect state (network switches / device sleep drop the WS) ──
   let connectedEver = false;      // only reconnect sessions that worked once
   let suppressReconnect = false;  // auth/config errors never fix themselves
   let reconnectAttempts = 0;
   const MAX_RECONNECTS = 5;
 
-  // ── Screen wake lock: keep the display on while a session is live ──
-  let wakeLockSentinel = null;
-  async function acquireWakeLock() {
-    try {
-      if (navigator.wakeLock && !wakeLockSentinel) {
-        wakeLockSentinel = await navigator.wakeLock.request('screen');
-        wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
-      }
-    } catch {}
-  }
-  function releaseWakeLock() {
-    try { wakeLockSentinel?.release(); } catch {}
-    wakeLockSentinel = null;
-  }
-  // Browsers drop the lock when the tab is hidden — re-acquire when visible again
-  function onVisibilityForWake() {
-    if (document.visibilityState === 'visible' && connected) acquireWakeLock();
-  }
   document.addEventListener('visibilitychange', onVisibilityForWake);
 
   function friendlyError(msg) {
@@ -569,13 +660,14 @@ const callbacks = {
       connectedEver = true;
       reconnectAttempts = 0;
       acquireWakeLock();
+      connectionStore.setConnectionStatus(ConnectionStatus.CONNECTED);
       emit('status-change', 'connected');
       const cfg = props.nodeConfig;
       if (cfg) historyStore.record(cfg, 'success');
       if (cfg?.id && cfg?.auth_value) {
         connectionStore.saveCredentialToSessionStorage(cfg.id, cfg.auth_type || 'password', cfg.auth_value);
       }
-      // Move out of "未成功连接" group on successful connection
+      // Move out of the FAILED_GROUP pseudo-group on successful connection
       if (cfg?.id) {
         connectionStore.moveConnectionOutOfFailedGroup(cfg.id);
       }
@@ -609,6 +701,7 @@ const callbacks = {
     onServerError: (rawMsg) => {
       const friendly = friendlyError(rawMsg);
       suppressReconnect = true; // auth/config errors won't fix themselves
+      connectionStore.setConnectionStatus(ConnectionStatus.ERROR);
       uiStore.addNotification({ message: friendly, type: 'danger', duration: 5000 });
       emit('status-change', 'error');
       emit('error-message', friendly);
@@ -625,6 +718,10 @@ const callbacks = {
       connected = false;
       releaseWakeLock();
       stopStatsPolling();
+      // Mirror the store-level status so the connect form's Save/Connect buttons
+      // are not stuck disabled (connectionStatus otherwise stays 'connecting'
+      // forever — the pane's own WebSocket never updated the store).
+      connectionStore.setConnectionStatus(manual ? ConnectionStatus.DISCONNECTED : ConnectionStatus.ERROR);
       emit('status-change', 'disconnected');
       terminalStore.setActiveSendFunction(null);
       if (event && event.wasClean && !manual && event.code === 1000) {
@@ -653,6 +750,7 @@ const callbacks = {
       if (destroyed) return;
       const errorMessage = friendlyError(typeof errorEventOrMessage === 'string' ? errorEventOrMessage
         : (errorEventOrMessage.message || ''));
+      connectionStore.setConnectionStatus(ConnectionStatus.ERROR);
       emit('status-change', 'error');
       emit('error-message', errorMessage);
       terminalStore.setActiveSendFunction(null);
@@ -669,6 +767,7 @@ const callbacks = {
   };
 
   wsService = new SshWebSocketService();
+connectionStore.setConnectionStatus(ConnectionStatus.CONNECTING);
 emit('status-change', 'connecting');
     term?.writeln(`\r\n\x1b[33m⏳ ${t('terminal.connecting')}\x1b[0m`);
   wsService.connect(props.nodeConfig, callbacks);
@@ -852,6 +951,7 @@ function onTermSettingsChange(e) {
   if (detail.cursorStyle) term.options.cursorStyle = detail.cursorStyle;
   if (detail.cursorBlink !== undefined) term.options.cursorBlink = detail.cursorBlink;
   if (detail.fontSize) { term.options.fontSize = detail.fontSize; fitAddon?.fit(); }
+  if (detail.bold !== undefined) { term.options.fontWeight = detail.bold ? 'bold' : 'normal'; term.refresh(0, term.rows - 1); }
   if (detail.scrollback) term.options.scrollback = Math.max(200, Number(detail.scrollback) || 5000);
 }
 
@@ -871,6 +971,8 @@ watch(showCmdMenu, (val) => {
 onMounted(() => {
   initializeTerminal();
   window.addEventListener('term-settings-change', onTermSettingsChange);
+  window.addEventListener('chat-config-changed', onChatConfigChanged);
+  checkAiStatus();
 });
 
 onBeforeUnmount(() => {
@@ -884,6 +986,7 @@ onBeforeUnmount(() => {
   }
   if (containerResizeObserver) { containerResizeObserver.disconnect(); containerResizeObserver = null; }
   window.removeEventListener('term-settings-change', onTermSettingsChange);
+  window.removeEventListener('chat-config-changed', onChatConfigChanged);
   document.removeEventListener('visibilitychange', onVisibilityForWake);
   releaseWakeLock();
   terminalStore.setActiveSendFunction(null);
@@ -899,7 +1002,8 @@ onBeforeUnmount(() => {
 .xterm-container-parent {
   flex: 1 1 0; min-height: 0; width: 100%; box-sizing: border-box;
   background-color: var(--term-bg);
-  :deep(.terminal), :deep(.xterm-viewport), :deep(.xterm-screen) { width: 100%; height: 100%; }
+  :deep(.terminal) { width: 100%; height: 100%; box-sizing: border-box; padding: 0.5rem 0.5rem 0.5rem 0.85rem; }
+  :deep(.xterm-viewport), :deep(.xterm-screen) { width: 100%; height: 100%; }
   :deep(.xterm-viewport) { overflow-y: auto !important; scrollbar-width: thin; }
   :deep(.xterm-rows) { will-change: transform; }
   :deep(.xterm-selection) { display: none !important; }
@@ -1011,6 +1115,63 @@ onBeforeUnmount(() => {
   align-items: center; justify-content: center; flex-shrink: 0;
   &:hover:not(:disabled) { background: var(--bulma-primary); color: white; border-color: var(--bulma-primary); }
   &:disabled { opacity: 0.3; cursor: default; }
+}
+
+/* ── Inline AI chat (right half of the command bar) ── */
+.ai-chat-box {
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end;
+  flex: 1 1 50%; min-width: 0;
+  border-left: 1px solid var(--term-border); padding-left: 0.3rem;
+}
+.ai-chat-input-row { display: flex; align-items: center; gap: 0.25rem; }
+.ai-chat-input {
+  flex: 1; min-width: 0; background: var(--term-bg2); border: 1px solid var(--term-border);
+  border-radius: 4px; padding: 0.25rem 0.4rem; font-size: 0.8em; color: var(--term-text);
+  outline: none;
+  &::placeholder { color: var(--term-text-dim); }
+  &:focus { border-color: var(--term-text-dim); }
+}
+.ai-chat-send {
+  background: var(--term-bg2); border: 1px solid var(--term-border); border-radius: 4px;
+  padding: 0.25rem 0.4rem; cursor: pointer; color: var(--term-text); display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+  &:hover:not(:disabled) { background: var(--bulma-primary); color: white; border-color: var(--bulma-primary); }
+  &:disabled { opacity: 0.3; cursor: default; }
+}
+.ai-chat-popup {
+  position: absolute; bottom: calc(100% + 6px); left: 0; right: 0; z-index: 20;
+  background: var(--bulma-scheme-main); border: 1px solid var(--bulma-border-light);
+  border-radius: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  display: flex; flex-direction: column; overflow: hidden;
+  max-height: 240px;
+}
+.ai-chat-popup-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--bulma-border-light);
+  font-size: 0.7em; font-weight: 600; color: var(--bulma-text); flex-shrink: 0;
+}
+.ai-chat-popup-title { display: flex; align-items: center; gap: 0.3rem; }
+.ai-chat-clear {
+  background: none; border: none; cursor: pointer; color: var(--bulma-text-light);
+  display: flex; padding: 0.1rem;
+  &:hover { color: var(--bulma-danger); }
+}
+.ai-chat-popup-msgs { overflow-y: auto; padding: 0.35rem 0.5rem; max-height: 190px; }
+.ai-msg {
+  font-size: 0.75em; padding: 0.25rem 0.4rem; border-radius: 6px; margin-bottom: 0.25rem;
+  color: var(--bulma-text); word-break: break-word; white-space: pre-wrap;
+  &:last-child { margin-bottom: 0; }
+}
+.ai-msg-user { background: var(--bulma-primary-bis); text-align: right; }
+.ai-msg-ai { background: var(--bulma-scheme-main-ter); }
+.ai-msg-role { font-weight: 600; margin-right: 0.3rem; opacity: 0.7; }
+
+@media screen and (max-width: 768px) {
+  .command-input-bar { flex-wrap: wrap; }
+  .ai-chat-box {
+    flex: 1 1 100%; border-left: none;
+    border-top: 1px solid var(--term-border); padding-left: 0; padding-top: 0.3rem;
+  }
 }
 
 .search-overlay {

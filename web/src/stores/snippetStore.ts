@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { storageGetJSON, storageSetJSON } from '@/utils/storage';
 
 export interface CommandSnippet {
   id: string;
@@ -10,17 +11,12 @@ export interface CommandSnippet {
   createdAt: number;
 }
 
-const STORAGE_KEY = 'webssh_snippets';
-
 function loadSnippets(): CommandSnippet[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+  return storageGetJSON('snippets', []);
 }
 
 function saveSnippets(snippets: CommandSnippet[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(snippets));
+  storageSetJSON('snippets', snippets);
 }
 
 export const useSnippetStore = defineStore('snippets', () => {

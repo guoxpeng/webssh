@@ -29,6 +29,30 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
 
+  check-i18n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check:i18n
+      - run: npm run check:i18n:server
+      - run: npm run check:storage
+
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check:version
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -39,3 +63,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Pre-deploy artifact + version-consistency check. `npm run build` now
+      # runs postbuild → Worker bundle + check:version + check:dist (--web), so
+      # this step already covers the web artifacts and version drift. The
+      # explicit check:dist --web below keeps the gate visible in CI logs.
+      - run: npm run build
+      - run: npm run check:dist -- --web
