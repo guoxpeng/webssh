@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { existsSync, copyFileSync, rmSync, createWriteStream } from 'fs';
+import { existsSync, copyFileSync, rmSync, createWriteStream, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import https from 'https';
@@ -12,56 +12,48 @@ const unpackedExe = join(unpackedDir, 'WebSSH.exe');
 
 // Helper: find rcedit from cache or download it
 function findRcedit() {
-  const searchPaths = [
-    join(__dirname, 'rcedit-x64.exe'),
-    join(os.homedir(), 'AppData', 'Local', 'electron-builder', 'Cache', 'winCodeSign'),
-  ];
-  // Search in winCodeSign cache dirs
+  const local = join(__dirname, 'rcedit-x64.exe');
+  if (existsSync(local)) return local;
+  // Search in winCodeSign cache dirs (electron-builder downloads rcedit here
+  // when it edits the exe; CI caches persist across builds).
   const cacheDir = join(os.homedir(), 'AppData', 'Local', 'electron-builder', 'Cache', 'winCodeSign');
   if (existsSync(cacheDir)) {
-    for (const entry of execSync(`dir "${cacheDir}" /b /ad`, { encoding: 'utf8' }).split('\n').filter(Boolean)) {
-      const candidate = join(cacheDir, entry.trim(), 'rcedit-x64.exe');
-      if (existsSync(candidate)) return candidate;
-    }
+    const found = [];
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const fp = join(dir, entry.name);
+        if (entry.isDirectory()) walk(fp);
+        else if (entry.name === 'rcedit-x64.exe') found.push(fp);
+      }
+    };
+    try { walk(cacheDir); } catch {}
+    if (found.length) return found[0];
   }
-  // Local copy
-  if (existsSync(searchPaths[0])) return searchPaths[0];
   return null;
 }
 
 async function downloadRcedit() {
   const outPath = join(__dirname, 'rcedit-x64.exe');
   console.log('  Downloading rcedit...');
-  // GitHub release assets answer with a 302 to object storage; Node's
-  // https.get does not follow redirects — walk them manually (max 5 hops).
-  // Previously the 302 was treated as a download failure, the icon patch was
-  // silently skipped, and the exe shipped with the default Electron icon.
-  const fetchOnce = (url) => new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-        res.resume();
-        resolve({ redirect: res.headers.location });
-        return;
-      }
-      resolve({ res });
-    }).on('error', reject);
+  await new Promise((resolve, reject) => {
+    const doGet = (url) => {
+      https.get(url, { headers: { 'User-Agent': 'webssh-build' } }, (res) => {
+        // GitHub release downloads redirect (302) to a CDN; follow up to a few.
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          doGet(res.headers.location);
+          return;
+        }
+        if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+        const f = createWriteStream(outPath);
+        res.pipe(f);
+        f.on('finish', () => { f.close(); resolve(); });
+        f.on('error', reject);
+      }).on('error', reject);
+    };
+    doGet('https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe');
   });
-  let url = 'https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe';
-  for (let hop = 0; hop < 5; hop++) {
-    const r = await fetchOnce(url);
-    if (r.redirect) { url = r.redirect; continue; }
-    const res = r.res;
-    if (res.statusCode !== 200) throw new Error(`HTTP ${res.statusCode}`);
-    await new Promise((resolve, reject) => {
-      const f = createWriteStream(outPath);
-      res.pipe(f);
-      f.on('finish', () => { f.close(); resolve(); });
-      f.on('error', reject);
-    });
-    console.log('  rcedit downloaded');
-    return outPath;
-  }
-  throw new Error('too many redirects while downloading rcedit');
+  return outPath;
 }
 
 function patchIcon(rceditPath) {
@@ -137,14 +129,15 @@ execSync('npx electron-builder --win=dir', {
 // resources; keep the source tree clean.
 try { rmSync(join(__dirname, '..', 'core', 'server', 'index.bundle.mjs')); } catch {}
 
-// Step 2: Patch icon with rcedit
-console.log('[2/3] Patching icon...');
+// Step 2: Patch icon with rcedit (fallback — electron-builder embeds the icon
+// itself via win.icon; rcedit only needs to succeed when that is skipped).
+console.log('[2/3] Patching icon (fallback)...');
 try {
   let rceditPath = findRcedit();
   if (!rceditPath) rceditPath = await downloadRcedit();
   patchIcon(rceditPath);
 } catch (e) {
-  console.log('  Icon patch skipped:', e.message);
+  console.log(`  Icon patch skipped (electron-builder should have embedded it): ${e.message}`);
 }
 
 // Step 3: Create portable zip (strip non-essential files to keep under 100MB)

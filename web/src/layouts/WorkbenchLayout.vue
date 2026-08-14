@@ -30,10 +30,6 @@
             <GitBranch :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.tunnels') }}</span>
           </router-link>
-          <a class="sidebar-item" @click="showSnippets = !showSnippets; closeMobileMenu()" :title="t('nav.snippets')" role="button" tabindex="0">
-            <Star :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
-          </a>
           <router-link to="/keys" class="sidebar-item" :class="{ 'is-active': $route.name === 'Keys' }"
                         @click="closeMobileMenu" :title="t('nav.keys')">
             <KeyRound :size="22" stroke-width="1.5"/>
@@ -49,14 +45,26 @@
             <ShieldCheck :size="22" stroke-width="1.5"/>
             <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.knownHosts') }}</span>
           </router-link>
-          <a class="sidebar-item" @click="showSettings = true; closeMobileMenu()" :title="t('nav.settings')" role="button" tabindex="0">
-            <Settings :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.settings') }}</span>
-          </a>
-          <router-link to="/help" class="sidebar-item" :class="{ 'is-active': $route.name === 'Help' }"
-                        @click="closeMobileMenu" :title="t('nav.help')">
-            <LifeBuoy :size="22" stroke-width="1.5"/>
-            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.help') }}</span>
+          <div class="sidebar-group-label" v-show="!sidebarCollapsed">{{ t('nav.mcp') }}</div>
+          <router-link to="/mcp/server" class="sidebar-item" :class="{ 'is-active': $route.name === 'McpServer' }"
+                        @click="closeMobileMenu" :title="t('nav.mcpServer')">
+            <Cable :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.mcpServer') }}</span>
+          </router-link>
+          <router-link to="/mcp/clients" class="sidebar-item" :class="{ 'is-active': $route.name === 'McpClients' }"
+                        @click="closeMobileMenu" :title="t('nav.mcpClient')">
+            <Blocks :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.mcpClient') }}</span>
+          </router-link>
+          <router-link to="/mcp/tokens" class="sidebar-item" :class="{ 'is-active': $route.name === 'McpTokens' }"
+                        @click="closeMobileMenu" :title="t('nav.mcpTokens')">
+            <Coins :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.mcpTokens') }}</span>
+          </router-link>
+          <router-link to="/mcp/status" class="sidebar-item" :class="{ 'is-active': $route.name === 'McpStatus' }"
+                        @click="closeMobileMenu" :title="t('nav.mcpStatus')">
+            <Activity :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.mcpStatus') }}</span>
           </router-link>
 
           <div class="sidebar-spacer"></div>
@@ -88,6 +96,19 @@
               {{ uiStore.currentTheme === 'light' ? t('settings.light') : t('settings.dark') }}
             </span>
           </a>
+          <a class="sidebar-item" @click="showSnippets = !showSnippets; closeMobileMenu()" :title="t('nav.snippets')" role="button" tabindex="0">
+            <Star :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.snippets') }}</span>
+          </a>
+          <a class="sidebar-item" @click="showSettings = true; closeMobileMenu()" :title="t('nav.settings')" role="button" tabindex="0">
+            <Settings :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.settings') }}</span>
+          </a>
+          <router-link to="/help" class="sidebar-item" :class="{ 'is-active': $route.name === 'Help' }"
+                        @click="closeMobileMenu" :title="t('nav.help')">
+            <LifeBuoy :size="22" stroke-width="1.5"/>
+            <span class="sidebar-label" v-show="!sidebarCollapsed">{{ t('nav.help') }}</span>
+          </router-link>
           <a class="sidebar-item is-collapse-toggle" @click="sidebarCollapsed = !sidebarCollapsed" :title="t('common.close')"
              role="button" tabindex="0" :aria-expanded="!sidebarCollapsed">
             <ChevronsLeft :size="22" stroke-width="1.5" class="collapse-icon"
@@ -198,7 +219,7 @@ import ChatPanel from '@/components/chat/ChatPanel.vue';
 import MacroPanel from '@/components/macro/MacroPanel.vue';
 import BackupPanel from '@/components/backup/BackupPanel.vue';
 import AuditPanel from '@/components/audit/AuditPanel.vue';
-import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText, GitBranch, KeyRound, History, ShieldCheck, LifeBuoy } from 'lucide-vue-next';
+import { Menu, Settings, Server, Terminal, Sun, Moon, ChevronsLeft, Star, Database, PlayCircle, FolderOpen, FileCode, MessageSquare, ScrollText, GitBranch, KeyRound, History, ShieldCheck, LifeBuoy, Cable, Blocks, Coins, Activity } from 'lucide-vue-next';
 
 const { t } = useI18n();
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -312,7 +333,7 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 .workbench-layout { display: flex; flex-direction: column; height: 100dvh; max-height: 100dvh; overflow: hidden; background: var(--bulma-body-background-color); }
-.workbench-body { display: flex; flex: 1; min-height: 0; max-height: 100%; overflow: hidden; }
+.workbench-body { display: flex; flex: 1; min-height: 0; max-height: 100%; overflow: hidden; margin-top: var(--navbar-h, 3.25rem); }
 .is-electron .workbench-body { margin-top: 0; }
 .workbench-sidebar {
   position: fixed; top: var(--navbar-h, 3.25rem); left: 0; bottom: 24px; z-index: 100;
@@ -379,7 +400,11 @@ onBeforeUnmount(() => {
   to { opacity: 1; }
 }
 .snippet-overlay-panel {
-  position: relative; z-index: 1; max-height: 80vh;
+  position: relative; z-index: 1;
+  width: 560px; max-width: 94vw;
+  height: min(600px, 84vh);
+  background: var(--bulma-scheme-main); border-radius: 14px; overflow: hidden;
+  box-shadow: var(--app-shadow-lg);
   animation: panelIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @keyframes panelIn {
@@ -388,11 +413,6 @@ onBeforeUnmount(() => {
 }
 .snippet-overlay-backdrop {
   position: absolute; inset: 0;
-}
-.snippet-overlay-panel {
-  position: relative; z-index: 1; max-height: 80vh;
-  background: var(--bulma-scheme-main); border-radius: 12px; overflow: hidden;
-  box-shadow: var(--app-shadow-lg);
 }
 
 /* Mobile bottom nav */
@@ -496,7 +516,8 @@ onBeforeUnmount(() => {
 @media screen and (max-width: 768px) {
   .snippet-overlay { align-items: flex-end; }
   .snippet-overlay-panel {
-    width: 100%; max-height: 92dvh;
+    width: 100%; max-width: 100%; height: auto;
+    max-height: 92dvh;
     display: flex; flex-direction: column;
     animation: sheetIn 0.22s cubic-bezier(0.34, 1.2, 0.64, 1);
   }

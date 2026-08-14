@@ -159,6 +159,7 @@ const showSftpPanel = ref(false);
 const sftpWidth = ref(500);
 const dragging = ref(false);
 let sftpResizeObserver = null;
+let windowResizeTimer = null;
 
 const isRecording = ref(false);
 const recordingSteps = ref([]);
@@ -244,14 +245,36 @@ const sftpPanelConfig = computed(() => {
   return pane?.config || null;
 });
 
+// Default SFTP panel width: one third of the terminal area, clamped to a usable
+// range. Applied on open and whenever the browser/container resizes, so a
+// manually dragged width snaps back to the default.
+function computeDefaultSftpWidth() {
+  const container = document.querySelector('.terminal-main-area');
+  const avail = container ? container.offsetWidth : 0;
+  if (!avail) return 500;
+  return Math.min(500, Math.max(180, Math.round(avail / 3)));
+}
+
+function resetSftpWidthToDefault() {
+  sftpWidth.value = computeDefaultSftpWidth();
+}
+
+// Browser window resize → snap the SFTP panel back to its default size
+// (debounced so a drag-resize only settles once).
+function onWindowResize() {
+  if (!showSftpPanel.value) return;
+  if (windowResizeTimer) clearTimeout(windowResizeTimer);
+  windowResizeTimer = setTimeout(() => {
+    windowResizeTimer = null;
+    resetSftpWidthToDefault();
+  }, 150);
+}
+
 function toggleSftpPanel() {
   if (!sftpPanelConfig.value) return;
   showSftpPanel.value = !showSftpPanel.value;
   if (showSftpPanel.value) {
-    nextTick(() => {
-      const container = document.querySelector('.terminal-main-area');
-      if (container) sftpWidth.value = Math.min(500, Math.max(180, Math.round(container.offsetWidth / 3)));
-    });
+    nextTick(() => resetSftpWidthToDefault());
   }
 }
 
@@ -320,13 +343,14 @@ onMounted(() => {
         showSftpPanel.value = false;
       } else if (thresholdShow && !showSftpPanel.value && hasConnected) {
         showSftpPanel.value = true;
-        sftpWidth.value = Math.min(500, Math.max(180, oneThird));
+        resetSftpWidthToDefault();
       } else if (showSftpPanel.value) {
-        sftpWidth.value = Math.min(500, Math.max(180, oneThird));
+        resetSftpWidthToDefault();
       }
     });
     sftpResizeObserver.observe(area);
   }
+  window.addEventListener('resize', onWindowResize);
 });
 onActivated(() => {
   if (connectionStore.pendingConnections.length > 0) processPendingConnections();
@@ -339,15 +363,15 @@ watch(() => splitPaneRef.value?.panes, (panes) => {
   const oneThird = container ? Math.round(container.offsetWidth / 3) : 0;
   if (connected && !showSftpPanel.value && oneThird >= 200) {
     showSftpPanel.value = true;
-    nextTick(() => {
-      if (container) sftpWidth.value = Math.min(500, Math.max(180, oneThird));
-    });
+    nextTick(() => resetSftpWidthToDefault());
   }
 }, { deep: true, immediate: false });
 
 onBeforeUnmount(() => {
   if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
   if (sftpResizeObserver) { sftpResizeObserver.disconnect(); sftpResizeObserver = null; }
+  window.removeEventListener('resize', onWindowResize);
+  if (windowResizeTimer) { clearTimeout(windowResizeTimer); windowResizeTimer = null; }
   // Save active pane configs for restoration on return
   const panes = splitPaneRef.value?.panes;
   if (panes?.length > 0) {

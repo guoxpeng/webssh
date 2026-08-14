@@ -24,6 +24,17 @@ class SftpWsService {
   get error() { return this._error; }
 
   connect(config: any, callbacks: Callbacks) {
+    // Retry safety: tear down any previous socket before opening a new one so
+    // a re-connect can never leak a stale connection or its timers/promises.
+    if (this.ws) {
+      try { this.ws.onclose = null; this.ws.onerror = null; this.ws.close(); } catch {}
+      this.ws = null;
+    }
+    if (this.connTimeout) { clearTimeout(this.connTimeout); this.connTimeout = null; }
+    if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+    for (const [, p] of this.pending) p.reject(new Error('Reconnecting'));
+    this.pending.clear();
+
     this.closed = false;
     this.config = config;
     this.callbacks = callbacks;

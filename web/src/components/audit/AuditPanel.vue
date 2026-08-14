@@ -172,7 +172,7 @@ onMounted(refreshData);
 </script>
 
 <style lang="scss" scoped>
-.audit-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.audit-panel { display: flex; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
 
 .audit-stats { display: flex; align-items: center; gap: 0.3rem; padding: 0.45rem 0.9rem; font-size: 0.72em; color: var(--bulma-text-light); border-bottom: 1px solid var(--bulma-border-light); flex-shrink: 0; flex-wrap: wrap; }
 .stat-item { margin-right: auto; }

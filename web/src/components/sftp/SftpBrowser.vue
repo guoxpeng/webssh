@@ -50,9 +50,15 @@
     </div>
 
     <div v-if="loading" class="sftp-loading">{{ t('sftp.loading') }}</div>
-    <div v-else-if="error" class="sftp-error">{{ error }}</div>
+    <div v-else-if="error" class="sftp-error">
+      <span>{{ error }}</span>
+      <button class="sftp-retry-btn" @click="connectServer"><RefreshCw :size="13"/> {{ t('common.retry') }}</button>
+    </div>
     <div v-else-if="connected && entries.length === 0" class="sftp-empty">{{ t('sftp.empty') }}</div>
-    <div v-else-if="!connected && entries.length === 0" class="sftp-error">{{ t('sftp.notConnected') }}</div>
+    <div v-else-if="!connected && entries.length === 0" class="sftp-error">
+      <span>{{ t('sftp.notConnected') }}</span>
+      <button class="sftp-retry-btn" @click="connectServer"><RefreshCw :size="13"/> {{ t('common.retry') }}</button>
+    </div>
     <div v-else class="sftp-list">
       <div v-if="filteredEntries.length === 0 && searchQuery" class="sftp-empty">{{ t('sftp.noMatch') }}</div>
       <div v-for="entry in filteredEntries" :key="entry.name"
@@ -397,6 +403,15 @@ async function getAuth() {
   if (!authValue && src?.id) {
     try {
       const cred = await connStore.getCredentialFromSessionStorage(src.id);
+      if (cred?.auth_value) { authValue = cred.auth_value; authType = cred.auth_type || 'password'; }
+    } catch {}
+  }
+  // Fall back to persistently stored credentials too (session storage may be
+  // empty after a fresh browser session even though the terminal connected via
+  // localStorage), otherwise the file panel fails auth with an empty value.
+  if (!authValue && src?.id) {
+    try {
+      const cred = await connStore.getCredentialFromLocalStorage(src.id);
       if (cred?.auth_value) { authValue = cred.auth_value; authType = cred.auth_type || 'password'; }
     } catch {}
   }
@@ -750,7 +765,13 @@ async function copyPath(entry) {
 
 async function connectServer() {
   const auth = await getAuth();
-  if (!auth.host) { error.value = t('sftp.notConnected'); return; }
+  if (!auth.host) { error.value = t('sftp.notConnected'); connected.value = false; return; }
+  if (!auth.auth_value) {
+    error.value = t('sftp.noCredential');
+    connected.value = false;
+    loading.value = false;
+    return;
+  }
   error.value = '';
   connected.value = false;
   loading.value = true;
@@ -783,7 +804,7 @@ onBeforeUnmount(() => {
 });
 
 watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
-  if (!newCfg || !oldCfg) { currentPath.value = '/'; refresh(); return; }
+  if (!newCfg || !oldCfg) { currentPath.value = '/'; return; }
   const key = (c) => `${c.host}_${c.port}_${c.username}`;
   if (key(newCfg) !== key(oldCfg)) {
     sftp.disconnect();
@@ -892,7 +913,16 @@ watch(() => props.nodeConfig, async (newCfg, oldCfg) => {
   color: var(--bulma-text-light); font-size: 0.85em;
 }
 
-.sftp-error { color: var(--bulma-danger); }
+.sftp-error { color: var(--bulma-danger); flex-direction: column; gap: 0.6rem; }
+.sftp-retry-btn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.9rem; border-radius: 8px;
+  border: 1px solid var(--bulma-danger);
+  background: color-mix(in srgb, var(--bulma-danger) 12%, transparent);
+  color: var(--bulma-danger); font-size: 0.8em; font-weight: 500; cursor: pointer;
+  transition: all 0.12s;
+  &:hover { background: color-mix(in srgb, var(--bulma-danger) 22%, transparent); }
+}
 
 .sftp-list {
   flex: 1; overflow-y: auto; padding: 0;

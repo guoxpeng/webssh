@@ -479,7 +479,7 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-.backup-panel { width: 640px; max-width: 96vw; max-height: 90vh; overflow-y: auto; }
+.backup-panel { width: 100%; height: 100%; overflow-y: auto; }
 .input-sm { width: 64px; display: inline-block; }
 .inventory-panel {
   background: var(--bulma-scheme-main-ter); border-radius: 8px; padding: 0.4rem 0.55rem;

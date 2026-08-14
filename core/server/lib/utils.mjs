@@ -247,7 +247,7 @@ export function serveStatic(req, res) {
     }
     // SPA fallback: only the real frontend routes get the app shell —
     // everything else is a genuine 404 (no index.html for /etc/passwd & co.)
-    const SPA_ROUTES = new Set(['/', '/terminal', '/sftp']);
+    const SPA_ROUTES = new Set(['/', '/terminal', '/sftp', '/mcp/server', '/mcp/clients', '/mcp/tokens', '/mcp/status']);
     if (SPA_ROUTES.has(filePath)) {
       return serveIndexWithToken(res, useGzip);
     }

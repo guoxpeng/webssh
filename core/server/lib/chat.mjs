@@ -1,11 +1,12 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { get as httpsGet } from 'https';
 import { Client } from 'ssh2';
 import { audit } from './audit.mjs';
 import { logger } from './logger.mjs';
 import { verifyHostKey } from './utils.mjs';
+import { collectMcpTools, callTool, formatToolResult } from './mcp-client.mjs';
 const log = logger('Chat');
 
 const __dirname = join(fileURLToPath(import.meta.url), '..', '..');
@@ -18,6 +19,62 @@ let chatIdCounter = 0;
 try { if (existsSync(CHAT_CONFIG_PATH)) chatConfig = JSON.parse(readFileSync(CHAT_CONFIG_PATH, 'utf8')); } catch {}
 
 function saveChatConfig() { try { writeFileSync(CHAT_CONFIG_PATH, JSON.stringify(chatConfig, null, 2), 'utf8'); } catch (e) { log.error('failed to save config', e); } }
+
+// ── AI token usage tracking (for the MCP → Token Usage panel) ──────────────
+const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
+const TOKEN_USAGE_PATH = join(DATA_DIR, 'ai-token-usage.json');
+const tokenUsage = { total: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, requests: 0, calls: [] };
+try {
+  if (existsSync(TOKEN_USAGE_PATH)) {
+    const saved = JSON.parse(readFileSync(TOKEN_USAGE_PATH, 'utf8'));
+    tokenUsage.total = saved.total || tokenUsage.total;
+    tokenUsage.requests = saved.requests || 0;
+    tokenUsage.calls = Array.isArray(saved.calls) ? saved.calls : [];
+  }
+} catch {}
+
+function saveTokenUsage() {
+  try {
+    if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+    writeFileSync(TOKEN_USAGE_PATH, JSON.stringify(tokenUsage), 'utf8');
+  } catch (e) { log.error('failed to persist token usage', e); }
+}
+
+function recordTokenUsage(model, usage) {
+  if (!usage) { tokenUsage.requests += 1; saveTokenUsage(); return; }
+  const prompt = parseInt(usage.prompt_tokens, 10) || 0;
+  const completion = parseInt(usage.completion_tokens, 10) || 0;
+  const total = parseInt(usage.total_tokens, 10) || (prompt + completion);
+  tokenUsage.total.prompt_tokens += prompt;
+  tokenUsage.total.completion_tokens += completion;
+  tokenUsage.total.total_tokens += total;
+  tokenUsage.requests += 1;
+  tokenUsage.calls.push({ t: Date.now(), model: model || '', prompt_tokens: prompt, completion_tokens: completion, total_tokens: total });
+  if (tokenUsage.calls.length > 500) tokenUsage.calls = tokenUsage.calls.slice(-500);
+  saveTokenUsage();
+}
+
+export function getTokenUsage() {
+  return { total: { ...tokenUsage.total }, requests: tokenUsage.requests, calls: tokenUsage.calls.slice(-200).reverse() };
+}
+
+export function clearTokenUsage() {
+  tokenUsage.total = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+  tokenUsage.requests = 0;
+  tokenUsage.calls = [];
+  saveTokenUsage();
+}
+
+export function getAiStatus() {
+  const ai = chatConfig.ai || {};
+  return {
+    enabled: !!ai.enabled,
+    apiConfigured: !!ai.apiKey,
+    model: ai.model || '',
+    apiUrl: ai.apiUrl || '',
+    systemPrompt: ai.systemPrompt || '',
+  };
+}
 
 function addChatMessage(msg) {
   const m = { id: `chat_${++chatIdCounter}`, ...msg, timestamp: msg.timestamp || Date.now() };
@@ -116,16 +173,57 @@ async function handleAiResponse(incomingText, platform, meta) {
   } catch (e) { log.error('AI error', e); }
 }
 
-async function callAi(cfg, messages) {
+// Single OpenAI-compatible /chat/completions call with an optional tool loop.
+// When `options.tools` + `options.executeTool` are present, assistant tool_calls
+// are executed and fed back until the model answers in plain text (or the
+// iteration cap is reached).
+const MAX_TOOL_ITERATIONS = 10;
+
+async function callAi(cfg, messages, options = {}) {
+  const { tools, executeTool } = options;
+  const useTools = Array.isArray(tools) && tools.length > 0 && typeof executeTool === 'function';
   const msgs = messages.map((c, i) => ({ role: i === 0 ? 'system' : 'user', content: c }));
-  const res = await fetch(`${cfg.apiUrl.replace(/\/+$/, '')}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` },
-    body: JSON.stringify({ model: cfg.model || 'gpt-4o-mini', messages: msgs, temperature: cfg.temperature || 0.7, max_tokens: 2000 }),
-  });
-  if (!res.ok) { log.error('AI API error: ' + res.status); return null; }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || null;
+
+  for (let iter = 0; iter < (useTools ? MAX_TOOL_ITERATIONS : 1); iter++) {
+    const payload = {
+      model: cfg.model || 'gpt-4o-mini',
+      messages: msgs,
+      temperature: cfg.temperature || 0.7,
+      max_tokens: useTools ? 4000 : 2000,
+    };
+    if (useTools) { payload.tools = tools; payload.tool_choice = 'auto'; }
+    const res = await fetch(`${cfg.apiUrl.replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) { log.error('AI API error: ' + res.status); return null; }
+    const data = await res.json();
+    recordTokenUsage(cfg.model || 'gpt-4o-mini', data.usage);
+    const msg = data.choices?.[0]?.message;
+    if (!msg) return null;
+
+    const toolCalls = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
+    if (toolCalls.length > 0 && useTools) {
+      msgs.push({ role: 'assistant', content: msg.content ?? null, tool_calls: toolCalls });
+      for (const tc of toolCalls) {
+        const fn = tc.function || {};
+        let args = {};
+        try { args = fn.arguments ? JSON.parse(fn.arguments) : {}; } catch {}
+        let result;
+        try {
+          const r = await executeTool(fn.name, args);
+          result = typeof r === 'string' ? r : JSON.stringify(r);
+        } catch (e) {
+          result = `Error: ${e.message}`;
+        }
+        msgs.push({ role: 'tool', tool_call_id: tc.id, content: String(result).slice(0, 20000) });
+      }
+      continue;
+    }
+    return msg.content || null;
+  }
+  return null;
 }
 
 function extractCommands(text) {
@@ -173,42 +271,119 @@ async function executeSSHCommand(serverCfg, command) {
   });
 }
 
-async function processAiMessage(userText, serverCfg) {
+// The AI tab of the Chat panel. `mcpClients` (optional) are the enabled MCP
+// client configs from the frontend; their tools are registered under the
+// mcp__<service>__<tool> namespace and made callable by the model.
+async function processAiMessage(userText, serverCfg, mcpClients = []) {
   const cfg = chatConfig.ai;
   if (!cfg?.enabled || !cfg?.apiKey) return { success: false, error: 'AI not configured' };
+  let mcp = null;
   try {
     addChatMessage({ platform: 'webssh', direction: 'out', from: 'Admin', text: userText });
     audit('ai_request', { message: userText.slice(0, 200), server: serverCfg?.host || null });
-    const reply = await callAi(cfg, [cfg.systemPrompt || 'You are a helpful SSH operations assistant.', userText]);
-    if (!reply) return { success: false, error: 'AI returned empty response' };
-    addChatMessage({ platform: 'ai', direction: 'in', from: 'AI', text: reply });
-    const commands = extractCommands(reply);
+
+    // ── Build the tool set: native SSH exec + external MCP tools ──
+    const tools = [];
     const execResults = [];
-    if (commands.length > 0 && serverCfg?.host) {
-      for (const cmd of commands) {
-        const result = await executeSSHCommand(serverCfg, cmd);
-        audit('ai_ssh_exec', { host: serverCfg.host, command: cmd, success: result.success });
-        if (result.success) {
-          execResults.push({ command: cmd, stdout: result.stdout?.slice(0, 500), stderr: result.stderr?.slice(0, 500) });
-        } else {
-          execResults.push({ command: cmd, error: result.error });
+    const toolCalls = [];
+
+    if (serverCfg?.host) {
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'webssh_exec_command',
+          description: 'Run a shell command over SSH on the selected server. Returns stdout/stderr.',
+          parameters: {
+            type: 'object',
+            properties: { command: { type: 'string', description: 'Shell command to execute on the server.' } },
+            required: ['command'],
+          },
+        },
+      });
+    }
+
+    const clients = Array.isArray(mcpClients) ? mcpClients.filter((c) => c && c.enabled !== false).slice(0, 20) : [];
+    if (clients.length) {
+      mcp = await collectMcpTools(clients);
+      tools.push(...mcp.tools);
+    }
+
+    const sysPrompt = cfg.systemPrompt || 'You are a helpful SSH operations assistant.';
+    let reply;
+    if (tools.length) {
+      reply = await callAi(cfg, [sysPrompt, userText], {
+        tools,
+        async executeTool(name, args) {
+          if (name === 'webssh_exec_command') {
+            const command = String(args?.command || '').slice(0, 4096);
+            if (!command) return JSON.stringify({ success: false, error: 'empty command' });
+            const r = await executeSSHCommand(serverCfg, command);
+            audit('ai_ssh_exec', { host: serverCfg.host, command, success: r.success });
+            execResults.push({
+              command,
+              stdout: r.stdout?.slice(0, 500),
+              stderr: r.stderr?.slice(0, 500),
+              error: r.error,
+            });
+            return JSON.stringify({
+              success: r.success,
+              stdout: (r.stdout || '').slice(0, 8000),
+              stderr: (r.stderr || '').slice(0, 4000),
+              error: r.error,
+            });
+          }
+          const entry = mcp?.registry.get(name);
+          if (!entry) return `Error: unknown tool ${name}`;
+          const raw = await callTool(entry.session, entry.toolName, args);
+          const text = formatToolResult(raw);
+          toolCalls.push({
+            service: entry.client.name || '',
+            tool: entry.toolName,
+            arguments: args,
+            result: text.slice(0, 2000),
+          });
+          audit('ai_mcp_tool', { service: entry.client.name, tool: entry.toolName });
+          return text;
+        },
+      });
+    } else {
+      reply = await callAi(cfg, [sysPrompt, userText]);
+      // Legacy fallback for models without tool support: run ```bash blocks.
+      const commands = extractCommands(reply);
+      if (commands.length > 0 && serverCfg?.host) {
+        for (const cmd of commands) {
+          const result = await executeSSHCommand(serverCfg, cmd);
+          audit('ai_ssh_exec', { host: serverCfg.host, command: cmd, success: result.success });
+          if (result.success) {
+            execResults.push({ command: cmd, stdout: result.stdout?.slice(0, 500), stderr: result.stderr?.slice(0, 500) });
+          } else {
+            execResults.push({ command: cmd, error: result.error });
+          }
+        }
+        if (execResults.length > 0) {
+          const execText = execResults.map((r) => {
+            let s = `$ ${r.command}\n`;
+            if (r.stdout) s += r.stdout;
+            if (r.stderr) s += `\x1b[31m${r.stderr}\x1b[0m`;
+            if (r.error) s += `\x1b[31m[Error] ${r.error}\x1b[0m`;
+            return s;
+          }).join('\n');
+          reply = `${reply}\n\n\`\`\`\n${execText}\n\`\`\``;
         }
       }
-      if (execResults.length > 0) {
-        const execText = execResults.map(r => {
-          let s = `$ ${r.command}\n`;
-          if (r.stdout) s += r.stdout;
-          if (r.stderr) s += `\x1b[31m${r.stderr}\x1b[0m`;
-          if (r.error) s += `\x1b[31m[Error] ${r.error}\x1b[0m`;
-          return s;
-        }).join('\n');
-        const finalReply = `${reply}\n\n\`\`\`\n${execText}\n\`\`\``;
-        addChatMessage({ platform: 'ai', direction: 'in', from: 'AI', text: finalReply, meta: { execResults } });
-        return { success: true, reply: finalReply, execResults };
-      }
     }
-    return { success: true, reply, execResults };
-  } catch (e) { return { success: false, error: e.message }; }
+
+    if (!reply) return { success: false, error: 'AI returned empty response' };
+    const meta = {};
+    if (execResults.length) meta.execResults = execResults;
+    if (toolCalls.length) meta.toolCalls = toolCalls;
+    addChatMessage({ platform: 'ai', direction: 'in', from: 'AI', text: reply, meta: Object.keys(meta).length ? meta : undefined });
+    return { success: true, reply, execResults, toolCalls };
+  } catch (e) {
+    return { success: false, error: e.message };
+  } finally {
+    if (mcp) mcp.close();
+  }
 }
 
 function restartTelegramPoll() { startTelegramPoll(); }
@@ -265,3 +440,6 @@ export function createChatBot() {
     processAiMessage,
   };
 }
+
+// exported for tests
+export const __testing = { callAi, extractCommands };

@@ -18,6 +18,7 @@ import { handleSerial } from './lib/serial.mjs';
 import { handleGuacdWS } from './lib/guacd.mjs';
 import { audit, getAuditLog, clearAuditLog } from './lib/audit.mjs';
 import { handleModelApi, setAuthToken } from './lib/modelapi.mjs';
+import { handleMcpApi, setMcpMeta } from './lib/mcp.mjs';
 
 import { logger, getLevel } from './lib/logger.mjs';
 
@@ -47,6 +48,7 @@ if (!process.env.AUTH_TOKEN) {
   log.warn('AUTH_TOKEN not set — generated an ephemeral token for this session. Set AUTH_TOKEN=<secret> for a stable token (e.g. for the local-model API).');
 }
 setAuthToken(AUTH_TOKEN);
+setMcpMeta({ stableToken: !!process.env.AUTH_TOKEN, port: Number(PORT) });
 // Hand the token to the locally served frontend (index.html injection).
 setInjectedAuthToken(AUTH_TOKEN);
 
@@ -126,7 +128,7 @@ export const server = createServer(async (req, res) => {
   // SECURITY (L2): previously GET APIs were dead code (unreachable behind the
   // POST-only gate). Read-only endpoints are now explicitly GET-allowed
   // (still behind the Bearer-token authCheck above).
-  const GET_ALLOWED_API = new Set(['/api/chat/config', '/api/audit', '/api/model/servers', '/api/server-info', '/api/known-hosts']);
+  const GET_ALLOWED_API = new Set(['/api/chat/config', '/api/audit', '/api/model/servers', '/api/server-info', '/api/known-hosts', '/api/mcp/status', '/api/mcp/tokens']);
   if (req.method !== 'POST' && !(req.method === 'GET' && GET_ALLOWED_API.has(req.url))) {
     res.writeHead(404); res.end(); return;
   }
@@ -234,9 +236,9 @@ export const server = createServer(async (req, res) => {
       return;
     }
     if (req.url === '/api/chat/ai') {
-      const { message, serverConfig } = body;
+      const { message, serverConfig, mcpClients } = body;
       if (!message) { json(res, { success: false, error: 'message required' }, 400); return; }
-      const result = await bot.processAiMessage(message, serverConfig || null);
+      const result = await bot.processAiMessage(message, serverConfig || null, Array.isArray(mcpClients) ? mcpClients : []);
       json(res, result);
       return;
     }
@@ -307,6 +309,12 @@ export const server = createServer(async (req, res) => {
   // ── Model API (registry + probe + exec for local AI models) ──
   if (req.url.startsWith('/api/model/')) {
     await handleModelApi(req, res, body);
+    return;
+  }
+
+  // ── MCP management (status + external MCP client bridge) ──
+  if (req.url.startsWith('/api/mcp/')) {
+    await handleMcpApi(req, res, body);
     return;
   }
 

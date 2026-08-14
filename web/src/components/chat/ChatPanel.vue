@@ -102,15 +102,21 @@
             <span class="msg-from">{{ msg.from }}</span>
             <span class="msg-time">{{ timeAgo(msg.timestamp) }}</span>
           </div>
-          <div class="msg-body" v-if="!msg.meta?.execResults">{{ msg.text }}</div>
-          <div class="msg-body" v-else>
-            <div class="msg-text">{{ msg.text.split('\n\n```')[0] }}</div>
-            <div class="exec-results">
+          <div class="msg-body">
+            <div class="msg-text">{{ displayText(msg) }}</div>
+            <div class="exec-results" v-if="msg.meta?.execResults?.length">
               <div v-for="(r, i) in msg.meta.execResults" :key="i" class="exec-item">
                 <div class="exec-cmd"><Terminal :size="12"/> $ {{ r.command }}</div>
                 <pre v-if="r.stdout" class="exec-output">{{ r.stdout }}</pre>
                 <pre v-if="r.stderr" class="exec-err">{{ r.stderr }}</pre>
                 <div v-if="r.error" class="exec-err">{{ r.error }}</div>
+              </div>
+            </div>
+            <div class="exec-results" v-if="msg.meta?.toolCalls?.length">
+              <div v-for="(r, i) in msg.meta.toolCalls" :key="'m'+i" class="exec-item">
+                <div class="exec-cmd mcp-cmd"><Blocks :size="12"/> {{ r.service }} › {{ r.tool }}</div>
+                <pre class="exec-output mcp-args" v-if="formatArgs(r.arguments)">{{ formatArgs(r.arguments) }}</pre>
+                <pre class="exec-output">{{ r.result }}</pre>
               </div>
             </div>
           </div>
@@ -142,13 +148,15 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useChatStore } from '@/stores/chatStore';
-import { MessageSquare, Settings, Send, Radio, Brain, X, Terminal } from 'lucide-vue-next';
+import { MessageSquare, Settings, Send, Radio, Brain, X, Terminal, Blocks } from 'lucide-vue-next';
 import { apiFetch } from '@/utils/api';
 import { useConnectionStore } from '@/stores/connectionStore';
+import { useMcpStore } from '@/stores/mcpStore';
 
 const { t } = useI18n();
 const store = useChatStore();
 const connStore = useConnectionStore();
+const mcpStore = useMcpStore();
 
 const showConfig = ref(false);
 const tab = ref('messages');
@@ -209,14 +217,18 @@ async function onAiSend() {
         serverConfig = { host: srv.host, port: srv.port, username: srv.username, auth_type: authType, auth_value: authValue };
       }
     }
+    const enabledMcpClients = mcpStore.clients.filter((c) => c.enabled);
     const res = await apiFetch('/api/chat/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, serverConfig }),
+      body: JSON.stringify({ message: text, serverConfig, mcpClients: enabledMcpClients }),
     });
     const data = await res.json();
     if (data.success) {
-      aiMessages.value.push({ id: `ai_in_${Date.now()}`, platform: 'ai', direction: 'in', from: 'AI', text: data.reply, timestamp: Date.now(), meta: data.execResults?.length ? { execResults: data.execResults } : undefined });
+      const meta = {};
+      if (data.execResults?.length) meta.execResults = data.execResults;
+      if (data.toolCalls?.length) meta.toolCalls = data.toolCalls;
+      aiMessages.value.push({ id: `ai_in_${Date.now()}`, platform: 'ai', direction: 'in', from: 'AI', text: data.reply, timestamp: Date.now(), meta: Object.keys(meta).length ? meta : undefined });
     } else {
       aiMessages.value.push({ id: `ai_err_${Date.now()}`, platform: 'ai', direction: 'in', from: 'AI', text: `Error: ${data.error}`, timestamp: Date.now() });
     }
@@ -237,10 +249,23 @@ function timeAgo(ts) {
   if (h < 24) return t('common.hoursAgo', { n: h });
   return t('common.daysAgo', { n: Math.floor(h / 24) });
 }
+
+// Strip the legacy appended ```exec block so it isn't shown twice when the
+// backend already returned structured execResults.
+function displayText(msg) {
+  const text = msg.text || '';
+  if (msg.meta?.execResults?.length && text.includes('\n\n```')) return text.split('\n\n```')[0];
+  return text;
+}
+
+function formatArgs(args) {
+  if (!args || typeof args !== 'object' || !Object.keys(args).length) return '';
+  try { return JSON.stringify(args, null, 2); } catch { return String(args); }
+}
 </script>
 
 <style lang="scss" scoped>
-.chat-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.chat-panel { display: flex; flex-direction: column; height: 100%; width: 100%; overflow: hidden; }
 .panel-tabs { display: flex; gap: 0.15rem; background: var(--bulma-scheme-main-ter); border-radius: 8px; padding: 2px; }
 .tab-btn { background: none; border: none; padding: 0.3rem 0.65rem; border-radius: 6px; font-size: 0.72em; cursor: pointer; color: var(--bulma-text-light); font-weight: 500; transition: all 0.12s; }
 .tab-btn.is-active { background: var(--bulma-scheme-main); color: var(--bulma-text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
@@ -290,6 +315,8 @@ function timeAgo(ts) {
 .exec-results { margin-top: 0.5rem; border-top: 1px solid var(--bulma-border-light); padding-top: 0.4rem; }
 .exec-item { margin-bottom: 0.4rem; }
 .exec-cmd { font-family: monospace; font-size: 0.85em; color: var(--bulma-primary); display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.15rem; }
+.exec-cmd.mcp-cmd { color: #a855f7; }
+.mcp-args { opacity: 0.7; font-size: 0.8em; }
 .exec-output { background: var(--bulma-scheme-main-ter); padding: 0.35rem; border-radius: 3px; font-size: 0.85em; font-family: monospace; white-space: pre-wrap; word-break: break-all; margin: 0; color: var(--bulma-text); }
 .exec-err { background: var(--bulma-danger-bis); padding: 0.35rem; border-radius: 3px; font-size: 0.85em; font-family: monospace; white-space: pre-wrap; word-break: break-all; margin: 0; color: var(--bulma-danger); }
 .typing-dots { animation: dotPulse 1.2s step-end infinite; }

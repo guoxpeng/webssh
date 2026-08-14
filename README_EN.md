@@ -1,4 +1,4 @@
-# WebSSH v3.6 — A Full SSH Workstation in Your Browser
+# WebSSH v3.6.1 — A Full SSH Workstation in Your Browser
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
@@ -10,7 +10,6 @@ commands — all from a browser tab. Ships as Windows / macOS desktop apps,
 Android / iOS apps, Docker, and Cloudflare.
 
 <img width="1920" height="960" alt="PixPin_2026-08-14_11-58-40" src="https://github.com/user-attachments/assets/d67f4727-7baa-45c9-a910-bd44626a6b12" />
-
 
 ---
 
@@ -141,13 +140,13 @@ Pushing a version tag auto-builds and attaches every platform's artifact to a Gi
 1. Commit and push your changes:
 
 ```bash
-git add -A && git commit -m "release: v3.5.0"
+git add -A && git commit -m "release: v3.6.1"
 ```
 
 2. Tag and push (triggers the full build):
 
 ```bash
-git tag v3.5.0 && git push origin v3.5.0
+git tag v3.6.1 && git push origin v3.6.1
 ```
 
 3. Watch the "Build All Platforms" run under the Actions tab; artifacts are attached to the matching **Release** when it finishes.

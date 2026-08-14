@@ -323,7 +323,7 @@ defineExpose({ populateFromRecording, isRecording });
 </script>
 
 <style lang="scss" scoped>
-.macro-panel { width: 500px; max-width: 95vw; }
+.macro-panel { width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .panel-action-btn {
   &.is-recording { color: var(--bulma-danger); animation: pulse-red 1s ease-in-out infinite; }
 }
@@ -367,7 +367,7 @@ defineExpose({ populateFromRecording, isRecording });
 }
 .step-remove { background: none; border: none; cursor: pointer; color: var(--bulma-text-light); font-size: 1em; padding: 0 2px; &:hover { color: var(--bulma-danger); } }
 
-.panel-list, .schedules-section { max-height: 420px; overflow-y: auto; }
+.panel-list, .schedules-section { flex: 1; min-height: 0; overflow-y: auto; }
 
 .schedules-header { display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 0.9rem; }
 .schedules-title { font-size: 0.78em; font-weight: 500; color: var(--bulma-text-light); }

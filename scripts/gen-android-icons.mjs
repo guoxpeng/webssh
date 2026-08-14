@@ -60,10 +60,22 @@ async function main() {
     console.log('  ✓ legacy mipmap');
   }
 
-  // Adaptive background color: pick the dominant color of the logo.
+  // Adaptive background color: pick the DOMINANT color of the logo (mode), not
+  // a single corner pixel — resize(1,1) samples the top-left pixel which is
+  // rarely representative. Using the logo's dominant color keeps the launcher
+  // background flush with the foreground so the circular/rounded mask does not
+  // show a jarring ring that makes the icon look clipped.
   try {
-    const bg = await sharp(src).resize(1, 1).raw().toBuffer();
-    const r = bg[0], g = bg[1], b = bg[2];
+    const { data } = await sharp(src).resize(32, 32).raw().toBuffer({ resolveWithObject: true });
+    const counts = new Map();
+    for (let i = 0; i < data.length; i += 3) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const key = (r & 0xf0) << 12 | (g & 0xf0) << 4 | (b & 0xf0); // 16-level buckets → stable mode
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    let bestKey = 0, bestN = 0;
+    for (const [k, n] of counts) if (n > bestN) { bestN = n; bestKey = k; }
+    const r = (bestKey >> 12) & 0xf0, g = (bestKey >> 4) & 0xf0, b = bestKey & 0xf0;
     const color = `#${[r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')}`;
     const valuesFile = join(resDir, 'values', 'ic_launcher_background.xml');
     const xml = `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">${color}</color>\n</resources>\n`;
@@ -72,6 +84,12 @@ async function main() {
     } else {
       // Fall back to writing colors in the same file shape Capacitor uses
       writeFileSync(join(resDir, 'values', 'ic_launcher_background.xml'), xml);
+    }
+    // Keep the pre-adaptive vector drawable in sync with the color resource.
+    const drawableFile = join(resDir, 'drawable', 'ic_launcher_background.xml');
+    if (existsSync(drawableFile)) {
+      const vxml = `<?xml version="1.0" encoding="utf-8"?>\n<vector xmlns:android="http://schemas.android.com/apk/res/android"\n    android:width="108dp"\n    android:height="108dp"\n    android:viewportHeight="108"\n    android:viewportWidth="108">\n    <path\n        android:fillColor="${color}"\n        android:pathData="M0,0h108v108h-108z" />\n</vector>\n`;
+      writeFileSync(drawableFile, vxml);
     }
     console.log(`  ✓ adaptive background ${color}`);
   } catch {

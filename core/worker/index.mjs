@@ -90,6 +90,22 @@ function tokenOk(provided, expected) {
   return diff === 0;
 }
 
+// A WebSocket upgrade Response that echoes the client's requested subprotocol
+// (Sec-WebSocket-Protocol). The browser FAILS the handshake with DOMException
+// when the client offered protocols (frontend uses ['webssh-auth', <token>])
+// and the server does not confirm one — this was the CF SSH "WebSocket error".
+function wsUpgradeResponse(request, client) {
+  const headers = {};
+  const reqProto = request.headers.get('Sec-WebSocket-Protocol');
+  if (reqProto) {
+    // Echo the first offered protocol (the 'webssh-auth' marker). The token
+    // travels only in the request header; it must NOT be reflected back.
+    const first = String(reqProto).split(',')[0].trim();
+    if (first) headers['Sec-WebSocket-Protocol'] = first;
+  }
+  return new Response(null, { status: 101, webSocket: client, headers });
+}
+
 function makeSSHConfig(body) {
   const cfg = {
     host: body.host,
@@ -637,7 +653,7 @@ async function handleSFTPWebSocket(request) {
   server.addEventListener('close', () => cleanup());
   server.addEventListener('error', () => cleanup());
 
-  return wsUpgradeResponse(client, request);
+  return wsUpgradeResponse(request, client);
 }
 
 /* ── API: SFTP (HTTP fallback) ── */
@@ -684,23 +700,6 @@ async function handleDocker(request, url) {
 }
 
 /* ── WebSocket: SSH Terminal ── */
-// RFC 6455: when the client offers WebSocket subprotocols and the server's 101
-// response confirms none of them, the browser MUST fail the handshake. The
-// frontend sends ['webssh-auth', <token>] as subprotocols; Node's ws library
-// auto-echoes the first one, but Cloudflare's WebSocketPair does not negotiate
-// subprotocols at all — so echo the marker explicitly on every upgrade. Without
-// this, CF terminal/SFTP sockets only connect via the legacy ?token= retry.
-function wsUpgradeResponse(webSocket, request) {
-  const offered = String(request.headers.get('Sec-WebSocket-Protocol') || '');
-  if (offered.split(',').map((s) => s.trim()).includes('webssh-auth')) {
-    return new Response(null, {
-      status: 101, webSocket,
-      headers: { 'Sec-WebSocket-Protocol': 'webssh-auth' },
-    });
-  }
-  return new Response(null, { status: 101, webSocket });
-}
-
 async function handleTerminalWS(request) {
   if (request.headers.get('Upgrade') !== 'websocket') {
     return json({ error: 'WebSocket required' }, 426);
@@ -891,7 +890,7 @@ async function handleTerminalWS(request) {
   server.addEventListener('close', () => cleanup());
   server.addEventListener('error', () => cleanup());
 
-  return wsUpgradeResponse(client, request);
+  return wsUpgradeResponse(request, client);
 }
 
 /* ── Crypto Diagnostic ── */
@@ -1109,7 +1108,7 @@ export default {
       s.accept();
       s.send(JSON.stringify({ type: 'error', message: '远程桌面（RDP/VNC）依赖 guacd 服务，Cloudflare 部署暂不支持，请使用自建服务器版（Docker 里启用 guacd）。' }));
       setTimeout(() => { try { s.close(1000); } catch {} }, 100);
-      return wsUpgradeResponse(c, request);
+      return wsUpgradeResponse(request, c);
     }
 
     /* WebSocket terminal */

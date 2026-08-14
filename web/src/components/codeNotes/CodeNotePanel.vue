@@ -170,7 +170,7 @@ function timeAgo(ts) {
 <style lang="scss" scoped>
 .codenote-panel {
   display: flex; flex-direction: column; height: 100%; overflow: hidden;
-  width: 460px; max-width: 95vw;
+  width: 100%;
 }
 .panel-list { flex: 1; overflow-y: auto; padding: 0.25rem 0; }
 .note-item { position: relative; }

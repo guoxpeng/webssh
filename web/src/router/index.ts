@@ -46,6 +46,30 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Known Hosts' },
   },
   {
+    path: '/mcp/server',
+    name: 'McpServer',
+    component: () => import('@/views/mcp/McpServerView.vue'),
+    meta: { title: 'MCP Server' },
+  },
+  {
+    path: '/mcp/clients',
+    name: 'McpClients',
+    component: () => import('@/views/mcp/McpClientView.vue'),
+    meta: { title: 'MCP Clients' },
+  },
+  {
+    path: '/mcp/tokens',
+    name: 'McpTokens',
+    component: () => import('@/views/mcp/McpTokenView.vue'),
+    meta: { title: 'Token Usage' },
+  },
+  {
+    path: '/mcp/status',
+    name: 'McpStatus',
+    component: () => import('@/views/mcp/McpStatusView.vue'),
+    meta: { title: 'Service Status' },
+  },
+  {
     path: '/help',
     name: 'Help',
     component: () => import('@/views/HelpView.vue'),

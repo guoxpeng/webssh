@@ -20,6 +20,8 @@ import { useConnectionStore } from '@/stores/connectionStore';
 import { onMounted } from 'vue';
 import { usePwaInstall } from '@/composables/usePwaInstall';
 import { useI18n } from 'vue-i18n';
+import { isAndroidApp } from '@/utils/nativeSsh';
+import { isBuiltinSshEnabled, setBuiltinSshEnabled } from '@/utils/constants';
 
 const { t } = useI18n();
 const { showInstall, promptInstall, dismissInstall } = usePwaInstall();
@@ -54,6 +56,17 @@ onMounted(() => {
     }
   }
   uiStore.initializeTheme();
+
+  // Android APK: the built-in SSH gateway is the out-of-the-box path. The key
+  // gates the gateway on and must default to on for the APK, otherwise direct
+  // server connections would target the WebView's own origin and fail with an
+  // opaque "WebSocket error". Only auto-enable once so users can opt out in
+  // Settings without it silently re-enabling on every launch.
+  try {
+    if (isAndroidApp() && !localStorage.getItem('webssh_builtin_ssh') && !isBuiltinSshEnabled()) {
+      setBuiltinSshEnabled(true);
+    }
+  } catch { /* storage unavailable — nothing to do */ }
 
   // CF Workers: detect LAN connections and show warning
   if (!localStorage.getItem('webssh_cf_lan_warned')) {

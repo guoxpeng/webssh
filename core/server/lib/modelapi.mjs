@@ -32,6 +32,15 @@ let authToken = null; // set via setAuthToken() from index.mjs
 
 export function setAuthToken(token) { authToken = token || null; }
 
+// Lightweight status for the MCP / status panels (avoids a full request cycle).
+export function modelApiStatus() {
+  return { enabled: !!authToken, servers: loadRegistry().length };
+}
+
+export function listModelServers() {
+  return loadRegistry().map(publicEntry);
+}
+
 // ── credential encryption at rest ──
 function deriveKey() {
   return createHash('sha256').update(`webssh-model-v1:${authToken}`).digest();

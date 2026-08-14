@@ -228,10 +228,10 @@ function onImportFile(e) {
 </script>
 
 <style lang="scss" scoped>
-.snippet-panel { width: 460px; max-width: 95vw; }
+.snippet-panel { width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .batch-run-btn { color: var(--bulma-primary); font-weight: 600; }
 
-.panel-list { max-height: 420px; overflow-y: auto; }
+.panel-list { flex: 1; min-height: 0; overflow-y: auto; }
 .snippet-item {
   cursor: grab;
   &.is-dragging { opacity: 0.4; }

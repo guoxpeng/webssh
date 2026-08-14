@@ -31,7 +31,6 @@ export function handleSFTP(ws, config) {
         await withSessionSftp(config, async (sftp, client) => {
           if (closed) return;
           sftpSession = sftp;
-          send({ type: 'status', status: 'connected' });
 
           ws.on('message', async (raw) => {
             if (closed) return;
@@ -136,7 +135,16 @@ export function handleSFTP(ws, config) {
               send({ id, error: e.message });
             }
           });
-        });
+
+          send({ type: 'status', status: 'connected' });
+
+          // Hold the dedicated connection for the socket's whole lifetime and
+          // let withSessionSftp tear it down once the socket closes.
+          await new Promise((resolve) => {
+            if (closed) { resolve(); return; }
+            ws.on('close', () => resolve());
+          });
+        }, { longLived: true });
       } catch (e) {
         send({ type: 'status', status: 'error', error: e.message });
         close();
