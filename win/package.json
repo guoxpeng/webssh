@@ -24,8 +24,7 @@
     "win": {
       "target": "dir",
       "icon": "icon.ico",
-      "signDlls": false,
-      "signAndEditExecutable": false
+      "signDlls": false
     },
     "mac": {
       "target": [

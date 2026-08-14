@@ -202,8 +202,12 @@ export function serveStatic(req, res) {
     let filePath = (cleanPath === '/' || cleanPath === '') ? '/index.html' : cleanPath;
     const fullPath = resolve(join(DIST_DIR, filePath));
     // SECURITY (L1): compare against the directory + separator so sibling dirs
-    // sharing the prefix cannot be served
-    if (!fullPath.startsWith(resolve(DIST_DIR) + '/') && fullPath !== resolve(DIST_DIR)) return false;
+    // sharing the prefix cannot be served. Normalize to forward slashes first:
+    // on Windows resolve() returns backslashes, so the raw startsWith('.../')
+    // check never matches and EVERY static file 404s (blank desktop page).
+    const distRoot = resolve(DIST_DIR).replace(/\\/g, '/');
+    const normFull = fullPath.replace(/\\/g, '/');
+    if (!normFull.startsWith(distRoot + '/') && normFull !== distRoot) return false;
     const accept = req.headers['accept-encoding'] || '';
     const useGzip = accept.includes('gzip');
     // index.html always goes through the token-injecting path
