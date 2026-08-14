@@ -17,7 +17,7 @@ import { logger } from './logger.mjs';
 
 const log = logger('MCPClient');
 
-export const CLIENT_INFO = { name: 'webssh', version: '3.6.1' };
+export const CLIENT_INFO = { name: 'webssh', version: '3.6.2' };
 const PROTOCOL_VERSION = '2024-11-05';
 
 // ── stdio transport ─────────────────────────────────────────────────────────

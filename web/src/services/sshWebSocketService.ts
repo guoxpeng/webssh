@@ -1,4 +1,4 @@
-import { getWsBaseUrl, getApiBaseUrl, wsAuthProtocols, withLegacyToken, useBuiltinSsh } from '@/utils/constants';
+import { getWsBaseUrl, getApiBaseUrl, getRuntimeBackendBase, wsAuthProtocols, withLegacyToken, useBuiltinSsh } from '@/utils/constants';
 import { apiFetch } from '@/utils/api';
 
 export interface Callbacks {
@@ -85,7 +85,15 @@ class SshWebSocketService {
       }
       return null; // gate accepted the token (route-level errors don't matter here)
     } catch {
-      return null; // offline/network error — let the socket attempt report it
+      // Reaching the configured gateway failed over HTTP — the WebSocket is
+      // about to fail the same way. The #1 cause on a CF Pages deployment is a
+      // stale 设置 → 后端网关地址 pointing at a dead/old server, so surface an
+      // actionable message instead of an opaque "WebSocket error".
+      const runtimeBase = getRuntimeBackendBase();
+      if (runtimeBase) {
+        return `无法连接后端网关 ${runtimeBase}：请到 设置 → 后端网关地址 检查该地址，或点「清空」让页面回连当前站点（${window.location.host}）`;
+      }
+      return null;
     }
   }
 
@@ -161,9 +169,20 @@ class SshWebSocketService {
       // Suppress pre-open errors while the legacy retry is still possible;
       // the close handler performs the retry.
       if (!opened && !legacyAuth && !this.legacyRetried) return;
-      const error = new Error(`WebSocket error: ${this.nodeIdentifier}`);
+      const error = new Error(`WebSocket error: ${this.nodeIdentifier}${this.describeWSError(wsUrl)}`);
       if (this.onErrorCallback) this.onErrorCallback(error);
     };
+  }
+
+  /** Human-readable hint appended to the generic "WebSocket error" message. */
+  private describeWSError(wsUrl: string): string {
+    let host = '';
+    try { host = new URL(wsUrl).host; } catch { host = wsUrl; }
+    const runtimeBase = getRuntimeBackendBase();
+    if (runtimeBase) {
+      return `（目标 ${host}；当前后端网关地址已设为 ${runtimeBase}，连不上时请到 设置 → 后端网关地址 检查或清空，回连当前站点 ${window.location.host}）`;
+    }
+    return `（目标 ${host}；请到 设置 检查后端访问密码，并确认浏览器代理/VPN/杀毒软件未拦截 WebSocket）`;
   }
 
   sendMessage(data: string): void {

@@ -1,4 +1,4 @@
-import { getWsSftpUrl, wsAuthProtocols, withLegacyToken } from '@/utils/constants';
+import { getWsSftpUrl, getRuntimeBackendBase, wsAuthProtocols, withLegacyToken } from '@/utils/constants';
 
 type Callbacks = {
   onStatus?: (status: string, error?: string) => void;
@@ -119,7 +119,12 @@ class SftpWsService {
     this.ws.onerror = () => {
       // Pre-open errors are handled by the close-time legacy retry.
       if (!opened && !legacyAuth && !this.legacyRetried) return;
-      this._error = 'WebSocket error';
+      let host = '';
+      try { host = new URL(url).host; } catch { host = url; }
+      const runtimeBase = getRuntimeBackendBase();
+      this._error = runtimeBase
+        ? `WebSocket 错误（目标 ${host}；当前后端网关地址为 ${runtimeBase}，请到 设置 → 后端网关地址 检查或清空）`
+        : `WebSocket 错误（目标 ${host}；请到 设置 检查后端访问密码，并确认代理/加速器/杀毒未拦截 WebSocket）`;
       this.callbacks.onStatus?.('error', this._error);
     };
   }

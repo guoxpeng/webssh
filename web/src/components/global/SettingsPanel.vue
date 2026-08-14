@@ -4,7 +4,9 @@
       <div class="settings-panel" ref="panelRef" role="dialog" aria-modal="true" :aria-label="t('settings.title')">
         <div class="settings-header">
           <h3 class="settings-title"><SettingsIcon :size="17"/> {{ t('settings.title') }}</h3>
-          <button class="settings-close" @click="close" :title="t('common.close')">&times;</button>
+          <button class="settings-confirm" @click="close">
+            <CheckIcon :size="14"/> {{ t('common.confirm') }}
+          </button>
         </div>
 
         <div class="settings-body">
@@ -21,9 +23,23 @@
               <button class="settings-minor-btn" v-if="backendUrlSaved" @click="clearBackend">
                 <Trash2Icon :size="13"/> {{ t('common.clear') }}
               </button>
+              <button class="settings-minor-btn" :disabled="testBusy" @click="testConnection">
+                <ZapIcon :size="13"/> {{ testBusy ? t('settings.testRunning') : t('settings.testConnection') }}
+              </button>
               <button class="pw-btn" @click="saveBackend">
                 <ServerIcon :size="13"/> {{ t('common.save') }}
               </button>
+            </div>
+            <div v-if="testResult" class="test-result" :class="testResult.ok ? 'is-ok' : 'is-bad'">
+              <div class="test-result-title">
+                <CheckCircle2Icon v-if="testResult.ok" :size="14"/>
+                <AlertTriangleIcon v-else :size="14"/>
+                {{ testResult.ok ? t('settings.testOkTitle') : t('settings.testFailTitle') }}
+                <span class="test-result-target">{{ testTarget }}</span>
+              </div>
+              <ul class="test-result-lines">
+                <li v-for="(line, i) in testResult.lines" :key="i">{{ line }}</li>
+              </ul>
             </div>
             <div class="lan-hint" v-if="lanAddresses.length">
               <span class="lan-label">{{ t('settings.lanAddress') }}</span>
@@ -224,8 +240,8 @@ import { setLocale } from '@/i18n';
 import { useNotifications } from '@/composables/useNotifications';
 import { verifyMasterPassword, setupMasterPassword } from '@/utils/crypto';
 import { useConnectionStore } from '@/stores/connectionStore';
-import { Settings as SettingsIcon, Lock, Trash2 as Trash2Icon, Copy as CopyIcon, Server as ServerIcon } from 'lucide-vue-next';
-import { getRuntimeBackendBase, setRuntimeBackendBase, getApiBaseUrl, isBuiltinSshEnabled, setBuiltinSshEnabled } from '@/utils/constants';
+import { Settings as SettingsIcon, Lock, Trash2 as Trash2Icon, Copy as CopyIcon, Server as ServerIcon, Zap as ZapIcon, CheckCircle2 as CheckCircle2Icon, AlertTriangle as AlertTriangleIcon, Check as CheckIcon } from 'lucide-vue-next';
+import { getRuntimeBackendBase, setRuntimeBackendBase, getApiBaseUrl, getWsBaseUrl, wsAuthProtocols, isBuiltinSshEnabled, setBuiltinSshEnabled } from '@/utils/constants';
 import { isAndroidApp, refreshNativeSshStatus } from '@/utils/nativeSsh';
 import { getBackendToken, setBackendToken, apiFetch } from '@/utils/api';
 const { t, locale } = useI18n();
@@ -249,7 +265,7 @@ const fontSize = ref(parseInt(localStorage.getItem('appFontSize') || '14'));
 const animationsEnabled = ref(localStorage.getItem('appAnimations') !== 'false');
 const cursorStyle = ref(localStorage.getItem('termCursorStyle') || 'block');
 const scrollback = ref(parseInt(localStorage.getItem('termScrollback') || '5000'));
-const currentLocale = ref(localStorage.getItem('appLocale') || 'en-US');
+const currentLocale = ref(locale.value);
 const termBgColor = ref(localStorage.getItem('termBgColor') || '');
 
 const themes = [
@@ -278,7 +294,7 @@ const themes = [
 watch(() => props.visible, (val) => {
   if (val) {
     currentThemeId.value = uiStore.currentPreset;
-    currentLocale.value = localStorage.getItem('appLocale') || 'en-US';
+    currentLocale.value = locale.value;
     nextTick(() => panelRef.value?.focus());
     document.addEventListener('keydown', onDocKeydown);
     fetchServerInfo();
@@ -474,6 +490,87 @@ function clearBackend() {
   showInfo(t('settings.backendCleared'));
 }
 
+// ── Backend connectivity self-test (HTTP + WebSocket handshake) ──
+const testBusy = ref(false);
+const testTarget = ref('');
+const testResult = ref(null);
+
+function probeWebSocket(wsUrl) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok, reason = '') => {
+      if (settled) return;
+      settled = true;
+      resolve({ ok, reason });
+    };
+    let sock = null;
+    try {
+      const protocols = wsAuthProtocols();
+      sock = protocols ? new WebSocket(wsUrl, protocols) : new WebSocket(wsUrl);
+    } catch (e) {
+      finish(false, e instanceof Error ? e.message : String(e));
+      return;
+    }
+    const timer = setTimeout(() => { finish(false, 'timeout'); try { sock?.close(); } catch {} }, 8000);
+    sock.onopen = () => { clearTimeout(timer); finish(true); try { sock?.close(); } catch {} };
+    sock.onerror = () => { /* the close event carries the result */ };
+    sock.onclose = (ev) => { clearTimeout(timer); finish(false, `code ${ev.code}`); };
+  });
+}
+
+async function testConnection() {
+  if (testBusy.value) return;
+  testBusy.value = true;
+  testResult.value = null;
+  const runtimeBase = getRuntimeBackendBase();
+  testTarget.value = runtimeBase || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '');
+  const lines = [];
+  let ok = true;
+
+  // 1) HTTP reachability + auth (apiFetch attaches the Bearer token)
+  let httpStatus = 0;
+  let httpReachable = false;
+  try {
+    const res = await apiFetch(`${getApiBaseUrl()}/chat/config`);
+    httpReachable = true;
+    httpStatus = res.status;
+  } catch {
+    httpReachable = false;
+  }
+
+  // 2) WebSocket handshake
+  const wsProbe = await probeWebSocket(getWsBaseUrl());
+
+  if (!httpReachable) {
+    ok = false;
+    lines.push(t('settings.testErrUnreachable', { url: testTarget.value }));
+  } else if (httpStatus === 401 || httpStatus === 403) {
+    ok = false;
+    lines.push(t('settings.testErrWrongToken', { status: httpStatus }));
+  } else if (httpStatus === 503) {
+    ok = false;
+    lines.push(t('settings.testErrNoToken'));
+  } else if (httpStatus === 200 || httpStatus === 501) {
+    lines.push(t('settings.testOkHttp', { status: httpStatus }));
+  } else {
+    ok = false;
+    lines.push(t('settings.testErrNotBackend', { status: httpStatus }));
+  }
+
+  if (wsProbe.ok) {
+    lines.push(t('settings.testOkWs'));
+  } else if (httpStatus === 200 || httpStatus === 501) {
+    ok = false;
+    lines.push(t('settings.testErrWsBlocked'));
+  } else {
+    ok = false;
+    lines.push(t('settings.testErrWsGeneric', { reason: wsProbe.reason || 'handshake failed' }));
+  }
+
+  testResult.value = { ok, lines };
+  testBusy.value = false;
+}
+
 // ── Built-in SSH gateway (Android APK only) ──
 const nativeMode = isAndroidApp(); // built-in SSH is Android-only (no iOS SshBridge)
 const builtinEnabled = ref(isBuiltinSshEnabled());
@@ -593,12 +690,13 @@ function copyMcpConfig() {
   color: var(--bulma-text-strong);
   .lucide { color: var(--bulma-primary); }
 }
-.settings-close {
-  display: flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; border: none; border-radius: 8px;
-  background: none; font-size: 1.35em; line-height: 1; cursor: pointer;
-  color: var(--bulma-text-light); transition: all 0.12s;
-  &:hover { background: var(--bulma-scheme-main-ter); color: var(--bulma-text); }
+.settings-confirm {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.35rem 0.85rem; border: none; border-radius: 8px;
+  font-size: 0.82em; font-weight: 600; cursor: pointer;
+  background: linear-gradient(135deg, var(--bulma-primary), var(--bulma-link, var(--bulma-primary)));
+  color: #fff; transition: all 0.12s;
+  &:hover { box-shadow: 0 3px 10px rgba(99,102,241,0.3); }
 }
 
 .settings-body {
@@ -773,6 +871,26 @@ function copyMcpConfig() {
   display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem;
   margin-top: 0.55rem;
 }
+.test-result {
+  margin-top: 0.6rem; padding: 0.55rem 0.7rem; border-radius: 8px;
+  font-size: 0.75em; line-height: 1.5;
+  &.is-ok { border: 1px solid color-mix(in srgb, var(--bulma-success, #22c55e) 40%, transparent); background: color-mix(in srgb, var(--bulma-success, #22c55e) 8%, transparent); }
+  &.is-bad { border: 1px solid color-mix(in srgb, var(--bulma-danger, #ef4444) 40%, transparent); background: color-mix(in srgb, var(--bulma-danger, #ef4444) 8%, transparent); }
+}
+.test-result-title {
+  display: flex; align-items: center; gap: 0.35rem; font-weight: 600;
+  color: var(--bulma-text-strong);
+  .lucide { flex-shrink: 0; }
+}
+.test-result-target {
+  font-family: var(--bulma-family-monospace); font-weight: 500;
+  color: var(--bulma-text-light); font-size: 0.9em;
+  max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.test-result-lines {
+  margin: 0.35rem 0 0; padding-left: 1.1rem;
+  li { margin: 0.15rem 0; color: var(--bulma-text); }
+}
 
 /* ── LAN address hint ── */
 .lan-hint {
@@ -814,10 +932,12 @@ function copyMcpConfig() {
 
 /* ── Mobile: full-screen sheet ── */
 @media (max-width: 600px) {
-  .settings-overlay { align-items: flex-end; }
+  .settings-overlay { align-items: stretch; }
   .settings-panel {
-    width: 100vw; max-width: 100vw; max-height: 92vh;
-    border-radius: 16px 16px 0 0; border-left: none; border-right: none; border-bottom: none;
+    width: 100vw; max-width: 100vw;
+    height: 100vh; height: 100dvh;
+    max-height: 100vh; max-height: 100dvh;
+    border-radius: 0; border: none;
   }
   .theme-grid { grid-template-columns: repeat(2, 1fr); }
 }

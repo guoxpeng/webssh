@@ -1,6 +1,6 @@
 {
   "name": "webssh-desktop",
-  "version": "3.6.1",
+  "version": "3.6.2",
   "description": "WebSSH Desktop Client",
   "main": "main.js",
   "scripts": {

@@ -146,10 +146,9 @@
         <span class="mobile-nav-label">{{ t('nav.menu') }}</span>
       </button>
     </nav>
+    <AppNotification />
     <footer class="workbench-statusbar" role="contentinfo" aria-label="Status bar">
-      <div class="statusbar-left">
-        <AppNotification />
-      </div>
+      <div class="statusbar-left"></div>
       <div class="statusbar-right">
         <span v-if="terminalStore.sessionCount > 0" class="statusbar-item">{{ t('terminal.sessions', { count: terminalStore.sessionCount }) }}</span>
         <span class="statusbar-item">{{ uiStore.currentTheme === 'dark' ? t('settings.dark') : t('settings.light') }}</span>

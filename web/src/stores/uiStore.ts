@@ -168,6 +168,15 @@ export const useUiStore = defineStore('ui', () => {
   function addNotification({ message, type = 'info', duration = 5000 }: { message: string; type?: string; duration?: number }): void {
     const id = notificationIdCounter++;
     notifications.value.push({ id, message, type, duration });
+    // Cap the backlog so a stream of sticky (duration: 0) notifications can't
+    // grow the array without bound — only the last few are rendered anyway.
+    while (notifications.value.length > 20) {
+      const oldest = notifications.value.shift();
+      if (oldest) {
+        const t = notificationTimers.get(oldest.id);
+        if (t) { clearTimeout(t); notificationTimers.delete(oldest.id); }
+      }
+    }
     if (duration > 0) {
       const timer = setTimeout(() => removeNotification(id), duration);
       notificationTimers.set(id, timer);

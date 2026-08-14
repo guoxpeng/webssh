@@ -1,4 +1,4 @@
-# WebSSH v3.6.1 — 浏览器里的全能 SSH 工作站
+# WebSSH v3.6.2 — 浏览器里的全能 SSH 工作站
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
@@ -144,13 +144,13 @@ AUTH_TOKEN=你的密码 node core/server/index.mjs
 1. 提交代码并推送：
 
 ```bash
-git add -A && git commit -m "release: v3.6.1"
+git add -A && git commit -m "release: v3.6.2"
 ```
 
 2. 打版本标签并推送（触发全平台构建）：
 
 ```bash
-git tag v3.6.1 && git push origin v3.6.1
+git tag v3.6.2 && git push origin v3.6.2
 ```
 
 3. 在 GitHub 仓库 Actions 页面查看「Build All Platforms」运行状态，构建完成后产物自动附加到对应的 **Release**。

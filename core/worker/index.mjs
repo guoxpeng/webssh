@@ -461,6 +461,124 @@ async function handleModelApi(request, url, env) {
   return json({ error: 'Unknown action' }, 400);
 }
 
+/* ── MCP management — status dashboard + SSE-only client bridge ─────────────
+   Cloudflare Workers have no child_process, so the MCP *client* supports only
+   streamable-HTTP/SSE endpoints (stdio is a self-hosted feature). The MCP
+   *server* (webssh exposing its tools to external agents) is the stdio server
+   in core/mcp/server.mjs; here we report its catalog/availability and wire the
+   client test/call endpoints so the MCP pages work on Cloudflare too. */
+
+const MCP_SERVER_INFO = { name: 'webssh', version: '1.0.0' };
+// Mirrors core/mcp/server.mjs TOOLS (inlined: that module imports node
+// builtins unavailable in a Worker bundle).
+const MCP_SERVER_TOOLS = [
+  { name: 'webssh_list_servers', description: 'List all SSH servers registered in webssh (id, name, host, port, username, last probe status). Credentials are never returned.' },
+  { name: 'webssh_probe_servers', description: 'Test SSH login on registered servers. Probe before exec to know which servers are reachable.' },
+  { name: 'webssh_exec_command', description: 'Run a shell command over SSH on one server, all servers, or all servers whose last probe succeeded. Returns stdout/stderr/exit code per server.' },
+  { name: 'webssh_add_server', description: 'Register (or update) an SSH server in webssh so the agent can connect to it later.' },
+  { name: 'webssh_remove_server', description: 'Remove a registered server from webssh.' },
+];
+const MCP_MAX_RESULT = 64 * 1024;
+
+function mcpParseSse(text) {
+  const lines = String(text).split(/\r?\n/).filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim());
+  const joined = lines.join('');
+  if (joined) { try { return JSON.parse(joined); } catch {} }
+  for (const l of lines) { try { return JSON.parse(l); } catch {} }
+  return null;
+}
+
+async function mcpHttpRpc(cfg, method, params, sessionId) {
+  const url = String(cfg.url || '').trim();
+  if (!/^https?:\/\//i.test(url)) throw new Error('SSE transport requires an http(s) url');
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/event-stream',
+  };
+  if (cfg.headers && typeof cfg.headers === 'object' && !Array.isArray(cfg.headers)) {
+    for (const [k, v] of Object.entries(cfg.headers)) if (v != null) headers[String(k)] = String(v);
+  }
+  if (sessionId) headers['Mcp-Session-Id'] = sessionId;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: params || {} }),
+  });
+  const newSession = res.headers.get('mcp-session-id') || res.headers.get('Mcp-Session-Id');
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  let data;
+  if (ct.includes('text/event-stream')) data = mcpParseSse(await res.text());
+  else data = await res.json().catch(() => null);
+  return { data, sessionId: newSession || sessionId };
+}
+
+async function handleMcpApi(request, url, env) {
+  const action = url.pathname.slice('/api/mcp/'.length);
+  const stableToken = String(env.AUTH_TOKEN || '').trim().length > 0;
+
+  if (request.method === 'GET' && action === 'status') {
+    let registry = [];
+    try { registry = await modelLoadRegistry(env); } catch {}
+    return json({
+      backend: { up: true, port: null, uptime: 0 },
+      mcpServer: {
+        available: stableToken,
+        name: MCP_SERVER_INFO.name,
+        version: MCP_SERVER_INFO.version,
+        transport: 'stdio',
+        tools: MCP_SERVER_TOOLS,
+      },
+      modelApi: { enabled: !!env.MODEL_REGISTRY, servers: registry.length, registry: registry.map(modelPublicEntry) },
+      ai: { enabled: false, apiConfigured: false, model: null },
+      tokens: { total: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, requests: 0, calls: [] },
+    });
+  }
+
+  if (request.method === 'GET' && action === 'tokens') {
+    return json({ total: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, requests: 0, calls: [] });
+  }
+
+  if (action === 'tokens/clear') {
+    return json({ success: true });
+  }
+
+  if (action === 'clients/test' || action === 'clients/call') {
+    const body = await parseBody(request);
+    const cfg = body.client || body;
+    const sseOnly = 'Cloudflare 部署仅支持 SSE（streamable HTTP）MCP 客户端；stdio 子进程请使用自建服务器版（Docker/桌面版）';
+    if (!cfg || cfg.transport !== 'sse') {
+      if (action === 'clients/test') return json({ ok: false, error: sseOnly });
+      return json({ success: false, error: sseOnly });
+    }
+    try {
+      let sessionId = null;
+      const init = await mcpHttpRpc(cfg, 'initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'webssh', version: '3.6.2' } }, sessionId);
+      sessionId = init.sessionId;
+      if (init.data?.error) throw new Error(init.data.error.message || 'MCP initialize failed');
+      if (action === 'clients/test') {
+        const list = await mcpHttpRpc(cfg, 'tools/list', {}, sessionId);
+        if (list.data?.error) throw new Error(list.data.error.message || 'MCP tools/list failed');
+        const tools = list.data?.result?.tools ?? [];
+        return json({ ok: true, tools, toolCount: tools.length });
+      }
+      const name = body.tool;
+      if (!name) return json({ error: 'tool name required' }, 400);
+      const call = await mcpHttpRpc(cfg, 'tools/call', { name, arguments: body.arguments || {} }, sessionId);
+      if (call.data?.error) throw new Error(call.data.error.message || 'MCP tools/call failed');
+      let text;
+      try { text = JSON.stringify(call.data?.result ?? null); } catch { text = String(call.data?.result); }
+      const truncated = text.length > MCP_MAX_RESULT;
+      return json({ success: true, result: text.slice(0, MCP_MAX_RESULT), truncated });
+    } catch (e) {
+      logError('MCP client', e);
+      if (action === 'clients/test') return json({ ok: false, error: e.message });
+      return json({ success: false, error: e.message });
+    }
+  }
+
+  return json({ error: 'Unknown MCP action' }, 400);
+}
+
 /* ── API: SSH Test ── */
 async function handleSSHTest(request) {
   const body = await parseBody(request);
@@ -1090,6 +1208,11 @@ export default {
     /* Model API — MCP backend; registry in KV (see handleModelApi) */
     if (url.pathname.startsWith('/api/model/')) {
       return handleModelApi(request, url, env);
+    }
+
+    /* MCP management — status dashboard + SSE client bridge */
+    if (url.pathname.startsWith('/api/mcp/')) {
+      return handleMcpApi(request, url, env);
     }
 
     /* Chat Bot API (WebSocket terminal + Docker only, chat requires Node.js backend) */

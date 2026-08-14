@@ -51,7 +51,7 @@
       <div class="command-input-bar">
             <textarea ref="cmdInputRef" v-model="commandInput"
                       :placeholder="t('terminal.commandPlaceholder')"
-                      class="cmd-input" rows="4"
+                      class="cmd-input" rows="2"
                       @keydown.enter="onCmdEnter"
                       @keydown.escape="commandInput = ''; term?.focus()"
                       @focus="cmdInputFocused = true" @blur="cmdInputFocused = false"/>
@@ -61,38 +61,27 @@
       </div>
     </div>
 
-    <div class="mobile-keys-toolbar is-hidden-tablet">
-      <div class="mobile-keys-row mobile-keys-row-sym">
-        <button v-for="ch in ['/', '.', '-', '_', ':', '|', '>', '<', '~', '*', '&', '?']" :key="'sym-' + ch"
-                class="mkey mkey-sym" @pointerdown.prevent="sendChar(ch)">{{ ch }}</button>
+    <div class="mobile-keys-toolbar">
+      <div class="mobile-keys-row mobile-keys-row-mods">
+        <button v-for="m in modifierKeys" :key="m.id"
+                class="mkey mkey-mod" :class="{ 'is-active': activeMods[m.id] }"
+                @pointerdown.prevent="toggleModifier(m.id)">{{ m.label }}</button>
       </div>
       <div class="mobile-keys-row mobile-keys-row-main">
         <button class="mkey mkey-sm" @pointerdown.prevent="sendKey('ESC')" title="Escape">ESC</button>
         <button class="mkey mkey-sm" @pointerdown.prevent="sendKey('TAB')" title="Tab">TAB</button>
         <span class="mkey-sep"></span>
+        <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('LEFT')" title="Left">◀</button>
         <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('UP')" title="Up">▲</button>
         <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('DOWN')" title="Down">▼</button>
-        <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('LEFT')" title="Left">◀</button>
         <button class="mkey mkey-arrow" @pointerdown.prevent="sendKey('RIGHT')" title="Right">▶</button>
         <span class="mkey-sep"></span>
+        <button class="mkey" @pointerdown.prevent="sendKey('BACKSPACE')" title="Backspace">⌫</button>
         <button class="mkey" @pointerdown.prevent="sendKey('ENTER')" title="Enter">↵</button>
-        <button class="mkey mkey-wider" @pointerdown.prevent="sendKey('SPACE')" title="Space">␣</button>
       </div>
-      <div class="mobile-keys-row mobile-keys-row-ctrl">
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_C')" title="Ctrl+C (Break)">^C</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_D')" title="Ctrl+D (EOF)">^D</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_Z')" title="Ctrl+Z (Suspend)">^Z</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_X')" title="Ctrl+X">^X</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_L')" title="Ctrl+L (Clear)">^L</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_U')" title="Ctrl+U (Kill)">^U</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_A')" title="Ctrl+A (Home)">^A</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_E')" title="Ctrl+E (End)">^E</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_W')" title="Ctrl+W (Word)">^W</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_K')" title="Ctrl+K (Cut)">^K</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_R')" title="Ctrl+R (Search)">^R</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_Y')" title="Ctrl+Y (Paste)">^Y</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_P')" title="Ctrl+P (Prev)">^P</button>
-        <button class="mkey mkey-xs" @pointerdown.prevent="sendKey('CTRL_N')" title="Ctrl+N (Next)">^N</button>
+      <div class="mobile-keys-row mobile-keys-row-sym">
+        <button v-for="ch in symChars" :key="'sym-' + ch"
+                class="mkey mkey-sym" @pointerdown.prevent="sendChar(ch)">{{ ch }}</button>
       </div>
     </div>
 
@@ -115,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, inject } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, inject, reactive } from 'vue';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { FitAddon } from '@xterm/addon-fit';
@@ -145,6 +134,41 @@ const showCmdMenu = ref(false);
 const cmdDropdownRef = ref(null);
 const uiStore = useUiStore();
 const historyStore = useHistoryStore();
+
+// ── Mobile sticky modifier keys (tap Ctrl → highlighted → next key is Ctrl+key) ──
+const modifierKeys = [
+  { id: 'ctrl', label: 'Ctrl' },
+  { id: 'alt', label: 'Alt' },
+  { id: 'shift', label: 'Shift' },
+  { id: 'win', label: 'Win' },
+  { id: 'caps', label: 'Aa' },
+];
+const activeMods = reactive({ ctrl: false, alt: false, shift: false, win: false, caps: false });
+const symChars = ['/', '.', '-', '_', ':', '|', '$', '~'];
+
+function toggleModifier(id) {
+  activeMods[id] = !activeMods[id];
+  term?.focus();
+}
+function clearOneShotMods() {
+  activeMods.ctrl = false;
+  activeMods.alt = false;
+  activeMods.shift = false;
+  activeMods.win = false;
+}
+function applyModsToText(data) {
+  let out = data;
+  if (activeMods.caps || activeMods.shift) {
+    out = out.replace(/[a-z]/g, (ch) => ch.toUpperCase());
+  }
+  if (activeMods.ctrl) {
+    out = out.replace(/[a-zA-Z]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) & 0x1f));
+  }
+  if (activeMods.alt) {
+    out = '\x1b' + out;
+  }
+  return out;
+}
 
 // ── Host resource monitor (FinalShell-style status strip) ──────────────────
 // Polls the backend every 4s over the existing SSH websocket. Only shown on
@@ -556,6 +580,7 @@ const callbacks = {
         connectionStore.moveConnectionOutOfFailedGroup(cfg.id);
       }
   term?.writeln(`\r\n\x1b[32m${t('terminal.connected')}\x1b[0m`);
+      term?.scrollToBottom();
       term?.focus();
       terminalStore.setActiveSendFunction((data) => wsService?.sendMessage(data));
       startStatsPolling();
@@ -649,8 +674,11 @@ emit('status-change', 'connecting');
   wsService.connect(props.nodeConfig, callbacks);
 
   term.onData((data) => {
-    wsService?.sendMessage(data);
-    terminalStore.recordInput(data);
+    const modsActive = activeMods.ctrl || activeMods.alt || activeMods.shift || activeMods.caps;
+    const out = modsActive ? applyModsToText(data) : data;
+    clearOneShotMods();
+    wsService?.sendMessage(out);
+    terminalStore.recordInput(out);
   });
 
   // Keep the remote pty size in step with the local grid (fit/rotate/panel drag).
@@ -762,27 +790,16 @@ const sendKey = (keyType) => {
   switch (keyType) {
     case 'ESC': sequence = '\x1B'; break;
     case 'TAB': sequence = '\t'; break;
-    case 'CTRL_C': sequence = '\x03'; break;
-    case 'CTRL_D': sequence = '\x04'; break;
-    case 'CTRL_L': sequence = '\x0C'; break;
-    case 'CTRL_A': sequence = '\x01'; break;
-    case 'CTRL_E': sequence = '\x05'; break;
-    case 'CTRL_U': sequence = '\x15'; break;
-    case 'CTRL_P': sequence = '\x10'; break;
-    case 'CTRL_N': sequence = '\x0E'; break;
-    case 'CTRL_R': sequence = '\x12'; break;
-    case 'CTRL_K': sequence = '\x0B'; break;
-    case 'CTRL_Y': sequence = '\x19'; break;
-    case 'CTRL_X': sequence = '\x18'; break;
-    case 'CTRL_Z': sequence = '\x1A'; break;
     case 'UP': sequence = '\x1B[A'; break;
     case 'DOWN': sequence = '\x1B[B'; break;
     case 'LEFT': sequence = '\x1B[D'; break;
     case 'RIGHT': sequence = '\x1B[C'; break;
     case 'ENTER': sequence = '\r'; break;
-    case 'SPACE': sequence = ' '; break;
+    case 'BACKSPACE': sequence = '\x7f'; break;
     default: return;
   }
+  if (activeMods.alt) sequence = '\x1B' + sequence;
+  clearOneShotMods();
   wsService.sendMessage(sequence);
   term.focus();
 };
@@ -790,7 +807,10 @@ const sendKey = (keyType) => {
 // Direct character insert from the symbols toolbar (mobile).
 const sendChar = (ch) => {
   if (!term || !wsService) return;
-  wsService.sendMessage(ch);
+  const modsActive = activeMods.ctrl || activeMods.alt || activeMods.shift || activeMods.caps;
+  const out = modsActive ? applyModsToText(ch) : ch;
+  clearOneShotMods();
+  wsService.sendMessage(out);
   term.focus();
 };
 
@@ -886,7 +906,7 @@ onBeforeUnmount(() => {
   :deep(.xterm) ::selection { background: transparent !important; color: inherit !important; }
 }
 .mobile-keys-toolbar {
-  flex: 0 0 auto; padding: 0.2rem; display: none; flex-direction: column; gap: 0.15rem;
+  flex: 0 0 auto; padding: 0.15rem; display: none; flex-direction: column; gap: 0.15rem;
   justify-content: center; background-color: var(--term-bg); border-top: 1px solid var(--term-border);
   @media screen and (max-width: 768px) { display: flex; }
 }
@@ -894,10 +914,20 @@ onBeforeUnmount(() => {
   display: flex; justify-content: center; gap: 0.2rem; flex-wrap: wrap;
 }
 .mobile-keys-row-main { gap: 0.15rem; }
-.mobile-keys-row-sym, .mobile-keys-row-ctrl {
+.mobile-keys-row-sym, .mobile-keys-row-mods {
   flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto;
   scrollbar-width: none; &::-webkit-scrollbar { display: none; }
   padding-bottom: 1px;
+}
+.mobile-keys-row-mods { justify-content: center; }
+.mkey-mod {
+  min-width: 2.4rem; padding: 0.25rem 0.5rem;
+  font-weight: 600; background: var(--term-bg2); border-color: var(--term-text-dim);
+  transition: background 0.1s, color 0.1s, transform 0.1s;
+  &.is-active {
+    background: var(--bulma-primary); color: #fff; border-color: var(--bulma-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--bulma-primary) 30%, transparent);
+  }
 }
 .mkey-sym { min-width: 2rem; font-size: 0.75rem; font-family: var(--bulma-family-monospace, monospace); }
 .mkey {
@@ -908,8 +938,7 @@ onBeforeUnmount(() => {
   &:active { background-color: var(--term-bg2); transform: scale(0.92); }
 }
 .mkey-sm { padding: 0.15rem 0.35rem; min-width: 1.8rem; min-height: 1.9rem; font-size: 0.6rem; }
-.mkey-xs { padding: 0.12rem 0.25rem; min-width: 1.5rem; min-height: 1.9rem; font-size: 0.55rem; }
-.mkey-wider { min-width: 3rem; }
+
 .mkey-arrow { background-color: var(--term-bg2); min-width: 2rem; }
 .mkey-sep { width: 1px; background: var(--term-text-dim); opacity: 0.2; margin: 0 0.1rem; }
 
@@ -945,6 +974,9 @@ onBeforeUnmount(() => {
   &:hover { background: var(--term-hover); color: var(--term-text); }
 }
 .cmd-snippet-btn { background: var(--term-bg2); border-color: var(--term-bg2); max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+@media screen and (max-width: 768px) {
+  .cmd-snippet-btn { display: none; }
+}
 .cmd-act-sep { width: 1px; height: 16px; background: var(--term-border); margin: 0 2px; }
 
 .cmd-dropdown { position: relative; }
@@ -969,7 +1001,7 @@ onBeforeUnmount(() => {
   flex: 1; background: var(--term-bg2); border: 1px solid var(--term-border);
   border-radius: 4px; padding: 0.25rem 0.4rem; font-size: 0.8em;
   font-family: monospace; color: var(--term-text); outline: none; resize: vertical;
-  line-height: 1.4; min-width: 80px; min-height: calc(1.4em * 4 + 0.5rem);
+  line-height: 1.4; min-width: 80px; min-height: calc(1.4em * 2 + 0.4rem);
   &::placeholder { color: var(--term-text-dim); }
   &:focus { border-color: var(--term-text-dim); }
 }
