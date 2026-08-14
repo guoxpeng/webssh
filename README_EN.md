@@ -1,4 +1,4 @@
-# WebSSH v3.5 — A Full SSH Workstation in Your Browser
+# WebSSH v3.6 — A Full SSH Workstation in Your Browser
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
@@ -9,7 +9,8 @@ A ready-to-use web SSH client. Connect to servers, manage files, and run batch
 commands — all from a browser tab. Ships as Windows / macOS desktop apps,
 Android / iOS apps, Docker, and Cloudflare.
 
-<img width="1214" alt="screenshot" src="https://github.com/user-attachments/assets/1a44d2b0-31df-41bd-a6ee-46a3e26e5a23" />
+<img width="1920" height="960" alt="PixPin_2026-08-14_11-58-40" src="https://github.com/user-attachments/assets/d67f4727-7baa-45c9-a910-bd44626a6b12" />
+
 
 ---
 
