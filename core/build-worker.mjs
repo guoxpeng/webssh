@@ -103,6 +103,14 @@ await esbuild.build({
   platform: 'browser',
   mainFields: ['module', 'main'],
   external: ['cloudflare:*', 'node:*'],
+  define: {
+    // ssh2's poly1305 / node-forge helpers branch on process.versions.node
+    // and then reference __dirname to locate embedded assets. workerd with
+    // nodejs_compat provides `process`, so that branch runs and crashes on
+    // the undefined identifier. Point them at the bundle root.
+    __dirname: '"/"',
+    __filename: '"/index.js"',
+  },
   banner: { js: requireShimBanner },
   logLevel: 'info',
   plugins: [{
