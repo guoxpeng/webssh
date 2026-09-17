@@ -19,4 +19,8 @@ scripts/*
 *.env
 build.log
 !scripts/deploy.sh
+# 下面几个是构建期必须存在的：prebuild 跑 gen-icons，postbuild 跑 check-version /
+# check-dist，缺一个整个 npm run build 就会以 Cannot find module 失败。
 !scripts/gen-icons.mjs
+!scripts/check-version.mjs
+!scripts/check-dist.mjs
