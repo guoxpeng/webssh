@@ -156,17 +156,11 @@ jobs:
           name: WebSSH-ios
           path: WebSSH-ios-unsigned.zip
 
-  # ── Docker 镜像构建自检（不推送；如需推送请另配凭据）──
-  docker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Build image
-        run: docker build -f docker/Dockerfile -t webssh:ci .
+  # 注：Docker 镜像的构建与推送由 docker-publish.yml 负责（含多架构 + latest/semver 标签）
 
   # ── 汇总：把各端产物附加到 GitHub Release ──
   release:
-    needs: [windows, macos, android, ios, docker]
+    needs: [windows, macos, android, ios]
     if: always() && (needs.windows.result == 'success' || needs.macos.result == 'success' || needs.android.result == 'success' || needs.ios.result == 'success')
     runs-on: ubuntu-latest
     steps:

@@ -306,7 +306,9 @@ Electron（Win/mac）· Capacitor（Android/iOS）· Cloudflare Workers（独立
 ## 📄 其他文档
 
 [SECURITY.md](SECURITY.md) 安全模型 · [ARCHITECTURE.md](ARCHITECTURE.md) 架构 ·
-[MCP.md](MCP.md) MCP 接入 · [CHANGELOG.md](CHANGELOG.md) 版本历史
+[MCP.md](MCP.md) MCP 接入 · [CHANGELOG.md](CHANGELOG.md) 版本历史 ·
+[DOCKERHUB.md](DOCKERHUB.md) Docker Hub 镜像说明 ·
+[DEV-GUIDE.md](DEV-GUIDE.md) 开发记忆库（版本管理/质量门禁/坑位/发版流程）
 
 ---
 

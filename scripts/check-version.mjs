@@ -11,15 +11,23 @@
 // previous version. It is checked here so the same gate guards it.
 //
 // Run:  node scripts/check-version.mjs
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const desktopPkg = JSON.parse(readFileSync(join(root, 'win', 'package.json'), 'utf8'));
 const versionSource = readFileSync(join(root, 'core', 'shared', 'version.mjs'), 'utf8');
+
+// The desktop project is optional: a Docker image / Cloudflare deployment builds
+// from a context where .dockerignore (or a sparse checkout) drops win/ entirely.
+// There is nothing to drift against there, so the desktop gate is skipped rather
+// than crashing the build with ENOENT.
+const desktopPkgPath = join(root, 'win', 'package.json');
+const desktopPkg = existsSync(desktopPkgPath)
+  ? JSON.parse(readFileSync(desktopPkgPath, 'utf8'))
+  : null;
 
 const match = versionSource.match(/export\s+const\s+WEBSSH_VERSION\s*=\s*'([^']+)'/);
 if (!match) {
@@ -38,6 +46,7 @@ if (shared !== pkg.version) {
 // electron-builder pulls the version from win/package.json, so a hardcoded
 // string in the build scripts would silently diverge from the metadata.
 for (const f of ['core/server/lib/mcp-client.mjs', 'core/worker/index.mjs', 'win/build.mjs', 'win/build-mac.mjs']) {
+  if (!existsSync(join(root, f))) continue; // absent in web/container-only build contexts
   const src = readFileSync(join(root, f), 'utf8');
   const hardcoded = new RegExp(`version: '${pkg.version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`);
   if (hardcoded.test(src)) {
@@ -46,10 +55,12 @@ for (const f of ['core/server/lib/mcp-client.mjs', 'core/worker/index.mjs', 'win
   }
 }
 
-if (desktopPkg.version !== pkg.version) {
+if (desktopPkg && desktopPkg.version !== pkg.version) {
   console.error(`[check-version] MISMATCH: desktop win/package.json version is "${desktopPkg.version}" but root package.json is "${pkg.version}".`);
   console.error('               Bump win/package.json in the same commit (electron-builder stamps it into the exe/dmg).');
   process.exit(1);
 }
 
-console.log(`[check-version] OK: package.json, core/shared/version.mjs, and win/package.json agree on ${pkg.version}`);
+console.log(desktopPkg
+  ? `[check-version] OK: package.json, core/shared/version.mjs, and win/package.json agree on ${pkg.version}`
+  : `[check-version] OK: package.json and core/shared/version.mjs agree on ${pkg.version} (win/ absent — desktop gate skipped)`);
