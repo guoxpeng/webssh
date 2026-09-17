@@ -63,6 +63,9 @@ jobs:
             type=raw,value=${{ steps.ver.outputs.full }}
             type=raw,value=${{ steps.ver.outputs.minor }}
             type=raw,value=${{ steps.ver.outputs.major }}
+            # 历史标签是 v3.1.0 / v2.0.0 这种带 v 前缀的，留一个 v 版本别名，
+            # 免得按老习惯 docker pull ...:v3.6.3 拉不到
+            type=raw,value=v${{ steps.ver.outputs.full }}
             type=ref,event=branch
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
 
