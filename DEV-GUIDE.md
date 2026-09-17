@@ -73,7 +73,14 @@ wrangler.toml          # CF 部署配置（R2 绑定 BACKUP_BUCKET、KV MODEL_RE
 4. **历史重建**：本地 main 是孤立快照历史，需基于上游重建——
    `git checkout -b release-x.y.z <上游main>` → `git read-tree <本地提交>` →
    `git checkout-index -a -f` → 提交 → 推 `release-x.y.z:main` → 打 tag
-5. 推 `https://github.com/guoxpeng/webssh.git` main + tag
+5. 推 `https://github.com/guoxpeng/webssh.git` main + tag（本机 `git push` 会被杀，
+   走 API：`gh_push_api.py --repo guoxpeng/webssh`，**务必带 `--repo`**，
+   脚本默认仓库是 `guoxpeng/https_ssl`）
+6. **Docker 镜像不用手动发**：`.github/workflows/docker-publish.yml` 监听
+   main 推送与 `v*` 标签，自动构建 amd64 + arm64 并推到 `nameguoguo/webssh`
+   （标签取 package.json 版本号：`3.6.3` / `3.6` / `3`，外加 `main` 与 `latest`），
+   同时把 `DOCKERHUB.md` 同步为 Hub 仓库说明。凭据是仓库 Secrets
+   `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`，已配好
 
 ---
 
@@ -209,6 +216,9 @@ node scripts/e2e-ssh-server.mjs   # 本地临时 SSH 服务器（浏览器 E2E �
 - [ ] `npm test` + `npm run typecheck` + `npm run build` 全绿
 - [ ] 提交；基于上游 main 重建干净历史（见 §3 第 4 步）
 - [ ] 推送 main + 打 tag，`git ls-remote` 验证
+- [ ] Docker Hub 镜像自动构建（见 §3 第 6 步），确认 Actions 绿灯且
+      Hub 上出现新版本标签；**若构建失败先看是不是 `.dockerignore` 又排掉了
+      构建期需要的 scripts**
 - [ ] 通知用户：CF Pages 自动部署 / 桌面 / APK 各自验证
 
 ---
@@ -222,5 +232,9 @@ node scripts/e2e-ssh-server.mjs   # 本地临时 SSH 服务器（浏览器 E2E �
 - **Windows 行尾**：仓库文件是 LF，git 会提示 CRLF 转换警告——正常，别管
 - **`core/server/chat-config.json`**：本地运行时配置（含 telegram token），
   未纳入版本库，别提交
+- **本机没有 Docker**：镜像只能在 GitHub Actions 上构建，别试 `docker build`
+- **镜像构建的两个专属坑**：`.dockerignore` 排除了 `win/`、`android/`、`ios/`，
+  所以 `check-version` / `check-dist` 必须 `existsSync` 守卫；同时 `scripts/*`
+  要白名单放行 `deploy.sh`、`gen-icons.mjs`、`check-version.mjs`、`check-dist.mjs`
 - **archive-local-snapshot 分支**：旧的孤立快照历史存档，仅回看用，
   别 merge 回 main
