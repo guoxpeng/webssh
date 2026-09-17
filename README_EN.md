@@ -1,4 +1,4 @@
-# WebSSH v3.5 — A Full SSH Workstation in Your Browser
+# WebSSH v3.6.3 — A Full SSH Workstation in Your Browser
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
@@ -140,13 +140,13 @@ Pushing a version tag auto-builds and attaches every platform's artifact to a Gi
 1. Commit and push your changes:
 
 ```bash
-git add -A && git commit -m "release: v3.5.0"
+git add -A && git commit -m "release: v3.6.3"
 ```
 
 2. Tag and push (triggers the full build):
 
 ```bash
-git tag v3.5.0 && git push origin v3.5.0
+git tag v3.6.3 && git push origin v3.6.3
 ```
 
 3. Watch the "Build All Platforms" run under the Actions tab; artifacts are attached to the matching **Release** when it finishes.
