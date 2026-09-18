@@ -2,7 +2,9 @@
 
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
-  &nbsp;·&nbsp; <img alt="CI" src="https://github.com/guoxpeng/webssh/actions/workflows/ci.yml/badge.svg">
+  &nbsp;·&nbsp; 
+  <img width="1120" height="1011" alt="PixPin_2026-09-18_15-02-49" src="https://github.com/user-attachments/assets/de502e8f-c4c1-483a-9319-8fd86cf26cb1" />
+
 </p>
 
 一个开箱即用的 Web SSH 客户端：浏览器打开就能连服务器、管文件、跑批量命令，
