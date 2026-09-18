@@ -3,14 +3,14 @@
 <p align="center">
   <a href="README.md">中文</a> | <a href="README_EN.md">English</a>
   &nbsp;·&nbsp; 
-  <img width="1120" height="1011" alt="PixPin_2026-09-18_15-02-49" src="https://github.com/user-attachments/assets/de502e8f-c4c1-483a-9319-8fd86cf26cb1" />
+  
 
 </p>
 
 一个开箱即用的 Web SSH 客户端：浏览器打开就能连服务器、管文件、跑批量命令，
 支持 Windows / macOS 桌面端、Android / iOS App、Docker、Cloudflare 多种部署。
 
-<img width="1214" alt="screenshot" src="https://github.com/user-attachments/assets/1a44d2b0-31df-41bd-a6ee-46a3e26e5a23" />
+<img width="1120" height="1011" alt="PixPin_2026-09-18_15-02-49" src="https://github.com/user-attachments/assets/de502e8f-c4c1-483a-9319-8fd86cf26cb1" />
 
 ---
 
