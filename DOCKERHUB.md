@@ -86,6 +86,34 @@ docker compose up -d
 
 ---
 
+## 更新到新版本
+
+镜像**不会自己升级**，`docker restart` 或面板里的「重启」只是重启**现有容器**——
+它依然绑在创建时那个镜像 ID 上，后拉取的新镜像不会自动生效。所以升级必须
+**先拉取、再重建容器**：
+
+```bash
+docker pull nameguoguo/webssh:latest
+docker rm -f webssh
+docker run -d --name webssh -p 9627:9627 --restart=unless-stopped \
+  -e AUTH_TOKEN=你的密码 -v ./data:/app/core/server/data nameguoguo/webssh:latest
+```
+
+用 compose 部署的原地更新即可：
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+确认升级生效：
+
+```bash
+docker inspect -f '{{.Image}}' webssh   # 这个 ID 每次升级都应该变化
+docker logs --tail 50 webssh            # 应看到 “WebSSH ready”
+```
+
+---
+
 ## 常用环境变量
 
 | 变量 | 默认值 | 说明 |

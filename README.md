@@ -90,6 +90,18 @@ services:
 
 4. 浏览器访问 `http://localhost:9627`。
 
+5. 升级到新版本（**必须重建容器**，`docker restart` 不会换镜像）：
+
+```bash
+docker pull nameguoguo/webssh:latest
+docker rm -f webssh
+docker run -d --name webssh -p 9627:9627 --restart=unless-stopped \
+  -e AUTH_TOKEN=你的密码 nameguoguo/webssh:latest
+```
+
+> ⚠️ 容器绑在创建时的镜像 ID 上，只拉取不重建等于没升级（`docker inspect -f '{{.Image}}' webssh`
+> 的 ID 不变就说明还是旧镜像）。用 compose 部署的直接 `docker compose pull && docker compose up -d`。
+
 > 🖥️ **启用 RDP / VNC 远程桌面**：使用上面带 `guacd` 服务的 compose 配置
 > （`GUACD_HOST` 指向 guacd 容器），启动后在新建连接时选择 RDP 或 VNC 协议，
 > 画面直接在网页里显示（键盘 / 鼠标 / 触屏可用）。Cloudflare 部署无 guacd，
