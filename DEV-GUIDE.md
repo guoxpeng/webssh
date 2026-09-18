@@ -236,5 +236,11 @@ node scripts/e2e-ssh-server.mjs   # 本地临时 SSH 服务器（浏览器 E2E �
 - **镜像构建的两个专属坑**：`.dockerignore` 排除了 `win/`、`android/`、`ios/`，
   所以 `check-version` / `check-dist` 必须 `existsSync` 守卫；同时 `scripts/*`
   要白名单放行 `deploy.sh`、`gen-icons.mjs`、`check-version.mjs`、`check-dist.mjs`
+- **镜像运行时的 COPY 契约**：runtime 阶段跑的是**未打包**的 `core/server/index.mjs`
+  （桌面端走 `win/build.mjs` 的 bundle，两者不是一回事），只会拷 `core/server`、
+  `core/mcp`、`core/shared`。以后 `core/server/**` 里新增跨目录 `import '../../xxx'`
+  时，必须在 `docker/Dockerfile` 同步加 `COPY`，否则镜像一起来就
+  `ERR_MODULE_NOT_FOUND: /app/core/...` 无限重启（v3.6.1 加 MCP 桥接时漏拷
+  `core/mcp`、`core/shared` 就是这个坑）
 - **archive-local-snapshot 分支**：旧的孤立快照历史存档，仅回看用，
   别 merge 回 main

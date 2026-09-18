@@ -15,6 +15,11 @@ COPY package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 COPY --from=builder /app/dist ./dist
 COPY core/server ./core/server
+# core/server 里的 lib/mcp.mjs、lib/mcp-client.mjs 会 import ../../mcp/server.mjs
+# 和 ../../shared/version.mjs，这两个目录不在 core/server 下，漏拷会导致容器启动即
+# ERR_MODULE_NOT_FOUND 重启循环
+COPY core/mcp ./core/mcp
+COPY core/shared ./core/shared
 COPY scripts/deploy.sh ./
 RUN chown -R webssh:nodegroup /app
 ENV PORT=9627
